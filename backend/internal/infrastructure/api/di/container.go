@@ -9,6 +9,7 @@ import (
 	valkeylib "github.com/valkey-io/valkey-go"
 
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/security"
@@ -18,12 +19,13 @@ import (
 
 // Container объединяет все зависимости API сервиса (DI сборка).
 type Container struct {
-	Config       *config.Config
-	Logger       *slog.Logger
-	DB           *sql.DB
-	ValkeyClient valkeylib.Client
-	HTTPServer   *httpserver.Server
-	AuthService  *auth.Service
+	Config          *config.Config
+	Logger          *slog.Logger
+	DB              *sql.DB
+	ValkeyClient    valkeylib.Client
+	HTTPServer      *httpserver.Server
+	AuthService     *auth.Service
+	ScheduleService *schedule.Service
 }
 
 // NewContainer инициализирует все адаптеры и зависимости согласно конфигурации.
@@ -64,15 +66,19 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// 4. Репозитории и адаптеры инфраструктуры
 	_ = postgres.NewTransactor(db)
 	userRepo := postgres.NewUserRepository(db)
+	classroomRepo := postgres.NewClassroomRepository(db)
+	teacherStudentRepo := postgres.NewTeacherStudentRepository(db)
+	lessonRepo := postgres.NewLessonRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 	sessionStore := valkeyadapter.NewSessionStore(valkeyClient)
 
 	// 5. Сервисы уровня Application
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
+	scheduleService := schedule.NewService(classroomRepo, teacherStudentRepo, lessonRepo, userRepo)
 
 	// 6. HTTP API Handler и роутер
-	apiHandler := httpserver.NewAPIHandler(authService, tokenManager, cfg.App.Version)
+	apiHandler := httpserver.NewAPIHandler(authService, scheduleService, tokenManager, cfg.App.Version)
 	mux := httpserver.BuildMux(apiHandler, logger)
 	handlerWithLogging := httpserver.LoggingMiddleware(logger)(mux)
 
@@ -80,12 +86,13 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	server := httpserver.NewServer(cfg, logger, handlerWithLogging)
 
 	return &Container{
-		Config:       cfg,
-		Logger:       logger,
-		DB:           db,
-		ValkeyClient: valkeyClient,
-		HTTPServer:   server,
-		AuthService:  authService,
+		Config:          cfg,
+		Logger:          logger,
+		DB:              db,
+		ValkeyClient:    valkeyClient,
+		HTTPServer:      server,
+		AuthService:     authService,
+		ScheduleService: scheduleService,
 	}, nil
 }
 

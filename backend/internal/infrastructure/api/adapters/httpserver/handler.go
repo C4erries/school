@@ -9,23 +9,53 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/domain"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver/generated"
+	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/security"
 )
 
 // APIHandler реализует сгенерированный generated.ServerInterface из OpenAPI спеки.
 type APIHandler struct {
-	authService    *auth.Service
-	tokenValidator TokenValidator
-	version        string
+	authService     *auth.Service
+	scheduleService *schedule.Service
+	tokenValidator  TokenValidator
+	version         string
 }
 
-func NewAPIHandler(authService *auth.Service, tokenValidator TokenValidator, version string) *APIHandler {
+func NewAPIHandler(
+	authService *auth.Service,
+	scheduleService *schedule.Service,
+	tokenValidator TokenValidator,
+	version string,
+) *APIHandler {
 	return &APIHandler{
-		authService:    authService,
-		tokenValidator: tokenValidator,
-		version:        version,
+		authService:     authService,
+		scheduleService: scheduleService,
+		tokenValidator:  tokenValidator,
+		version:         version,
 	}
+}
+
+func (h *APIHandler) authenticate(w http.ResponseWriter, r *http.Request) (*security.UserClaims, bool) {
+	claims, ok := UserFromContext(r.Context())
+	if ok && claims != nil {
+		return claims, true
+	}
+
+	token := ExtractBearerToken(r)
+	if token == "" {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "missing authorization header")
+		return nil, false
+	}
+
+	claims, err := h.tokenValidator.ValidateAccessToken(token)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "UNAUTHORIZED", "invalid or expired access token")
+		return nil, false
+	}
+
+	return claims, true
 }
 
 // GetHealth реализует эндпоинт GET /health из OpenAPI спецификации.

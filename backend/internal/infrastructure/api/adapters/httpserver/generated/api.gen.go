@@ -6,12 +6,65 @@
 package generated
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for LessonFormat.
+const (
+	Offline LessonFormat = "offline"
+	Online  LessonFormat = "online"
+)
+
+// Valid indicates whether the value is a known member of the LessonFormat enum.
+func (e LessonFormat) Valid() bool {
+	switch e {
+	case Offline:
+		return true
+	case Online:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LessonStatus.
+const (
+	CancelledByStudent  LessonStatus = "cancelled_by_student"
+	CancelledByTeacher  LessonStatus = "cancelled_by_teacher"
+	Completed           LessonStatus = "completed"
+	Confirmed           LessonStatus = "confirmed"
+	Declined            LessonStatus = "declined"
+	NoShow              LessonStatus = "no_show"
+	PendingConfirmation LessonStatus = "pending_confirmation"
+)
+
+// Valid indicates whether the value is a known member of the LessonStatus enum.
+func (e LessonStatus) Valid() bool {
+	switch e {
+	case CancelledByStudent:
+		return true
+	case CancelledByTeacher:
+		return true
+	case Completed:
+		return true
+	case Confirmed:
+		return true
+	case Declined:
+		return true
+	case NoShow:
+		return true
+	case PendingConfirmation:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for Role.
 const (
@@ -37,10 +90,91 @@ func (e Role) Valid() bool {
 	}
 }
 
+// AssignStudentRequest defines model for AssignStudentRequest.
+type AssignStudentRequest struct {
+	// StudentId Example: 123e4567-e89b-12d3-a456-426614174002
+	StudentId openapi_types.UUID `json:"student_id"`
+
+	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174001
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+}
+
 // AuthResponse defines model for AuthResponse.
 type AuthResponse struct {
 	Tokens TokenPair    `json:"tokens"`
 	User   UserResponse `json:"user"`
+}
+
+// CancelLessonRequest defines model for CancelLessonRequest.
+type CancelLessonRequest struct {
+	// Reason Example: Форс-мажор
+	Reason *string `json:"reason,omitempty"`
+}
+
+// ClassroomResponse defines model for ClassroomResponse.
+type ClassroomResponse struct {
+	// Capacity Example: 4
+	Capacity int `json:"capacity"`
+
+	// Color Example: #3B82F6
+	Color string `json:"color"`
+
+	// CreatedAt Example: 2026-10-04T12:00:00Z
+	CreatedAt time.Time `json:"created_at"`
+
+	// Description Example: Оснащен маркерной доской и микроскопом
+	Description *string `json:"description,omitempty"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id openapi_types.UUID `json:"id"`
+
+	// Name Example: Кабинет №1 (Физика)
+	Name string `json:"name"`
+}
+
+// CreateClassroomRequest defines model for CreateClassroomRequest.
+type CreateClassroomRequest struct {
+	// Capacity Example: 4
+	Capacity int `json:"capacity"`
+
+	// Color Example: #3B82F6
+	Color *string `json:"color,omitempty"`
+
+	// Description Example: Основной кабинет математики
+	Description *string `json:"description,omitempty"`
+
+	// Name Example: Кабинет №1
+	Name string `json:"name"`
+}
+
+// CreateLessonRequest defines model for CreateLessonRequest.
+type CreateLessonRequest struct {
+	// ClassroomId Example: 123e4567-e89b-12d3-a456-426614174003
+	ClassroomId *openapi_types.UUID `json:"classroom_id,omitempty"`
+
+	// EndTime Example: 2026-10-05T11:00:00Z
+	EndTime time.Time `json:"end_time"`
+
+	// Format Example: offline
+	Format LessonFormat `json:"format"`
+
+	// LocationOrUrl Example: https://zoom.us/j/123456789
+	LocationOrUrl *string `json:"location_or_url,omitempty"`
+
+	// Notes Example: Тема: Квадратные уравнения
+	Notes *string `json:"notes,omitempty"`
+
+	// StartTime Example: 2026-10-05T10:00:00Z
+	StartTime time.Time `json:"start_time"`
+
+	// StudentId Example: 123e4567-e89b-12d3-a456-426614174002
+	StudentId openapi_types.UUID `json:"student_id"`
+}
+
+// DeclineLessonRequest defines model for DeclineLessonRequest.
+type DeclineLessonRequest struct {
+	// Reason Example: Не могу в это время, давайте перенесем
+	Reason *string `json:"reason,omitempty"`
 }
 
 // ErrorDetail defines model for ErrorDetail.
@@ -72,6 +206,54 @@ type HealthResponse struct {
 	// Version Example: v1
 	Version *string `json:"version,omitempty"`
 }
+
+// LessonFormat Example: offline
+type LessonFormat string
+
+// LessonResponse defines model for LessonResponse.
+type LessonResponse struct {
+	// CancelReason Example: Ученик заболел
+	CancelReason *string `json:"cancel_reason,omitempty"`
+
+	// ClassroomId Example: 123e4567-e89b-12d3-a456-426614174003
+	ClassroomId *openapi_types.UUID `json:"classroom_id,omitempty"`
+
+	// CreatedAt Example: 2026-10-04T12:00:00Z
+	CreatedAt time.Time `json:"created_at"`
+
+	// EndTime Example: 2026-10-05T11:00:00Z
+	EndTime time.Time `json:"end_time"`
+
+	// Format Example: offline
+	Format LessonFormat `json:"format"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id openapi_types.UUID `json:"id"`
+
+	// LocationOrUrl Example: Кабинет №1
+	LocationOrUrl *string `json:"location_or_url,omitempty"`
+
+	// Notes Example: Подготовить ДЗ №3
+	Notes *string `json:"notes,omitempty"`
+
+	// StartTime Example: 2026-10-05T10:00:00Z
+	StartTime time.Time `json:"start_time"`
+
+	// Status Example: pending_confirmation
+	Status LessonStatus `json:"status"`
+
+	// StudentId Example: 123e4567-e89b-12d3-a456-426614174002
+	StudentId openapi_types.UUID `json:"student_id"`
+
+	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174001
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+
+	// UpdatedAt Example: 2026-10-04T12:00:00Z
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// LessonStatus Example: pending_confirmation
+type LessonStatus string
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
@@ -108,6 +290,21 @@ type RegisterRequest struct {
 
 // Role Example: student
 type Role string
+
+// TeacherStudentResponse defines model for TeacherStudentResponse.
+type TeacherStudentResponse struct {
+	// CreatedAt Example: 2026-10-04T12:00:00Z
+	CreatedAt time.Time `json:"created_at"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id openapi_types.UUID `json:"id"`
+
+	// StudentId Example: 123e4567-e89b-12d3-a456-426614174002
+	StudentId openapi_types.UUID `json:"student_id"`
+
+	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174001
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+}
 
 // TokenPair defines model for TokenPair.
 type TokenPair struct {
@@ -147,6 +344,22 @@ type UserResponse struct {
 	Role Role `json:"role"`
 }
 
+// ListLessonsParams defines parameters for ListLessons.
+type ListLessonsParams struct {
+	TeacherId   *openapi_types.UUID `form:"teacher_id,omitempty" json:"teacher_id,omitempty"`
+	StudentId   *openapi_types.UUID `form:"student_id,omitempty" json:"student_id,omitempty"`
+	ClassroomId *openapi_types.UUID `form:"classroom_id,omitempty" json:"classroom_id,omitempty"`
+	Status      *LessonStatus       `form:"status,omitempty" json:"status,omitempty"`
+	From        *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To          *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// ListTeacherStudentsParams defines parameters for ListTeacherStudents.
+type ListTeacherStudentsParams struct {
+	// TeacherId Идентификатор преподавателя (для админа/владельца)
+	TeacherId *openapi_types.UUID `form:"teacher_id,omitempty" json:"teacher_id,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -155,6 +368,21 @@ type RefreshTokensJSONRequestBody = RefreshRequest
 
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
 type RegisterJSONRequestBody = RegisterRequest
+
+// CreateClassroomJSONRequestBody defines body for CreateClassroom for application/json ContentType.
+type CreateClassroomJSONRequestBody = CreateClassroomRequest
+
+// CreateLessonJSONRequestBody defines body for CreateLesson for application/json ContentType.
+type CreateLessonJSONRequestBody = CreateLessonRequest
+
+// CancelLessonJSONRequestBody defines body for CancelLesson for application/json ContentType.
+type CancelLessonJSONRequestBody = CancelLessonRequest
+
+// DeclineLessonJSONRequestBody defines body for DeclineLesson for application/json ContentType.
+type DeclineLessonJSONRequestBody = DeclineLessonRequest
+
+// AssignStudentJSONRequestBody defines body for AssignStudent for application/json ContentType.
+type AssignStudentJSONRequestBody = AssignStudentRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -170,9 +398,39 @@ type ServerInterface interface {
 	// Register Регистрация нового пользователя
 	// (POST /auth/register)
 	Register(w http.ResponseWriter, r *http.Request)
+	// ListClassrooms Получение списка учебных кабинетов
+	// (GET /classrooms)
+	ListClassrooms(w http.ResponseWriter, r *http.Request)
+	// CreateClassroom Создание нового учебного кабинета
+	// (POST /classrooms)
+	CreateClassroom(w http.ResponseWriter, r *http.Request)
 	// GetHealth Проверка работоспособности сервиса
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ListLessons Список уроков с фильтрацией
+	// (GET /lessons)
+	ListLessons(w http.ResponseWriter, r *http.Request, params ListLessonsParams)
+	// CreateLesson Назначение урока преподавателем
+	// (POST /lessons)
+	CreateLesson(w http.ResponseWriter, r *http.Request)
+	// AcceptLesson Подтверждение урока учеником
+	// (POST /lessons/{id}/accept)
+	AcceptLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// CancelLesson Отмена урока
+	// (POST /lessons/{id}/cancel)
+	CancelLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// CompleteLesson Завершение проведенного урока преподавателем
+	// (POST /lessons/{id}/complete)
+	CompleteLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// DeclineLesson Отклонение урока учеником
+	// (POST /lessons/{id}/decline)
+	DeclineLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// ListTeacherStudents Список закрепленных учеников преподавателя
+	// (GET /teachers/students)
+	ListTeacherStudents(w http.ResponseWriter, r *http.Request, params ListTeacherStudentsParams)
+	// AssignStudent Прикрепление ученика к преподавателю
+	// (POST /teachers/students)
+	AssignStudent(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -240,11 +498,302 @@ func (siw *ServerInterfaceWrapper) Register(w http.ResponseWriter, r *http.Reque
 	handler.ServeHTTP(w, r)
 }
 
+// ListClassrooms operation middleware
+func (siw *ServerInterfaceWrapper) ListClassrooms(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListClassrooms(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateClassroom operation middleware
+func (siw *ServerInterfaceWrapper) CreateClassroom(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateClassroom(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLessons operation middleware
+func (siw *ServerInterfaceWrapper) ListLessons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListLessonsParams
+
+	// ------------- Optional query parameter "teacher_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "teacher_id", r.URL.Query(), &params.TeacherId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "teacher_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teacher_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "student_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "student_id", r.URL.Query(), &params.StudentId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "student_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "student_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "classroom_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "classroom_id", r.URL.Query(), &params.ClassroomId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "classroom_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "classroom_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLessons(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateLesson operation middleware
+func (siw *ServerInterfaceWrapper) CreateLesson(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateLesson(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptLesson operation middleware
+func (siw *ServerInterfaceWrapper) AcceptLesson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptLesson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelLesson operation middleware
+func (siw *ServerInterfaceWrapper) CancelLesson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelLesson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteLesson operation middleware
+func (siw *ServerInterfaceWrapper) CompleteLesson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteLesson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeclineLesson operation middleware
+func (siw *ServerInterfaceWrapper) DeclineLesson(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeclineLesson(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListTeacherStudents operation middleware
+func (siw *ServerInterfaceWrapper) ListTeacherStudents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListTeacherStudentsParams
+
+	// ------------- Optional query parameter "teacher_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "teacher_id", r.URL.Query(), &params.TeacherId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "teacher_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "teacher_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTeacherStudents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AssignStudent operation middleware
+func (siw *ServerInterfaceWrapper) AssignStudent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AssignStudent(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -379,6 +928,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/refresh", wrapper.RefreshTokens)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/classrooms", wrapper.ListClassrooms)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/classrooms", wrapper.CreateClassroom)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/teachers/students", wrapper.ListTeacherStudents)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/teachers/students", wrapper.AssignStudent)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lessons", wrapper.ListLessons)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons", wrapper.CreateLesson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/accept", wrapper.AcceptLesson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/decline", wrapper.DeclineLesson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/complete", wrapper.CompleteLesson)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/cancel", wrapper.CancelLesson)
 
 	return m
 }

@@ -46,3 +46,53 @@ def registered_user(client: httpx.Client, random_user_payload):
         assert res.status_code == 201, f"Не удалось зарегистрировать пользователя: {res.text}"
         return payload, res.json()
     return _create
+
+
+@pytest.fixture
+def auth_headers():
+    """Генератор заголовков авторизации Bearer."""
+    def _headers(token: str) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {token}"}
+    return _headers
+
+
+@pytest.fixture
+def admin_user(registered_user):
+    """Создает пользователя с ролью администратора (owner)."""
+    payload, reg_data = registered_user(role="owner")
+    token = reg_data["tokens"]["access_token"]
+    return {
+        "payload": payload,
+        "user": reg_data["user"],
+        "id": reg_data["user"]["id"],
+        "token": token,
+        "headers": {"Authorization": f"Bearer {token}"},
+    }
+
+
+@pytest.fixture
+def teacher_user(registered_user):
+    """Создает пользователя с ролью преподавателя (teacher)."""
+    payload, reg_data = registered_user(role="teacher")
+    token = reg_data["tokens"]["access_token"]
+    return {
+        "payload": payload,
+        "user": reg_data["user"],
+        "id": reg_data["user"]["id"],
+        "token": token,
+        "headers": {"Authorization": f"Bearer {token}"},
+    }
+
+
+@pytest.fixture
+def student_user(registered_user):
+    """Создает пользователя с ролью ученика (student)."""
+    payload, reg_data = registered_user(role="student")
+    token = reg_data["tokens"]["access_token"]
+    return {
+        "payload": payload,
+        "user": reg_data["user"],
+        "id": reg_data["user"]["id"],
+        "token": token,
+        "headers": {"Authorization": f"Bearer {token}"},
+    }
