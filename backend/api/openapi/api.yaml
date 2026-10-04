@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: School API
+  description: API для платформы онлайн/оффлайн школы и помощника репетитора.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Основной шлюз API
+
+paths:
+  /health:
+    get:
+      summary: Проверка работоспособности сервиса
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Сервис работает штатно
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '500':
+          description: Внутренняя ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - timestamp
+        - service
+      properties:
+        status:
+          type: string
+          example: ok
+        timestamp:
+          type: string
+          format: date-time
+          example: '2026-10-04T12:00:00Z'
+        service:
+          type: string
+          example: school-api
+        version:
+          type: string
+          example: v1
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Invalid input parameters
+        details:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
