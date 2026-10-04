@@ -1,0 +1,16 @@
+template: testify
+template-data:
+  unroll-variadic: true
+
+# Пакеты и интерфейсы добавляются по мере появления.
+# Формат:
+#   <module-path>/internal/<layer>/<package>:
+#     config:
+#       dir: internal/<layer>/<package>/mocks
+#       pkgname: mocks
+#       structname: "{{.InterfaceName}}"
+#       filename: "{{.InterfaceName | snakecase}}.go"
+#     interfaces:
+#       InterfaceName: {}
+
+packages: {}
