@@ -119,6 +119,7 @@ make migrate-up
 |----------|----------|
 | [Видение проекта](docs/PROJECT_VISION.md) | Что строим и зачем |
 | [Бизнес-спецификация](docs/PRODUCT_SPEC.md) | Бизнес-логика, сценарии ролей, правила слотов и денег |
+| [Дизайн-система](docs/DESIGN_SYSTEM.md) | Спецификация UI/UX: стиль Apple Liquid Glass, палитра и правила стекла |
 | [Roadmap](docs/ROADMAP.md) | Глобальный план по фазам |
 | [Текущий спринт](docs/CURRENT_SPRINT.md) | Что делаем сейчас (статус задач) |
 | [Конвенции](docs/CONVENTIONS.md) | Как пишем код (Go, React, архитектура) |

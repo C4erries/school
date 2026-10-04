@@ -9,7 +9,39 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for Role.
+const (
+	Assistant Role = "assistant"
+	Owner     Role = "owner"
+	Student   Role = "student"
+	Teacher   Role = "teacher"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Assistant:
+		return true
+	case Owner:
+		return true
+	case Student:
+		return true
+	case Teacher:
+		return true
+	default:
+		return false
+	}
+}
+
+// AuthResponse defines model for AuthResponse.
+type AuthResponse struct {
+	Tokens TokenPair    `json:"tokens"`
+	User   UserResponse `json:"user"`
+}
 
 // ErrorDetail defines model for ErrorDetail.
 type ErrorDetail struct {
@@ -41,8 +73,103 @@ type HealthResponse struct {
 	Version *string `json:"version,omitempty"`
 }
 
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	// Email Example: user@school.ru
+	Email openapi_types.Email `json:"email"`
+
+	// Password Example: securePassword123
+	Password string `json:"password"`
+}
+
+// RefreshRequest defines model for RefreshRequest.
+type RefreshRequest struct {
+	// RefreshToken Example: 9b2d3c1a-5f8e-4a7b-9c2d-3e4f5a6b7c8d
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RegisterRequest defines model for RegisterRequest.
+type RegisterRequest struct {
+	// Email Example: user@school.ru
+	Email openapi_types.Email `json:"email"`
+
+	// FullName Example: Иван Иванов
+	FullName string `json:"full_name"`
+
+	// Password Example: securePassword123
+	Password string `json:"password"`
+
+	// Phone Example: +79991234567
+	Phone *string `json:"phone,omitempty"`
+
+	// Role Example: student
+	Role *Role `json:"role,omitempty"`
+}
+
+// Role Example: student
+type Role string
+
+// TokenPair defines model for TokenPair.
+type TokenPair struct {
+	// AccessToken Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+	AccessToken string `json:"access_token"`
+
+	// ExpiresIn Время жизни access_token в секундах
+	//
+	// Example: 900
+	ExpiresIn int `json:"expires_in"`
+
+	// RefreshToken Example: 9b2d3c1a-5f8e-4a7b-9c2d-3e4f5a6b7c8d
+	RefreshToken string `json:"refresh_token"`
+
+	// TokenType Example: Bearer
+	TokenType string `json:"token_type"`
+}
+
+// UserResponse defines model for UserResponse.
+type UserResponse struct {
+	// CreatedAt Example: 2026-10-04T12:00:00Z
+	CreatedAt time.Time `json:"created_at"`
+
+	// Email Example: student@school.ru
+	Email openapi_types.Email `json:"email"`
+
+	// FullName Example: Иван Иванов
+	FullName string `json:"full_name"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id openapi_types.UUID `json:"id"`
+
+	// Phone Example: +79991234567
+	Phone *string `json:"phone,omitempty"`
+
+	// Role Example: student
+	Role Role `json:"role"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// RefreshTokensJSONRequestBody defines body for RefreshTokens for application/json ContentType.
+type RefreshTokensJSONRequestBody = RefreshRequest
+
+// RegisterJSONRequestBody defines body for Register for application/json ContentType.
+type RegisterJSONRequestBody = RegisterRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Login Аутентификация по email и паролю
+	// (POST /auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// GetCurrentUser Получение данных текущего авторизованного пользователя
+	// (GET /auth/me)
+	GetCurrentUser(w http.ResponseWriter, r *http.Request)
+	// RefreshTokens Обновление пары токенов по refresh_token
+	// (POST /auth/refresh)
+	RefreshTokens(w http.ResponseWriter, r *http.Request)
+	// Register Регистрация нового пользователя
+	// (POST /auth/register)
+	Register(w http.ResponseWriter, r *http.Request)
 	// GetHealth Проверка работоспособности сервиса
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -56,6 +183,62 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCurrentUser operation middleware
+func (siw *ServerInterfaceWrapper) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCurrentUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefreshTokens operation middleware
+func (siw *ServerInterfaceWrapper) RefreshTokens(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefreshTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Register operation middleware
+func (siw *ServerInterfaceWrapper) Register(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Register(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -192,6 +375,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/health", wrapper.GetHealth)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/register", wrapper.Register)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/refresh", wrapper.RefreshTokens)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
 
 	return m
 }

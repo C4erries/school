@@ -50,9 +50,8 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // BuildMux собирает router на net/http, регистрируя OpenAPI эндпоинты через generated.HandlerWithOptions.
-func BuildMux(logger *slog.Logger) *http.ServeMux {
+func BuildMux(handler *APIHandler, logger *slog.Logger) *http.ServeMux {
 	mux := http.NewServeMux()
-	handler := NewAPIHandler("v1")
 
 	// Регистрация эндпоинтов из OpenAPI спецификации
 	generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{

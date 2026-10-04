@@ -19,6 +19,7 @@ type Config struct {
 
 type AppConfig struct {
 	Env      string        `mapstructure:"env"`
+	Version  string        `mapstructure:"version"`
 	Port     int           `mapstructure:"port"`
 	LogLevel string        `mapstructure:"log_level"`
 	Timeout  time.Duration `mapstructure:"timeout"`
@@ -69,6 +70,7 @@ func Load() (*Config, error) {
 
 	// Значения по умолчанию
 	v.SetDefault("app.env", "development")
+	v.SetDefault("app.version", "v1")
 	v.SetDefault("app.port", 8080)
 	v.SetDefault("app.log_level", "debug")
 	v.SetDefault("app.timeout", 15*time.Second)

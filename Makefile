@@ -8,15 +8,15 @@ all: test build
 
 build:
 	@echo "==> Building backend..."
-	cd $(BACKEND_DIR) && go build -o bin/$(APP_NAME) ./cmd/api
+	cd $(BACKEND_DIR) && GODEBUG=netdns=go+4 GONOSUMDB=* go build -o bin/$(APP_NAME) ./cmd/api
 
 run:
 	@echo "==> Running backend locally..."
-	cd $(BACKEND_DIR) && go run ./cmd/api
+	cd $(BACKEND_DIR) && GODEBUG=netdns=go+4 GONOSUMDB=* go run ./cmd/api
 
 test:
 	@echo "==> Running tests..."
-	cd $(BACKEND_DIR) && go test -v -race ./...
+	cd $(BACKEND_DIR) && GODEBUG=netdns=go+4 GONOSUMDB=* go test -v -race ./...
 
 lint:
 	@echo "==> Running linter..."

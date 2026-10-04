@@ -185,34 +185,39 @@ backend/
 
 ### Стек
 - **React 18+** с TypeScript (strict mode)
-- **Vite** для сборки
+- **Vite** для сборки и быстрой HMR
+- **Стилизация**: **Tailwind CSS** + кастомные классы Liquid Glass
+- **Дизайн-система**: **Apple Liquid Glass** (подробно в [docs/DESIGN_SYSTEM.md](DESIGN_SYSTEM.md))
+- **Иконки**: **Lucide React** (стилистика Apple SF Symbols)
+- **UI Примитивы**: **Radix UI** (headless, 100% accessible)
+- **Утилиты стилей**: `clsx`, `tailwind-merge`
 - **Routing**: React Router v6+
-- **State management**: TBD (Zustand / Redux Toolkit — определим когда понадобится)
-- **HTTP клиент**: axios / ky с типизированным API layer
-- **UI**: TBD (может Shadcn/UI, может MUI — определим на Фазе 1)
+- **HTTP клиент**: типизированный `fetch` / `axios` с API layer
 
 ### Структура
 ```
 frontend/
 ├── src/
 │   ├── app/              # App shell, providers, routing
-│   ├── pages/            # Page components
-│   ├── features/         # Feature modules
-│   ├── shared/           # Shared UI components, utils, hooks
-│   ├── api/              # API layer (typed endpoints)
-│   └── types/            # Shared TypeScript types
-├── public/
+│   ├── pages/            # Page components (Login, Register, Dashboard, etc.)
+│   ├── features/         # Feature modules (auth, schedule, homework)
+│   ├── shared/           # Shared UI components (GlassCard, Button, Input), hooks
+│   ├── api/              # API layer (клиент, запросы к Go бэкенду)
+│   └── types/            # Shared TypeScript типы
+├── public/               # Статика, фавиконки, фоновые изображения
 ├── index.html
 ├── vite.config.ts
+├── tailwind.config.js
 ├── tsconfig.json
 └── package.json
 ```
 
 ### Конвенции
 - **Компоненты**: functional components + hooks
-- **Именование**: PascalCase для компонентов, camelCase для утилит
-- **Стили**: TBD (CSS Modules / Tailwind / styled-components)
-- **Типы**: строгая типизация, минимум `any`
+- **Дизайн**: строго соблюдаем палитру и правила стекла из [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)
+- **Именование**: PascalCase для компонентов, camelCase для хуков и утилит
+- **Стили**: Tailwind классы, избегаем хардкода inline-стилей
+- **Типы**: строгая типизация, строгий запрет на `any` без веской причины
 
 ---
 
@@ -248,6 +253,7 @@ frontend/
 |----------|----------|
 | `docs/PROJECT_VISION.md` | Что строим и зачем |
 | `docs/PRODUCT_SPEC.md` | Бизнес-логика, сценарии ролей, правила расписания и денег |
+| `docs/DESIGN_SYSTEM.md` | Спецификация UI/UX: Apple Liquid Glass, цвета, правила стекла |
 | `docs/ROADMAP.md` | Глобальный план по фазам |
 | `docs/CURRENT_SPRINT.md` | Что делаем прямо сейчас |
 | `docs/CONVENTIONS.md` | Как пишем код (этот файл) |
