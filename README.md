@@ -6,7 +6,7 @@
 
 - **Backend**: Go (DDD)
 - **Frontend**: React + TypeScript
-- **БД**: PostgreSQL + Redis
+- **БД**: PostgreSQL + Valkey
 - **Файлы**: MinIO (S3-compatible)
 - **Инфраструктура**: Docker Compose + Nginx
 

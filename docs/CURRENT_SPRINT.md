@@ -11,7 +11,7 @@
 |---|--------|--------|---------|
 | 1 | Зафиксировать Go DDD layout | ✅ Done | ADR-002, ADR-003 |
 | 2 | Создать структуру Go-проекта (скелет) | 🔲 | Следующее |
-| 3 | Docker Compose (Postgres, Redis, MinIO, migrate) | 🔲 | |
+| 3 | Docker Compose (Postgres, Valkey, MinIO, migrate) | 🔲 | |
 | 4 | Nginx конфиг | 🔲 | |
 | 5 | HTTP сервер + healthcheck (net/http) | 🔲 | |
 | 6 | Конфигурация через env (Viper) | 🔲 | |

@@ -76,7 +76,7 @@ backend/
 │       │   │   ├── httpserver/       # IN: oapi-generated + handlers
 │       │   │   ├── postgres/         # OUT: реализация репозиториев (squirrel)
 │       │   │   ├── s3/               # OUT: файлы (MinIO)
-│       │   │   └── redis/            # OUT: кэш/сессии
+│       │   │   └── valkey/           # OUT: кэш/сессии (valkey-go)
 │       │   └── metrics/
 │       │
 │       ├── contracts/                 # Общие инфраструктурные контракты
@@ -116,6 +116,7 @@ backend/
 - **Ошибки**: оборачиваем с контекстом (`fmt.Errorf("create user: %w", err)`)
 - **Контекст**: `context.Context` — первый параметр во всех функциях с I/O
 - **Интерфейсы**: определяем **по месту использования** (в пакете-потребителе)
+- **Транзакции**: прокидываются через `context.Context` (паттерн `Transactor`), бизнес-логика изолирована от деталей СУБД
 - **Тесты**: см. раздел «Тестирование» ниже
 - **Линтер**: `golangci-lint` с конфигом в репозитории
 
@@ -138,6 +139,7 @@ backend/
 | `mockery v3+` | Генерация моков (в `<pkg>/mocks/`) |
 | `viper` | Конфигурация (env + yaml) |
 | `slog` (stdlib) | Логирование |
+| `valkey-go` | Высокопроизводительный клиент для Valkey (кэш/сессии) |
 | `testify` | Тестирование (assert, mock) |
 | `golangci-lint` | Линтер |
 
@@ -146,7 +148,16 @@ backend/
 - **squirrel** для запросов, raw SQL допустим для статических запросов
 - **golang-migrate** — миграции, запуск через Docker Compose
 - **Никакого ORM** (GORM, ent, etc.)
-- Транзакции: бизнес-логика не знает про SQL — абстракция через repository
+- **Транзакции (Transactor через контекст)**:
+  - Интерфейс объявляется на стороне потребителя (в `application`):
+    ```go
+    type Transactor interface {
+        WithinTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
+    }
+    ```
+  - Реализация в `infrastructure` начинает транзакцию и помещает её в `context.Context` (`txCtx`).
+  - Репозитории проверяют наличие транзакции в контексте: если есть — выполняют запрос в транзакции, если нет — через обычный пул соединений.
+  - Слой Use Case **никогда не импортирует** низкоуровневые типы транзакций (`*sql.Tx`, `pgx.Tx`).
 
 ### API контракт
 - OpenAPI спеки: `api/openapi/<service>.yaml`
@@ -211,7 +222,7 @@ frontend/
 | Сервис | Образ | Порт |
 |--------|-------|------|
 | `postgres` | postgres:16 | 5432 |
-| `redis` | redis:7 | 6379 |
+| `valkey` | valkey/valkey:8 | 6379 |
 | `minio` | minio/minio | 9000/9001 |
 | `backend` | Собираем сами | 8080 |
 | `frontend` | Node (dev) / nginx (prod) | 3000 |

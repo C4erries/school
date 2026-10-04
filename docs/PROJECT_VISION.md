@@ -66,7 +66,7 @@
 | Backend | Go |
 | Frontend | React + TypeScript |
 | БД | PostgreSQL |
-| Кэш | Redis |
+| Кэш / In-Memory | Valkey (`valkey-go`) |
 | Хранилище файлов | MinIO (S3-compatible) |
 | Контейнеризация | Docker + Docker Compose |
 | Reverse proxy | Nginx |

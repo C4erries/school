@@ -20,8 +20,28 @@
 | Логирование | **slog** (stdlib) | Достаточно для начала, структурированные логи |
 | Линтер | **golangci-lint** | Стандарт индустрии |
 | Тестирование | **testify** | assert + mock + suite |
+| Кэш / In-Memory | **valkey-go** | Высокопроизводительный официальный клиент для Valkey |
+| Транзакции | **Transactor-in-context** | Проброс БД-транзакции через context.Context без утечки SQL в use cases |
 
 ## Детали
+
+### Транзакции (Transactor-in-context)
+- В `internal/application/` объявляется интерфейс транзактора:
+  ```go
+  type Transactor interface {
+      WithinTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
+  }
+  ```
+- Реализация в `infrastructure/.../postgres` начинает транзакцию, оборачивает её в `context.WithValue` и передаёт `txCtx` в колбэк `fn`.
+- Репозитории в слое инфраструктуры проверяют наличие транзакции в контексте:
+  - Если есть — выполняют запрос через `tx`.
+  - Если нет — выполняют запрос через обычный пул соединений (`db`).
+- **Слой Use Case никогда не импортирует `*sql.Tx` / `pgx.Tx`** — бизнес-логика чиста от деталей СУБД.
+
+### Valkey (`valkey-go`)
+- Замена Redis на Valkey (`valkey/valkey:8` в Docker).
+- В Go коде используем официальную легковесную библиотеку `github.com/valkey-io/valkey-go`.
+- Адаптер располагается в `internal/infrastructure/<service>/adapters/valkey/`.
 
 ### oapi-codegen
 - Спеки: `api/openapi/<service>.yaml`
