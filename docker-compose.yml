@@ -149,6 +149,23 @@ services:
       retries: 5
       start_period: 5s
 
+  test-runner:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    container_name: school_test_runner
+    profiles:
+      - test
+    environment:
+      BASE_URL: ${TEST_BASE_URL:-http://nginx:80}
+    volumes:
+      - ./tests:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+      nginx:
+        condition: service_started
+
 volumes:
   postgres_data:
   valkey_data:

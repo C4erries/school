@@ -1,4 +1,4 @@
-.PHONY: all build run test lint compose-up compose-down compose-logs migrate-up migrate-down mock oapi
+.PHONY: all build run test lint compose-up compose-down compose-logs migrate-up migrate-down mock oapi test-e2e
 
 # Переменные
 APP_NAME=api
@@ -17,6 +17,10 @@ run:
 test:
 	@echo "==> Running tests..."
 	cd $(BACKEND_DIR) && GODEBUG=netdns=go+4 GONOSUMDB=* go test -v -race ./...
+
+test-e2e:
+	@echo "==> Running E2E API tests via Docker..."
+	docker compose run --rm test-runner pytest -v
 
 lint:
 	@echo "==> Running linter..."
@@ -45,4 +49,5 @@ mock:
 oapi:
 	@echo "==> Generating OpenAPI server interface and models..."
 	cd $(BACKEND_DIR) && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=api/openapi/oapi-codegen.yaml api/openapi/api.yaml
+
 

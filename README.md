@@ -8,7 +8,7 @@
 
 ## Стек
 
-- **Backend**: Go 1.24 (DDD, net/http, Viper)
+- **Backend**: Go 1.27.1 (DDD, net/http, Viper)
 - **Frontend**: React 18 + TypeScript + Vite (Hot Reload, Strict Mode)
 - **База данных**: PostgreSQL 16 + Valkey 8 (in-memory / Redis-совместимый)
 - **Объектное хранилище**: MinIO (S3-compatible)
@@ -111,6 +111,15 @@ make lint
 make migrate-up
 ```
 
+### Автоматизированное E2E тестирование (`tests/`)
+
+Для сквозного тестирования API через Nginx, PostgreSQL и Valkey используется отдельный изолированный Docker-раннер на Python 3.12 + `pytest` (не требует установленного Python на хосте):
+
+```bash
+# Запуск полного сьюта E2E тестов через Docker (изолированно и быстро)
+make test-e2e
+```
+
 ---
 
 ## Документация
@@ -136,11 +145,12 @@ school/
 │   ├── src/          # Исходный код (app, api, shared, types)
 │   ├── Dockerfile    # Dev Dockerfile с volume-пробросом
 │   └── package.json  # Зависимости и скрипты
+├── tests/            # Изолированные E2E автотесты (Python + pytest + httpx в Docker)
 ├── deploy/
 │   └── nginx/        # Nginx конфигурация (nginx.conf reverse-proxy)
 ├── docs/             # Архитектурная и проектная документация
 ├── scripts/          # Вспомогательные скрипты
-├── docker-compose.yml# Координация всех 7 сервисов
+├── docker-compose.yml# Координация сервисов
 ├── .env.example      # Пример переменных окружения
 └── README.md
 ```

@@ -56,6 +56,7 @@ func (tm *TokenManager) GenerateAccessToken(user *domain.User) (string, int, err
 		Email:  user.Email,
 		Role:   user.Role,
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        uuid.NewString(),
 			Subject:   user.ID.String(),
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(tm.accessTTL)),
