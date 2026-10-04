@@ -32,3 +32,6 @@ docker-compose.override.yml
 # Временные файлы
 tmp/
 *.tmp
+
+# AI agent artifacts & traces
+.agents/

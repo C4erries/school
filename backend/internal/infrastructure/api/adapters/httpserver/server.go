@@ -2,13 +2,13 @@ package httpserver
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver/generated"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/config"
 )
 
@@ -49,31 +49,20 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.httpServer.Shutdown(ctx)
 }
 
-// BuildMux собирает стандартный router на net/http (Go 1.22+ routing patterns).
+// BuildMux собирает router на net/http, регистрируя OpenAPI эндпоинты через generated.HandlerWithOptions.
 func BuildMux(logger *slog.Logger) *http.ServeMux {
 	mux := http.NewServeMux()
+	handler := NewAPIHandler("v1")
 
-	// Healthcheck endpoint
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status":    "ok",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"service":   "school-api",
-		})
+	// Регистрация эндпоинтов из OpenAPI спецификации
+	generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
+		BaseRouter: mux,
 	})
 
-	// API v1 prefix healthcheck (для удобства проксирования через nginx)
-	mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"status":    "ok",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-			"service":   "school-api",
-			"version":   "v1",
-		})
+	// Регистрация с префиксом /api/v1 (для обратной совместимости с Nginx проксированием)
+	generated.HandlerWithOptions(handler, generated.StdHTTPServerOptions{
+		BaseURL:    "/api/v1",
+		BaseRouter: mux,
 	})
 
 	return mux

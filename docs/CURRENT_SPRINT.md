@@ -3,30 +3,37 @@
 > Этот файл — **единственная точка правды** о том, что делаем прямо сейчас.
 > Обновляется после завершения каждой крупной задачи.
 
-## Текущая фаза: 0 — Фундамент
+## Текущая фаза: 1 — Аутентификация и пользователи 🔵
 
-### Приоритет: Высокий (делаем сейчас)
+### Цель спринта
+Реализовать полноценную систему аутентификации и авторизации: регистрация, вход, JWT токены, сессии в Valkey, ролевая модель (student, teacher, assistant, owner), интеграция с OpenAPI контрактом, middleware защиты роутов и базовый Auth UI на фронтенде.
 
-| # | Задача | Статус | Заметки |
-|---|--------|--------|---------|
-| 1 | Зафиксировать Go DDD layout | ✅ Done | ADR-002, ADR-003 |
-| 2 | Создать структуру Go-проекта (скелет) | ✅ Done | cmd/api, internal/ (domain, app, infra) |
-| 3 | Docker Compose (Postgres, Valkey, MinIO, migrate) | ✅ Done | docker-compose.yml + healthchecks |
-| 4 | Nginx конфиг | 🔲 | Следующее |
-| 5 | HTTP сервер + healthcheck (net/http) | ✅ Done | /health, /api/v1/health + тесты |
-| 6 | Конфигурация через env (Viper) | ✅ Done | config.Load() + тесты |
-| 7 | Первая миграция БД (golang-migrate) | ✅ Done | 000001_init.up.sql / down.sql |
-| 8 | Makefile / Taskfile | ✅ Done | build, test, run, compose, migrate, mock |
-| 9 | React + Vite + TS проект | 🔲 | |
-| 10 | golangci-lint конфиг | ✅ Done | backend/.golangci.yaml |
-| 11 | oapi-codegen setup + первый контракт | 🔲 | Спека готова в api/openapi/api.yaml |
-| 12 | mockery конфиг | ✅ Done | .mockery.yaml |
-| 13 | README с инструкцией запуска | 🔲 | |
+### Задачи спринта
 
-### Приоритет: Средний (следующее)
-- Nginx reverse-proxy
-- React + Vite + TS скелет
-- oapi-codegen генерация кода
+| # | Задача | Статус | Приоритет | Заметки |
+|---|--------|--------|-----------|---------|
+| 1 | Миграция БД: таблица `users` | 🔲 | Высокий | UUID, email, password_hash, role, phone, name |
+| 2 | Доменная модель `User` и `Role` | 🔲 | Высокий | `internal/domain/user.go`, валидация |
+| 3 | Сервис хэширования паролей (`bcrypt`) | 🔲 | Высокий | `infrastructure/security/hasher.go` |
+| 4 | Сервис JWT токенов (access/refresh) | 🔲 | Высокий | Подпись, верификация, claims |
+| 5 | Хранилище refresh-сессий в Valkey | 🔲 | Высокий | Ротация токенов, инвалидация сессий |
+| 6 | PostgreSQL `UserRepository` (squirrel) | 🔲 | Высокий | Поддержка `Transactor-in-context` |
+| 7 | Application Use Cases (auth service) | 🔲 | Высокий | Register, Login, Refresh, GetMe + unit-тесты |
+| 8 | OpenAPI спецификация для `/auth/*` | 🔲 | Высокий | Контракты в `api.yaml`, `make oapi` |
+| 9 | HTTP handlers и роуты аутентификации | 🔲 | Высокий | Реализация `ServerInterface` |
+| 10 | Auth & RBAC Middleware | 🔲 | Высокий | Bearer token validator, проверка ролей |
+| 11 | Frontend: Auth Context & API клиент | 🔲 | Средний | Токены в localStorage, user state |
+| 12 | Frontend: Страницы Login & Register | 🔲 | Средний | Формы с валидацией, перенаправление |
+| 13 | Frontend: ProtectedRoute по ролям | 🔲 | Средний | Защита роутов для студента/преподавателя |
+
+### Definition of Done (DoD) Фазы 1
+- [ ] Пользователь может зарегистрироваться с ролью (по умолчанию `student` или выбор при инвайте).
+- [ ] Логин возвращает пару Access Token (JWT) и Refresh Token.
+- [ ] Refresh token валидируется через Valkey с поддержкой ротации.
+- [ ] Эндпоинт `GET /api/v1/auth/me` возвращает профиль авторизованного пользователя.
+- [ ] `AuthMiddleware` корректно валидирует токен и отклоняет неавторизованные запросы с кодом 401.
+- [ ] На все use cases написаны табличные юнит-тесты с моками через `testify`.
+- [ ] На фронтенде работают экраны входа и регистрации, сохраняется сессия после перезагрузки.
 
 ### Блокеры / Открытые вопросы
 - Нет блокеров
@@ -37,6 +44,9 @@
 
 | Дата | Что изменилось |
 |------|---------------|
+| 2026-10-04 | Открыта Фаза 1 (Аутентификация и пользователи): декомпозированы 13 задач, определен DoD, .agents/ добавлен в .gitignore |
+| 2026-10-04 | Настроен oapi-codegen: создан oapi-codegen.yaml, сгенерирован `generated/api.gen.go`, реализован `handler.go`, добавлен таргет `make oapi` — Фаза 0 завершена на 100% |
+| 2026-10-04 | Завершена Фаза 0: создан React+Vite+TS фронтенд с healthcheck polling (R1), настроен Nginx reverse proxy с WebSocket HMR (R2), объединен docker-compose.yml для всех 7 сервисов (R3), актуализирована документация |
 | 2026-10-04 | Реализован базовый скелет Go backend: структура DDD, Viper config, net/http сервер с healthcheck, Makefile, Docker Compose, первая миграция, unit-тесты (все pass) |
 | 2026-10-04 | Проведен бизнес-анализ: создан PRODUCT_SPEC.md, скорректирован Roadmap (фокус на расписание и финансы репетитора) |
 | 2026-10-04 | Зафиксирована Go архитектура (ADR-002, ADR-003), mockery конфиг |

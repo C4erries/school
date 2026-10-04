@@ -6,27 +6,27 @@
 
 ---
 
-## Фаза 0: Фундамент 🔵
+## Фаза 0: Фундамент ✅
 > **Цель**: рабочий скелет проекта, CI-ready, можно начинать писать фичи.
 
-- 🔲 Структура Go-проекта (DDD layout)
-- 🔲 Docker Compose: Postgres, Redis, MinIO, Nginx
-- 🔲 Конфигурация через env (12-factor)
-- 🔲 Миграции БД (выбрать инструмент, первая миграция)
-- 🔲 HTTP сервер (chi/echo/gin — выбрать)
-- 🔲 Логирование (slog / zerolog)
-- 🔲 Healthcheck endpoint
-- 🔲 Makefile / Taskfile с базовыми командами
-- 🔲 Линтер (golangci-lint)
-- 🔲 README с инструкцией запуска
-- 🔲 React проект (Vite + TypeScript)
-- 🔲 Nginx конфиг (proxy → backend, → frontend)
+- ✅ Структура Go-проекта (DDD layout)
+- ✅ Docker Compose: Postgres, Valkey, MinIO, Nginx, Frontend, Backend, Migrate
+- ✅ Конфигурация через env (12-factor, Viper)
+- ✅ Миграции БД (golang-migrate, начальная миграция)
+- ✅ HTTP сервер (net/http stdlib + oapi-codegen)
+- ✅ Логирование (slog)
+- ✅ Healthcheck endpoints (/health, /api/v1/health)
+- ✅ Makefile с базовыми командами (build, test, run, compose, oapi)
+- ✅ Линтер (golangci-lint)
+- ✅ README с инструкцией запуска
+- ✅ React проект (Vite + TypeScript)
+- ✅ Nginx конфиг (reverse-proxy, WebSocket HMR)
 
-**Definition of Done**: `docker compose up` запускает всё, healthcheck отвечает 200, фронт показывает "Hello School".
+**Definition of Done**: `docker compose up` запускает всё, healthcheck отвечает 200, фронт опрашивает бэкенд и показывает статус.
 
 ---
 
-## Фаза 1: Аутентификация и пользователи
+## Фаза 1: Аутентификация и пользователи 🔵
 > **Цель**: регистрация, логин, роли, базовый UI.
 
 - 🔲 Модель User (email, password hash, role)

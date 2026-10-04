@@ -1,4 +1,4 @@
-.PHONY: all build run test lint compose-up compose-down compose-logs migrate-up migrate-down
+.PHONY: all build run test lint compose-up compose-down compose-logs migrate-up migrate-down mock oapi
 
 # Переменные
 APP_NAME=api
@@ -41,3 +41,8 @@ migrate-up:
 mock:
 	@echo "==> Generating mocks via mockery..."
 	mockery
+
+oapi:
+	@echo "==> Generating OpenAPI server interface and models..."
+	cd $(BACKEND_DIR) && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen --config=api/openapi/oapi-codegen.yaml api/openapi/api.yaml
+
