@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/useAuth';
 import { GlassCard } from '../shared/components/GlassCard';
 import { Badge } from '../shared/components/Badge';
 import { AppNavbar } from '../shared/components/AppNavbar';
+import { LiquidBackground } from '../shared/components/LiquidBackground';
 import { checkBackendHealth } from '../api/health';
 import { HealthResponse } from '../types/health';
 import {
@@ -13,7 +14,6 @@ import {
   BookOpen,
   CheckCircle2,
   Clock,
-  Activity,
   Sparkles,
   Building2,
   ArrowRight,
@@ -70,16 +70,14 @@ export const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-slate-800 p-4 sm:p-8 relative overflow-hidden">
-      {/* Оптические ауры Apple Liquid Glass */}
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen text-slate-800 p-4 sm:p-8 relative overflow-hidden">
+      <LiquidBackground />
 
       <div className="max-w-5xl mx-auto space-y-6 relative z-10">
         <AppNavbar />
 
         {/* Приветственный блок с профилем */}
-        <GlassCard className="relative overflow-hidden shadow-sm">
+        <GlassCard className="relative overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1.5">
               <div className="flex items-center gap-2.5">
@@ -99,14 +97,11 @@ export const DashboardPage: React.FC = () => {
 
             <div className="flex items-center gap-3">
               {health && (
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-medium border border-emerald-500/20">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-800 text-xs font-medium border border-emerald-500/20 backdrop-blur-md">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  API: {health.status} ({health.service})
+                  Система подключена
                 </div>
               )}
-              <div className="text-xs text-slate-500 bg-white/60 px-4 py-2 rounded-2xl border border-white/80">
-                ID: <span className="font-mono text-slate-700">{user?.id.slice(0, 8)}...</span>
-              </div>
             </div>
           </div>
         </GlassCard>
@@ -150,7 +145,7 @@ export const DashboardPage: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">Сетка расписания</h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Просмотр календаря внахлёст (Apple Calendar), онлайн и оффлайн слоты
+                    Просмотр расписания внахлёст, онлайн и оффлайн слоты
                   </p>
                 </div>
                 <div className="pt-2 text-xs font-semibold text-emerald-600 flex items-center gap-1">
@@ -181,7 +176,7 @@ export const DashboardPage: React.FC = () => {
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">Расписание занятий</h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Назначение уроков, Apple Calendar сетка, отметка «Проведён» и «Неявка»
+                    Назначение уроков, сетка занятий, отметка «Проведён» и «Неявка»
                   </p>
                 </div>
                 <div className="pt-2 text-xs font-semibold text-indigo-600 flex items-center gap-1">
@@ -287,14 +282,14 @@ export const DashboardPage: React.FC = () => {
           </div>
         )}
 
-        {/* Статус системы */}
-        <footer className="pt-6 border-t border-slate-200/60 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+        {/* Подвал */}
+        <footer className="pt-6 border-t border-slate-200/40 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-emerald-500" />
-            <span>Сессия валидирована через Valkey и JWT HS256</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+            <span>Система активна</span>
           </div>
           <div>
-            Школьная платформа © 2026 • Apple Liquid Glass UI
+            Школьная платформа © 2026
           </div>
         </footer>
       </div>

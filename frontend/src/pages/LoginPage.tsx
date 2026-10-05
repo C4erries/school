@@ -5,6 +5,7 @@ import { useAuth } from '../features/auth/useAuth';
 import { GlassCard } from '../shared/components/GlassCard';
 import { GlassInput } from '../shared/components/GlassInput';
 import { GlassButton } from '../shared/components/GlassButton';
+import { LiquidBackground } from '../shared/components/LiquidBackground';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,10 +42,8 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden bg-[#F5F5F7]">
-      {/* Мягкие оптические световые пятна в стиле Apple Liquid Glass */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-emerald-400/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden">
+      <LiquidBackground />
 
       <div className="w-full max-w-md relative z-10">
         {/* Заголовок с логотипом */}

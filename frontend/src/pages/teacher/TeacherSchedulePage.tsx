@@ -5,6 +5,7 @@ import { GlassInput } from '../../shared/components/GlassInput';
 import { GlassModal } from '../../shared/components/GlassModal';
 import { Badge } from '../../shared/components/Badge';
 import { AppNavbar } from '../../shared/components/AppNavbar';
+import { LiquidBackground } from '../../shared/components/LiquidBackground';
 import { Classroom, TeacherStudent, Lesson, LessonFormat } from '../../types/schedule';
 import {
   getClassrooms,
@@ -26,6 +27,7 @@ import {
   ChevronRight,
   Columns,
   List,
+  Search,
 } from 'lucide-react';
 
 interface PositionedLesson extends Lesson {
@@ -60,6 +62,16 @@ export const TeacherSchedulePage: React.FC = () => {
   const [onlineLink, setOnlineLink] = useState('https://telemost.yandex.ru/j/school-');
   const [lessonComment, setLessonComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [roomSearch, setRoomSearch] = useState('');
+
+  // Filter classrooms by search query
+  const filteredClassrooms = useMemo(() => {
+    if (!roomSearch.trim()) return classrooms;
+    const q = roomSearch.toLowerCase();
+    return classrooms.filter(
+      (c) => c.name.toLowerCase().includes(q) || String(c.capacity).includes(q)
+    );
+  }, [classrooms, roomSearch]);
 
   // Load teacher data
   const loadData = useCallback(async () => {
@@ -228,6 +240,7 @@ export const TeacherSchedulePage: React.FC = () => {
       setIsModalOpen(false);
       setLessonTitle('');
       setLessonComment('');
+      setRoomSearch('');
       await loadData();
     } catch (err) {
       console.error('Failed to create lesson', err);
@@ -265,10 +278,8 @@ export const TeacherSchedulePage: React.FC = () => {
   const HOUR_HEIGHT = 70; // px per hour
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-slate-800 p-4 sm:p-8 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen text-slate-800 p-4 sm:p-8 relative overflow-hidden">
+      <LiquidBackground />
 
       <div className="max-w-6xl mx-auto space-y-6 relative z-10">
         <AppNavbar />
@@ -381,7 +392,7 @@ export const TeacherSchedulePage: React.FC = () => {
               }`}
             >
               <Columns className="w-3.5 h-3.5" />
-              <span>Apple Calendar (Сетка)</span>
+              <span>Сетка</span>
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -638,7 +649,10 @@ export const TeacherSchedulePage: React.FC = () => {
       {/* ------------------------------------------------------------- */}
       <GlassModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setRoomSearch('');
+        }}
         title="Назначить занятие"
         description="Заполните параметры урока: ученик, время и формат проведения"
       >
@@ -744,38 +758,69 @@ export const TeacherSchedulePage: React.FC = () => {
 
           {/* Оффлайн: Выбор кабинета */}
           {lessonFormat === 'offline' && (
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-                Выберите кабинет школы
-              </label>
-              <div className="space-y-2">
-                {classrooms.map((room) => (
-                  <div
-                    key={room.id}
-                    onClick={() => setSelectedClassroomId(room.id)}
-                    className={`p-3 rounded-2xl flex items-center justify-between cursor-pointer border transition-all ${
-                      selectedClassroomId === room.id
-                        ? 'border-indigo-500 bg-indigo-50/60 ring-2 ring-indigo-500/20'
-                        : 'liquid-glass border-white/60 hover:bg-white/80'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="w-4 h-4 rounded-full shrink-0"
-                        style={{ backgroundColor: room.color }}
-                      />
-                      <div>
-                        <span className="font-bold text-xs text-slate-900 block">
-                          {room.name}
-                        </span>
-                        <span className="text-[11px] text-slate-500">
-                          Вместимость: {room.capacity} чел
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between ml-1">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Кабинет школы
+                </label>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {classrooms.length} {classrooms.length === 1 ? 'аудитория' : 'доступно'}
+                </span>
               </div>
+
+              {classrooms.length > 4 && (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Поиск по названию или вместимости..."
+                    value={roomSearch}
+                    onChange={(e) => setRoomSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs text-slate-800 liquid-glass-input focus:outline-none placeholder:text-slate-400"
+                  />
+                </div>
+              )}
+
+              {classrooms.length === 0 ? (
+                <div className="p-3 text-center text-xs text-slate-400 liquid-glass rounded-2xl">
+                  Кабинеты пока не добавлены администратором
+                </div>
+              ) : filteredClassrooms.length === 0 ? (
+                <div className="p-3 text-center text-xs text-slate-400 liquid-glass rounded-2xl">
+                  Кабинет по запросу «{roomSearch}» не найден
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto p-1.5 rounded-2xl bg-white/20 border border-white/50 custom-scrollbar">
+                  {filteredClassrooms.map((room) => {
+                    const isSelected = selectedClassroomId === room.id;
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        onClick={() => setSelectedClassroomId(room.id)}
+                        className={`p-2.5 rounded-xl flex items-center gap-2.5 text-left transition-all border ${
+                          isSelected
+                            ? 'border-indigo-500 bg-white/95 shadow-sm ring-1 ring-indigo-500/30'
+                            : 'liquid-glass border-white/40 hover:bg-white/70 hover:border-white/70'
+                        }`}
+                      >
+                        <span
+                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                          style={{ backgroundColor: room.color }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <span className="font-semibold text-xs text-slate-800 block truncate">
+                            {room.name}
+                          </span>
+                          <span className="text-[10px] text-slate-500 block truncate">
+                            до {room.capacity} чел
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -807,7 +852,10 @@ export const TeacherSchedulePage: React.FC = () => {
             <GlassButton
               type="button"
               variant="secondary"
-              onClick={() => setIsModalOpen(false)}
+              onClick={() => {
+                setIsModalOpen(false);
+                setRoomSearch('');
+              }}
             >
               Отмена
             </GlassButton>

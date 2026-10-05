@@ -4,6 +4,7 @@ import { GlassButton } from '../../shared/components/GlassButton';
 import { GlassModal } from '../../shared/components/GlassModal';
 import { Badge } from '../../shared/components/Badge';
 import { AppNavbar } from '../../shared/components/AppNavbar';
+import { LiquidBackground } from '../../shared/components/LiquidBackground';
 import { Lesson } from '../../types/schedule';
 import { getLessons, acceptLesson, declineLesson } from '../../api/schedule';
 import {
@@ -115,10 +116,8 @@ export const StudentLessonsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-slate-800 p-4 sm:p-8 relative overflow-hidden">
-      {/* Liquid Glass Background Orbs */}
-      <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-10 left-10 w-[450px] h-[450px] bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen text-slate-800 p-4 sm:p-8 relative overflow-hidden">
+      <LiquidBackground />
 
       <div className="max-w-5xl mx-auto space-y-6 relative z-10">
         <AppNavbar />
