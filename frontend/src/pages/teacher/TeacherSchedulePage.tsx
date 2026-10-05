@@ -4,7 +4,7 @@ import { GlassButton } from '../../shared/components/GlassButton';
 import { GlassInput } from '../../shared/components/GlassInput';
 import { GlassModal } from '../../shared/components/GlassModal';
 import { Badge } from '../../shared/components/Badge';
-import { Classroom, Client, Lesson, LessonFormat } from '../../types/schedule';
+import { Classroom, Client, Lesson, LessonFormat, SubscriptionFormat } from '../../types/schedule';
 import {
   getClassrooms,
   getClients,
@@ -64,7 +64,8 @@ export const TeacherSchedulePage: React.FC = () => {
   const [lessonDate, setLessonDate] = useState(new Date().toISOString().split('T')[0]);
   const [lessonStartTime, setLessonStartTime] = useState('14:00');
   const [lessonDuration, setLessonDuration] = useState('60');
-  const [lessonFormat, setLessonFormat] = useState<LessonFormat>('offline');
+  const [selectedFormat, setSelectedFormat] = useState<SubscriptionFormat>('individual');
+  const [locationType, setLocationType] = useState<'offline' | 'online'>('offline');
   const [selectedClassroomId, setSelectedClassroomId] = useState('');
   const [onlineLink, setOnlineLink] = useState('https://telemost.yandex.ru/j/school-lesson');
   const [lessonComment, setLessonComment] = useState('');
@@ -77,7 +78,8 @@ export const TeacherSchedulePage: React.FC = () => {
   const [editDate, setEditDate] = useState('');
   const [editStartTime, setEditStartTime] = useState('');
   const [editEndTime, setEditEndTime] = useState('');
-  const [editFormat, setEditFormat] = useState<LessonFormat>('offline');
+  const [editFormat, setEditFormat] = useState<SubscriptionFormat>('individual');
+  const [editLocationType, setEditLocationType] = useState<'offline' | 'online'>('offline');
   const [editClassroomId, setEditClassroomId] = useState('');
   const [editOnlineLink, setEditOnlineLink] = useState('');
   const [editComment, setEditComment] = useState('');
@@ -243,6 +245,8 @@ export const TeacherSchedulePage: React.FC = () => {
     setLessonDate(`${y}-${m}-${d}`);
     setLessonStartTime(`${String(hour).padStart(2, '0')}:00`);
     setLessonDuration('60');
+    setSelectedFormat('individual');
+    setLocationType('offline');
     if (!lessonTitle) setLessonTitle('Урок');
     setIsCreateModalOpen(true);
   };
@@ -271,7 +275,11 @@ export const TeacherSchedulePage: React.FC = () => {
     setEditEndTime(
       `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
     );
-    setEditFormat(lesson.format);
+    const fmt: SubscriptionFormat =
+      lesson.format === 'pair' || lesson.format === 'group' ? lesson.format : 'individual';
+    setEditFormat(fmt);
+    const isOnline = Boolean(lesson.online_link) || (lesson.format as string) === 'online';
+    setEditLocationType(isOnline ? 'online' : 'offline');
     setEditClassroomId(lesson.classroom_id || '');
     setEditOnlineLink(lesson.online_link || '');
     setEditComment(lesson.comment || '');
@@ -299,8 +307,8 @@ export const TeacherSchedulePage: React.FC = () => {
         start_time: start.toISOString(),
         end_time: end.toISOString(),
         format: editFormat,
-        classroom_id: editFormat === 'offline' ? editClassroomId || null : null,
-        online_link: editFormat === 'online' ? editOnlineLink : undefined,
+        classroom_id: editLocationType === 'offline' ? editClassroomId || null : null,
+        online_link: editLocationType === 'online' ? editOnlineLink : undefined,
         comment: editComment.trim() || undefined,
       });
 
@@ -354,9 +362,9 @@ export const TeacherSchedulePage: React.FC = () => {
       await createLesson({
         client_id: selectedClientId,
         title: lessonTitle.trim(),
-        format: lessonFormat,
-        classroom_id: lessonFormat === 'offline' ? selectedClassroomId || null : null,
-        online_link: lessonFormat === 'online' ? onlineLink : undefined,
+        format: selectedFormat,
+        classroom_id: locationType === 'offline' ? selectedClassroomId || null : null,
+        online_link: locationType === 'online' ? onlineLink : undefined,
         comment: lessonComment.trim() || undefined,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
@@ -388,6 +396,30 @@ export const TeacherSchedulePage: React.FC = () => {
         return <Badge variant="neutral">Отменён</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
+  const getFormatBadge = (format: LessonFormat) => {
+    switch (format) {
+      case 'pair':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/15 text-purple-700 border border-purple-400/30">
+            Пара
+          </span>
+        );
+      case 'group':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 text-amber-700 border border-amber-400/30">
+            Группа
+          </span>
+        );
+      case 'individual':
+      default:
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-indigo-500/15 text-indigo-700 border border-indigo-400/30">
+            Индив.
+          </span>
+        );
     }
   };
 
@@ -684,15 +716,18 @@ export const TeacherSchedulePage: React.FC = () => {
                               borderLeftWidth: '4px',
                               borderLeftColor:
                                 lesson.classroom_color ||
-                                (lesson.format === 'online' ? '#10B981' : '#4F46E5'),
+                                (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5'),
                             }}
                           >
                             <div className="min-w-0">
-                              {/* 1-я строка: Крупное имя ученика */}
+                              {/* 1-я строка: Крупное имя ученика и бейдж формата */}
                               <div className="flex items-start justify-between gap-1">
-                                <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate">
-                                  {studentName}
-                                </span>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <span className="font-bold text-xs sm:text-sm text-slate-900 leading-tight truncate">
+                                    {studentName}
+                                  </span>
+                                  {getFormatBadge(lesson.format)}
+                                </div>
 
                                 {/* Кнопка быстрого подтверждения проведения ✓ */}
                                 {lesson.status === 'scheduled' && (
@@ -712,8 +747,10 @@ export const TeacherSchedulePage: React.FC = () => {
                                 {new Date(lesson.start_time).toLocaleTimeString('ru-RU', {
                                   hour: '2-digit',
                                   minute: '2-digit',
-                                })}{' '}
-                                –{' '}
+                                })}
+                                {' '}
+                                –
+                                {' '}
                                 {new Date(lesson.end_time).toLocaleTimeString('ru-RU', {
                                   hour: '2-digit',
                                   minute: '2-digit',
@@ -726,7 +763,7 @@ export const TeacherSchedulePage: React.FC = () => {
                                   <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                                   <span className="truncate">{lesson.classroom_name}</span>
                                 </div>
-                              ) : lesson.format === 'online' ? (
+                              ) : (lesson.online_link || lesson.format === 'online') ? (
                                 <div className="text-[10px] text-emerald-600 font-medium truncate flex items-center gap-1 mt-0.5">
                                   <Video className="w-2.5 h-2.5 shrink-0" />
                                   <span>Онлайн</span>
@@ -781,7 +818,7 @@ export const TeacherSchedulePage: React.FC = () => {
                 const leftPercent = lesson.column * widthPercent;
                 const accentColor =
                   lesson.classroom_color ||
-                  (lesson.format === 'online' ? '#10B981' : '#4F46E5');
+                  (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5');
                 const studentName = getClientDisplayName(lesson);
                 const isCompleted = lesson.status === 'completed';
 
@@ -809,11 +846,14 @@ export const TeacherSchedulePage: React.FC = () => {
                       }}
                     >
                       <div>
-                        {/* 1-я строка: Крупное имя ученика */}
+                        {/* 1-я строка: Крупное имя ученика и бейдж формата */}
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-bold text-sm sm:text-base text-slate-900 truncate">
-                            {studentName}
-                          </span>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-bold text-sm sm:text-base text-slate-900 truncate">
+                              {studentName}
+                            </span>
+                            {getFormatBadge(lesson.format)}
+                          </div>
                           <div className="flex items-center gap-1.5">
                             {getStatusBadge(lesson.status)}
                             {lesson.status === 'scheduled' && (
@@ -847,18 +887,17 @@ export const TeacherSchedulePage: React.FC = () => {
                         </div>
 
                         {/* 3-я строка: Формат и кабинет */}
-                        {lesson.format === 'offline' && lesson.classroom_name && (
+                        {lesson.classroom_name ? (
                           <div className="flex items-center gap-1 text-xs font-medium text-slate-600 mt-1">
                             <MapPin className="w-3.5 h-3.5 text-slate-400" />
                             <span className="truncate">{lesson.classroom_name}</span>
                           </div>
-                        )}
-                        {lesson.format === 'online' && (
+                        ) : (lesson.online_link || lesson.format === 'online') ? (
                           <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 mt-1">
                             <Video className="w-3.5 h-3.5" />
                             <span>Онлайн занятие</span>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -888,10 +927,10 @@ export const TeacherSchedulePage: React.FC = () => {
                     style={{
                       backgroundColor:
                         lesson.classroom_color ||
-                        (lesson.format === 'online' ? '#10B981' : '#4F46E5'),
+                        (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5'),
                     }}
                   >
-                    {lesson.format === 'online' ? (
+                    {(lesson.online_link || lesson.format === 'online') ? (
                       <Video className="w-6 h-6" />
                     ) : (
                       <MapPin className="w-6 h-6" />
@@ -903,6 +942,7 @@ export const TeacherSchedulePage: React.FC = () => {
                       <h3 className="font-bold text-slate-900 text-base">
                         {studentName}
                       </h3>
+                      {getFormatBadge(lesson.format)}
                       {getStatusBadge(lesson.status)}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
@@ -1044,27 +1084,69 @@ export const TeacherSchedulePage: React.FC = () => {
           {/* Формат занятия */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-              Формат проведения
+              Формат занятия
+            </label>
+            <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-black/[0.04]">
+              <button
+                type="button"
+                onClick={() => setSelectedFormat('individual')}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                  selectedFormat === 'individual'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Индивидуально
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFormat('pair')}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                  selectedFormat === 'pair'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                В паре
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedFormat('group')}
+                className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                  selectedFormat === 'group'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                В группе
+              </button>
+            </div>
+          </div>
+
+          {/* Локация проведения */}
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
+              Локация проведения
             </label>
             <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black/[0.04]">
               <button
                 type="button"
-                onClick={() => setLessonFormat('offline')}
+                onClick={() => setLocationType('offline')}
                 className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                  lessonFormat === 'offline'
+                  locationType === 'offline'
                     ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-600'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Оффлайн в школе
               </button>
               <button
                 type="button"
-                onClick={() => setLessonFormat('online')}
+                onClick={() => setLocationType('online')}
                 className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                  lessonFormat === 'online'
+                  locationType === 'online'
                     ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-slate-600'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Онлайн урок
@@ -1073,7 +1155,7 @@ export const TeacherSchedulePage: React.FC = () => {
           </div>
 
           {/* Кабинет (если оффлайн) */}
-          {lessonFormat === 'offline' && (
+          {locationType === 'offline' && (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
                 Аудитория школы
@@ -1094,7 +1176,7 @@ export const TeacherSchedulePage: React.FC = () => {
           )}
 
           {/* Ссылка (если онлайн) */}
-          {lessonFormat === 'online' && (
+          {locationType === 'online' && (
             <GlassInput
               label="Ссылка на видеозвонок"
               placeholder="https://telemost.yandex.ru/j/..."
@@ -1172,29 +1254,72 @@ export const TeacherSchedulePage: React.FC = () => {
               />
             </div>
 
+            {/* Формат занятия */}
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-                Формат
+                Формат занятия
+              </label>
+              <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-black/[0.04]">
+                <button
+                  type="button"
+                  onClick={() => setEditFormat('individual')}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                    editFormat === 'individual'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Индивидуально
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditFormat('pair')}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                    editFormat === 'pair'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  В паре
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditFormat('group')}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
+                    editFormat === 'group'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  В группе
+                </button>
+              </div>
+            </div>
+
+            {/* Локация проведения */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
+                Локация проведения
               </label>
               <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black/[0.04]">
                 <button
                   type="button"
-                  onClick={() => setEditFormat('offline')}
+                  onClick={() => setEditLocationType('offline')}
                   className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                    editFormat === 'offline'
+                    editLocationType === 'offline'
                       ? 'bg-white text-indigo-600 shadow-sm'
-                      : 'text-slate-600'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Оффлайн в кабинете
                 </button>
                 <button
                   type="button"
-                  onClick={() => setEditFormat('online')}
+                  onClick={() => setEditLocationType('online')}
                   className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                    editFormat === 'online'
+                    editLocationType === 'online'
                       ? 'bg-white text-indigo-600 shadow-sm'
-                      : 'text-slate-600'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Онлайн урок
@@ -1202,7 +1327,7 @@ export const TeacherSchedulePage: React.FC = () => {
               </div>
             </div>
 
-            {editFormat === 'offline' ? (
+            {editLocationType === 'offline' ? (
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
                   Кабинет

@@ -215,14 +215,26 @@ func (h *APIHandler) UpdateClient(w http.ResponseWriter, r *http.Request, id ope
 	var rateIndiv, ratePair, rateGroup *float64
 	if req.RateIndividual != nil {
 		v := float64(*req.RateIndividual)
+		if v < 0 {
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "rate_individual cannot be negative")
+			return
+		}
 		rateIndiv = &v
 	}
 	if req.RatePair != nil {
 		v := float64(*req.RatePair)
+		if v < 0 {
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "rate_pair cannot be negative")
+			return
+		}
 		ratePair = &v
 	}
 	if req.RateGroup != nil {
 		v := float64(*req.RateGroup)
+		if v < 0 {
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "rate_group cannot be negative")
+			return
+		}
 		rateGroup = &v
 	}
 

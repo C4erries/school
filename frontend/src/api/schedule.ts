@@ -6,6 +6,7 @@ import {
   Tag,
   CreateClassroomRequest,
   CreateClientRequest,
+  UpdateClientRequest,
   AddSubscriptionRequest,
   CreateTagRequest,
   CreateLessonRequest,
@@ -243,6 +244,40 @@ export async function createClient(data: CreateClientRequest): Promise<Client> {
       group_hours: 0,
       total_hours: 0,
     },
+  };
+}
+
+export async function updateClient(id: string, data: UpdateClientRequest): Promise<Client> {
+  const res = await fetch(`${BASE_URL}/clients/${id}`, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось обновить данные клиента');
+  }
+
+  const updated = (await res.json()) as Client;
+  const indRate = (updated.rate_individual as number | undefined) ?? (updated.base_rate as number | undefined) ?? (data.rate_individual ?? 0);
+  const pairRate = (updated.rate_pair as number | null | undefined) ?? (data.rate_pair !== undefined ? data.rate_pair : null);
+  const grpRate = (updated.rate_group as number | null | undefined) ?? (data.rate_group !== undefined ? data.rate_group : null);
+  const balances = updated.balances ?? {
+    individual_hours: updated.balance ?? 0,
+    pair_hours: 0,
+    group_hours: 0,
+    total_hours: updated.balance ?? 0,
+  };
+  return {
+    ...updated,
+    rate_individual: indRate,
+    rate_pair: pairRate,
+    rate_group: grpRate,
+    base_rate: indRate,
+    balance: balances.total_hours ?? updated.balance ?? 0,
+    balances,
+    tags: updated.tags ?? [],
   };
 }
 

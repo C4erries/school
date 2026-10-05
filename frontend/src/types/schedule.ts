@@ -140,6 +140,15 @@ export interface CreateClientRequest {
   tag_ids?: string[];
 }
 
+export interface UpdateClientRequest {
+  name?: string;
+  phone?: string | null;
+  rate_individual?: number;
+  rate_pair?: number | null;
+  rate_group?: number | null;
+  tag_ids?: string[];
+}
+
 export interface AddSubscriptionRequest {
   client_id: string;
   format?: SubscriptionFormat;

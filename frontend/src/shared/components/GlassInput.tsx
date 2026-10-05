@@ -3,17 +3,23 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 interface GlassInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
+  label?: React.ReactNode;
+  labelClassName?: string;
   error?: string;
   icon?: React.ReactNode;
 }
 
 export const GlassInput = forwardRef<HTMLInputElement, GlassInputProps>(
-  ({ label, error, icon, className, ...props }, ref) => {
+  ({ label, labelClassName, error, icon, className, ...props }, ref) => {
     return (
       <div className="w-full space-y-1.5 text-left">
         {label && (
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 ml-1">
+          <label
+            className={twMerge(
+              'block text-xs font-semibold uppercase tracking-wider text-slate-500 ml-1 whitespace-nowrap',
+              labelClassName
+            )}
+          >
             {label}
           </label>
         )}

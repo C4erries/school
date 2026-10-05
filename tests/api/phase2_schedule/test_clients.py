@@ -271,3 +271,101 @@ class TestClients:
             headers=teacher_user["headers"],
         )
         assert res.status_code == 400
+
+    def test_update_client(self, client: httpx.Client, teacher_user):
+        """Редактирование клиента (PATCH /api/v1/clients/{id}), проверка обновленных данных и негативные кейсы."""
+        # 1. Преподаватель (teacher_user) создает клиента через POST /api/v1/clients
+        initial_name = f"Клиент до {uuid.uuid4().hex[:4]}"
+        create_res = client.post(
+            "/api/v1/clients",
+            json={
+                "name": initial_name,
+                "phone": "+79991112233",
+                "rate_individual": 1500.0,
+                "rate_pair": 1000.0,
+                "rate_group": 700.0,
+            },
+            headers=teacher_user["headers"],
+        )
+        assert create_res.status_code == 201, f"Failed create client: {create_res.text}"
+        client_data = create_res.json()
+        client_id = client_data["id"]
+
+        # 2. Создает тег (POST /api/v1/tags)
+        tag_res = client.post(
+            "/api/v1/tags",
+            json={
+                "name": f"Тег {uuid.uuid4().hex[:4]}",
+                "school_percent": 15,
+                "color": "emerald",
+            },
+            headers=teacher_user["headers"],
+        )
+        assert tag_res.status_code == 201, f"Failed create tag: {tag_res.text}"
+        tag_id = tag_res.json()["id"]
+
+        # 3. Отправляет PATCH /api/v1/clients/{id} с обновленными данными
+        updated_name = f"Обновленный {uuid.uuid4().hex[:4]}"
+        updated_phone = "+79998887766"
+        patch_payload = {
+            "name": updated_name,
+            "phone": updated_phone,
+            "rate_individual": 1800.0,
+            "rate_pair": 1200.0,
+            "rate_group": 900.0,
+            "tag_ids": [tag_id],
+        }
+        patch_res = client.patch(
+            f"/api/v1/clients/{client_id}",
+            json=patch_payload,
+            headers=teacher_user["headers"],
+        )
+
+        # 4. Проверяет: статус 200 OK и поля в теле ответа обновились
+        assert patch_res.status_code == 200, f"Failed patch client: {patch_res.text}"
+        updated_data = patch_res.json()
+        assert updated_data["id"] == client_id
+        assert updated_data["name"] == updated_name
+        assert updated_data["phone"] == updated_phone
+        assert updated_data["rate_individual"] == 1800.0
+        assert updated_data["rate_pair"] == 1200.0
+        assert updated_data["rate_group"] == 900.0
+        assert any(t["id"] == tag_id for t in updated_data.get("tags", []))
+
+        # 5. Делает GET /api/v1/clients и проверяет, что в списке клиентов данные также соответствуют обновленным значениям
+        list_res = client.get("/api/v1/clients", headers=teacher_user["headers"])
+        assert list_res.status_code == 200, f"Failed list clients: {list_res.text}"
+        clients = list_res.json()
+        target = next((c for c in clients if c["id"] == client_id), None)
+        assert target is not None
+        assert target["name"] == updated_name
+        assert target["phone"] == updated_phone
+        assert target["rate_individual"] == 1800.0
+        assert target["rate_pair"] == 1200.0
+        assert target["rate_group"] == 900.0
+        assert any(t["id"] == tag_id for t in target.get("tags", []))
+
+        # 6. Проверяет негативные кейсы:
+        # PATCH несуществующего client_id -> 404
+        fake_id = str(uuid.uuid4())
+        res_404 = client.patch(
+            f"/api/v1/clients/{fake_id}",
+            json={"name": "Не существует"},
+            headers=teacher_user["headers"],
+        )
+        assert res_404.status_code == 404, f"Expected 404, got {res_404.status_code}: {res_404.text}"
+
+        # PATCH с отрицательной ставкой -> 400
+        res_400 = client.patch(
+            f"/api/v1/clients/{client_id}",
+            json={"rate_individual": -500.0},
+            headers=teacher_user["headers"],
+        )
+        assert res_400.status_code == 400, f"Expected 400, got {res_400.status_code}: {res_400.text}"
+
+        # Запрос от неавторизованного пользователя -> 401
+        res_401 = client.patch(
+            f"/api/v1/clients/{client_id}",
+            json={"name": "Аноним"},
+        )
+        assert res_401.status_code == 401, f"Expected 401, got {res_401.status_code}: {res_401.text}"
