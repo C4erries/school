@@ -32,4 +32,9 @@
 | 001 | [Технологический стек](001-tech-stack.md) | Accepted | 2026-10-04 |
 | 002 | [Go архитектура (DDD layout)](002-go-architecture.md) | Accepted | 2026-10-04 |
 | 003 | [Инструментарий Go](003-go-tooling.md) | Accepted | 2026-10-04 |
+| 004 | [E2E Testing Framework (Python + pytest + Docker)](004-e2e-testing-framework.md) | Accepted | 2026-10-04 |
+| 0005 | [Tutor Assistant Pivot (Отделение Client от User)](0005-tutor-assistant-pivot.md) | Accepted | 2026-10-05 |
+| 0006 | [Единый AppLayout и правила верстки Apple Liquid Glass](0006-app-layout-and-glass-conventions.md) | Accepted | 2026-10-05 |
+| 0007 | [Учет в часах, тарифная сетка ставок и форматные абонементы](0007-hourly-rates-and-format-subscriptions.md) | Accepted | 2026-10-05 |
+| 0008 | [Декомпозиция монолитного фронтенда и Client-Side Caching (CSC) через Valkey](0008-frontend-decomposition-and-valkey-csc.md) | Accepted | 2026-10-05 |
 
