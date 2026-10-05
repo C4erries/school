@@ -43,7 +43,7 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
       ? client.balances?.pair_hours ?? 0
       : client.balances?.group_hours ?? 0;
 
-  const numericDelta = parseFloat(deltaHours) || 0;
+  const numericDelta = parseFloat(deltaHours.replace(',', '.')) || 0;
   const newHours = currentHours + numericDelta;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -141,9 +141,9 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
                 <span className="text-rose-600 font-mono">-1.0</span>) *
               </span>
             }
-            type="number"
-            step="0.5"
-            placeholder="например: +1.5 или -1.0"
+            type="text"
+            inputMode="decimal"
+            placeholder="например: +1.5, 1.5 или -1.0"
             value={deltaHours}
             onChange={(e) => setDeltaHours(e.target.value)}
             required
@@ -159,20 +159,25 @@ export const AdjustBalanceModal: React.FC<AdjustBalanceModalProps> = ({
               { val: '+2', label: '+2 ч' },
               { val: '-1', label: '-1 ч' },
               { val: '-1.5', label: '-1.5 ч' },
-            ].map((p) => (
-              <button
-                key={p.val}
-                type="button"
-                onClick={() => setDeltaHours(p.val)}
-                className={`px-2 py-0.5 rounded-lg text-xs font-mono font-medium transition-all ${
-                  deltaHours === p.val
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'bg-white/40 text-slate-700 hover:bg-white/80 border border-white/60'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
+            ].map((p) => {
+              const isSelected =
+                deltaHours === p.val ||
+                (p.val.startsWith('+') && deltaHours === p.val.slice(1));
+              return (
+                <button
+                  key={p.val}
+                  type="button"
+                  onClick={() => setDeltaHours(p.val)}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-mono font-medium transition-all ${
+                    isSelected
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'bg-white/40 text-slate-700 hover:bg-white/80 border border-white/60'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 

@@ -168,6 +168,11 @@ func (h *APIHandler) CreateLesson(w http.ResponseWriter, r *http.Request) {
 
 	teacherID := claims.UserID
 
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		title = "Занятие"
+	}
+
 	var loc, notes string
 	if req.LocationOrUrl != nil {
 		loc = *req.LocationOrUrl
@@ -179,6 +184,7 @@ func (h *APIHandler) CreateLesson(w http.ResponseWriter, r *http.Request) {
 	lesson, err := h.scheduleService.ScheduleLesson(r.Context(), schedule.ScheduleLessonInput{
 		TeacherID:     teacherID,
 		ClientID:      req.ClientId,
+		Title:         title,
 		ClassroomID:   req.ClassroomId,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
@@ -304,17 +310,28 @@ func (h *APIHandler) UpdateLesson(w http.ResponseWriter, r *http.Request, id ope
 		clearClassroom = true
 	}
 
+	// Фикс сброса онлайна в оффлайн:
+	// Если req.LocationOrUrl != nil и *req.LocationOrUrl == "" (или если передан валидный classroom_id и req.LocationOrUrl не передан/пустой), очищай lesson.LocationOrURL = "".
+	// Таким образом старый онлайн URL гарантированно стирается из БД при переводе в оффлайн!
+	var locOrURL *string = req.LocationOrUrl
+	emptyStr := ""
+	if (req.LocationOrUrl != nil && strings.TrimSpace(*req.LocationOrUrl) == "") ||
+		(req.ClassroomId != nil && *req.ClassroomId != openapi_types.UUID(uuid.Nil) && (req.LocationOrUrl == nil || strings.TrimSpace(*req.LocationOrUrl) == "")) {
+		locOrURL = &emptyStr
+	}
+
 	lesson, err := h.scheduleService.UpdateLesson(r.Context(), schedule.UpdateLessonInput{
 		LessonID:       id,
 		CallerID:       claims.UserID,
 		CallerRole:     claims.Role,
+		Title:          req.Title,
 		ClientID:       req.ClientId,
 		ClassroomID:    req.ClassroomId,
 		ClearClassroom: clearClassroom,
 		StartTime:      req.StartTime,
 		EndTime:        req.EndTime,
 		Format:         format,
-		LocationOrURL:  req.LocationOrUrl,
+		LocationOrURL:  locOrURL,
 		Notes:          req.Notes,
 		CancelReason:   req.CancelReason,
 	})
@@ -351,10 +368,16 @@ func mapLessonToResponse(l *domain.Lesson) generated.LessonResponse {
 		reasonPtr = &l.CancelReason
 	}
 
+	title := l.Title
+	if title == "" {
+		title = "Занятие"
+	}
+
 	return generated.LessonResponse{
 		Id:            l.ID,
 		TeacherId:     l.TeacherID,
 		ClientId:      l.ClientID,
+		Title:         title,
 		ClassroomId:   l.ClassroomID,
 		StartTime:     l.StartTime,
 		EndTime:       l.EndTime,

@@ -58,6 +58,7 @@ type Lesson struct {
 	ID            uuid.UUID
 	TeacherID     uuid.UUID
 	ClientID      uuid.UUID
+	Title         string
 	ClassroomID   *uuid.UUID
 	StartTime     time.Time
 	EndTime       time.Time

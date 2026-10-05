@@ -52,22 +52,12 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
         lesson.format === 'pair' || lesson.format === 'group' ? lesson.format : 'individual';
       setEditFormat(fmt);
 
-      // Task 0: определение онлайн урока
-      const isOnline =
-        Boolean(lesson.online_link) ||
-        Boolean(
-          lesson.location_or_url &&
-            (lesson.location_or_url.startsWith('http') || !lesson.classroom_id)
-        ) ||
-        (lesson.format as string) === 'online';
-
+      // Определение онлайн урока
+      const hasHttpLink = Boolean(lesson.location_or_url && lesson.location_or_url.startsWith('http'));
+      const isOnline = Boolean(lesson.online_link && lesson.online_link.startsWith('http')) || hasHttpLink || (lesson.format as string) === 'online';
       setEditLocationType(isOnline ? 'online' : 'offline');
       setEditClassroomId(lesson.classroom_id || '');
-      setEditOnlineLink(
-        lesson.online_link ||
-          (lesson.location_or_url?.startsWith('http') ? lesson.location_or_url : '') ||
-          ''
-      );
+      setEditOnlineLink(isOnline ? (lesson.online_link || lesson.location_or_url || '') : '');
       setEditComment(lesson.comment || '');
       setCancelReason('');
       setIsCancelling(false);
@@ -95,8 +85,8 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
         end_time: end.toISOString(),
         format: editFormat,
         classroom_id: isOnline ? null : editClassroomId || null,
-        online_link: isOnline ? editOnlineLink : undefined,
-        comment: editComment.trim() || undefined,
+        online_link: isOnline ? editOnlineLink.trim() : '', // ПЕРЕДАЕМ ПУСТУЮ СТРОКУ, ЧТОБЫ БЭКЕНД ОЧИСТИЛ location_or_url В БД!
+        comment: editComment.trim(),
       });
 
       await onUpdated();
@@ -133,20 +123,29 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
 
   if (!lesson) return null;
 
+  const isCancelled = lesson.status === 'cancelled' || lesson.status.startsWith('cancelled') || lesson.status === 'declined';
+
   return (
     <GlassModal
       isOpen={isOpen}
       onClose={onClose}
       title={`Урок: ${clientDisplayName}`}
-      description="Измените время, аудиторию или отмените занятие."
+      description={isCancelled ? 'Занятие отменено' : 'Измените время, аудиторию или отмените занятие.'}
       maxWidth="lg"
     >
       <form onSubmit={handleSaveEdit} className="space-y-4">
+        {isCancelled && (
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-400/40 text-rose-700 text-xs">
+            <strong>Занятие отменено</strong>{lesson.cancel_reason ? `: ${lesson.cancel_reason}` : ''}
+          </div>
+        )}
+
         <GlassInput
-          label="Тема занятия"
+          label="Тема / Название занятия"
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
           required
+          disabled={isCancelled}
         />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -156,6 +155,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             value={editDate}
             onChange={(e) => setEditDate(e.target.value)}
             required
+            disabled={isCancelled}
           />
           <GlassInput
             label="Начало"
@@ -163,6 +163,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             value={editStartTime}
             onChange={(e) => setEditStartTime(e.target.value)}
             required
+            disabled={isCancelled}
           />
           <GlassInput
             label="Конец"
@@ -170,6 +171,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             value={editEndTime}
             onChange={(e) => setEditEndTime(e.target.value)}
             required
+            disabled={isCancelled}
           />
         </div>
 
@@ -181,6 +183,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
           <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-black/[0.04]">
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setEditFormat('individual')}
               className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 editFormat === 'individual'
@@ -192,6 +195,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             </button>
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setEditFormat('pair')}
               className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 editFormat === 'pair'
@@ -203,6 +207,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             </button>
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setEditFormat('group')}
               className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 editFormat === 'group'
@@ -223,6 +228,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
           <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black/[0.04]">
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setEditLocationType('offline')}
               className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 editLocationType === 'offline'
@@ -234,6 +240,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             </button>
             <button
               type="button"
+              disabled={isCancelled}
               onClick={() => setEditLocationType('online')}
               className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
                 editLocationType === 'online'
@@ -252,9 +259,10 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
               Кабинет
             </label>
             <select
+              disabled={isCancelled}
               value={editClassroomId}
               onChange={(e) => setEditClassroomId(e.target.value)}
-              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500"
+              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
             >
               <option value="">Без закрепления кабинета</option>
               {classrooms.map((room) => (
@@ -270,17 +278,19 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             placeholder="https://telemost.yandex.ru/j/..."
             value={editOnlineLink}
             onChange={(e) => setEditOnlineLink(e.target.value)}
+            disabled={isCancelled}
           />
         )}
 
         <GlassInput
-          label="Заметка"
+          label="Заметка / ДЗ"
           value={editComment}
           onChange={(e) => setEditComment(e.target.value)}
+          disabled={isCancelled}
         />
 
         {/* Блок отмены урока */}
-        {lesson.status === 'scheduled' && (
+        {!isCancelled && lesson.status === 'scheduled' && (
           <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
@@ -345,13 +355,15 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
           >
             Закрыть
           </GlassButton>
-          <GlassButton
-            type="submit"
-            variant="primary"
-            isLoading={isSubmittingEdit}
-          >
-            Сохранить
-          </GlassButton>
+          {!isCancelled && (
+            <GlassButton
+              type="submit"
+              variant="primary"
+              isLoading={isSubmittingEdit}
+            >
+              Сохранить
+            </GlassButton>
+          )}
         </div>
       </form>
     </GlassModal>

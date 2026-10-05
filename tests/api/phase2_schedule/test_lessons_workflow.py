@@ -197,27 +197,32 @@ class TestLessonsWorkflow:
             "/api/v1/lessons",
             json={
                 "client_id": client_data["id"],
+                "title": "Геометрия: Треугольники",
                 "start_time": orig_start,
                 "end_time": orig_end,
                 "format": "individual",
-                "notes": "Исходная тема",
+                "notes": "Исходная заметка",
             },
             headers=teacher["headers"],
         )
         assert create_res.status_code == 201
-        lesson_id = create_res.json()["id"]
+        created_lesson = create_res.json()
+        assert created_lesson["title"] == "Геометрия: Треугольники"
+        assert created_lesson["notes"] == "Исходная заметка"
+        lesson_id = created_lesson["id"]
 
-        # 1. Редактируем урок: переносим на 14:00 - 15:30, прикрепляем кабинет и обновляем заметку
+        # 1. Редактируем урок: переносим на 14:00 - 15:30, прикрепляем кабинет и обновляем заметку и тему раздельно
         new_start = to_rfc3339(now.replace(hour=14, minute=0, second=0))
         new_end = to_rfc3339(now.replace(hour=15, minute=30, second=0))
 
         patch_res = client.patch(
             f"/api/v1/lessons/{lesson_id}",
             json={
+                "title": "Стереометрия 11 класс",
                 "start_time": new_start,
                 "end_time": new_end,
                 "classroom_id": classroom["id"],
-                "notes": "Перенесенный урок по геометрии",
+                "notes": "Перенесенный урок по стереометрии",
             },
             headers=teacher["headers"],
         )
@@ -225,10 +230,11 @@ class TestLessonsWorkflow:
         updated = patch_res.json()
 
         assert updated["id"] == lesson_id
+        assert updated["title"] == "Стереометрия 11 класс"
         assert updated["start_time"] == new_start
         assert updated["end_time"] == new_end
         assert updated["classroom_id"] == classroom["id"]
-        assert updated["notes"] == "Перенесенный урок по геометрии"
+        assert updated["notes"] == "Перенесенный урок по стереометрии"
         assert updated["status"] == "scheduled"
 
         # 2. Переключаем урок в онлайн (указываем ссылку без classroom_id) -> кабинет должен очиститься
@@ -244,15 +250,21 @@ class TestLessonsWorkflow:
         assert online_data.get("classroom_id") is None
         assert online_data["location_or_url"] == "https://meet.google.com/xyz-abc"
 
-        # 3. Привязываем кабинет обратно и сбрасываем явным classroom_id: null
+        # 3. Переключаем обратно в оффлайн (привязываем кабинет, location_or_url сбрасывается)
         patch_back = client.patch(
             f"/api/v1/lessons/{lesson_id}",
-            json={"classroom_id": classroom["id"]},
+            json={
+                "classroom_id": classroom["id"],
+                "location_or_url": "",
+            },
             headers=teacher["headers"],
         )
         assert patch_back.status_code == 200
-        assert patch_back.json()["classroom_id"] == classroom["id"]
+        back_data = patch_back.json()
+        assert back_data["classroom_id"] == classroom["id"]
+        assert back_data.get("location_or_url") is None or back_data["location_or_url"] == ""
 
+        # 4. Сбрасываем кабинет через classroom_id: null
         patch_null = client.patch(
             f"/api/v1/lessons/{lesson_id}",
             json={"classroom_id": None},

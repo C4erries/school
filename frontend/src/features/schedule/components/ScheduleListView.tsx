@@ -68,19 +68,27 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
     <div className="space-y-3">
       {dayLessons.map((lesson) => {
         const studentName = getClientDisplayName(lesson);
+        const isCancelled =
+          lesson.status === 'cancelled' ||
+          lesson.status.startsWith('cancelled') ||
+          lesson.status === 'declined';
+
         return (
           <GlassCard
             key={lesson.id}
             onClick={() => onOpenEdit(lesson)}
-            className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all"
+            className={`p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all ${
+              isCancelled ? 'opacity-60 bg-rose-50/20 border-rose-300/40 text-slate-400' : ''
+            }`}
           >
             <div className="flex items-start gap-4">
               <div
                 className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
                 style={{
-                  backgroundColor:
-                    lesson.classroom_color ||
-                    (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5'),
+                  backgroundColor: isCancelled
+                    ? '#F43F5E'
+                    : lesson.classroom_color ||
+                      (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5'),
                 }}
               >
                 {(lesson.online_link || lesson.format === 'online') ? (
@@ -91,12 +99,19 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-slate-900 text-base">{studentName}</h3>
+                  <h3 className={`font-bold text-base ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900'}`}>{studentName}</h3>
                   {getFormatBadge(lesson.format)}
-                  {getStatusBadge(lesson.status)}
+                  {isCancelled ? (
+                    <Badge variant="danger" className="text-[9px]">Отменено</Badge>
+                  ) : (
+                    getStatusBadge(lesson.status)
+                  )}
+                  {isCancelled && lesson.cancel_reason && (
+                    <span className="text-xs text-rose-600/90 font-medium">({lesson.cancel_reason})</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
-                  <span className="font-semibold text-slate-800">{lesson.title}</span>
+                <div className={`flex items-center gap-3 text-xs mt-1 flex-wrap ${isCancelled ? 'line-through text-slate-400' : 'text-slate-500'}`}>
+                  <span className={`font-semibold ${isCancelled ? 'line-through text-slate-400' : 'text-slate-800'}`}>{lesson.title}</span>
                   <span>•</span>
                   <span className="flex items-center gap-1 font-mono">
                     <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -120,7 +135,7 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2 self-end md:self-auto">
-              {lesson.status === 'scheduled' && (
+              {!isCancelled && lesson.status === 'scheduled' && (
                 <GlassButton
                   variant="mint"
                   size="sm"

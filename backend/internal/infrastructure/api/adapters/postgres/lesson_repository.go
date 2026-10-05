@@ -83,6 +83,7 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 			"id",
 			"teacher_id",
 			"client_id",
+			"title",
 			"classroom_id",
 			"start_time",
 			"end_time",
@@ -98,6 +99,7 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 			l.ID,
 			l.TeacherID,
 			l.ClientID,
+			l.Title,
 			l.ClassroomID,
 			l.StartTime,
 			l.EndTime,
@@ -128,6 +130,7 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 		"id",
 		"teacher_id",
 		"client_id",
+		"title",
 		"classroom_id",
 		"start_time",
 		"end_time",
@@ -155,6 +158,7 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 		&l.ID,
 		&l.TeacherID,
 		&l.ClientID,
+		&l.Title,
 		&classroomID,
 		&l.StartTime,
 		&l.EndTime,
@@ -194,6 +198,7 @@ func (r *LessonRepository) Update(ctx context.Context, l *domain.Lesson) error {
 	query, args, err := r.sb.Update("lessons").
 		Set("teacher_id", l.TeacherID).
 		Set("client_id", l.ClientID).
+		Set("title", l.Title).
 		Set("classroom_id", l.ClassroomID).
 		Set("start_time", l.StartTime).
 		Set("end_time", l.EndTime).
@@ -231,6 +236,7 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 		"id",
 		"teacher_id",
 		"client_id",
+		"title",
 		"classroom_id",
 		"start_time",
 		"end_time",
@@ -284,6 +290,7 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 			&l.ID,
 			&l.TeacherID,
 			&l.ClientID,
+			&l.Title,
 			&classroomID,
 			&l.StartTime,
 			&l.EndTime,

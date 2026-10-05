@@ -157,10 +157,19 @@ export const CreateLessonModal: React.FC<CreateLessonModalProps> = ({
               onChange={(e) => setLessonDuration(e.target.value)}
               className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500"
             >
+              <option value="30">30 минут (0.5 ч)</option>
               <option value="45">45 минут (0.75 ч)</option>
               <option value="60">60 минут (1.0 ч)</option>
               <option value="90">90 минут (1.5 ч)</option>
               <option value="120">120 минут (2.0 ч)</option>
+              <option value="150">150 минут (2.5 ч)</option>
+              <option value="180">180 минут (3.0 ч)</option>
+              <option value="240">240 минут (4.0 ч)</option>
+              {!['30', '45', '60', '90', '120', '150', '180', '240'].includes(lessonDuration) && (
+                <option value={lessonDuration}>
+                  {lessonDuration} минут ({(Number(lessonDuration) / 60).toFixed(1)} ч)
+                </option>
+              )}
             </select>
           </div>
         </div>

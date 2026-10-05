@@ -26,6 +26,7 @@ export const TeacherSchedulePage: React.FC = () => {
     title?: string;
     date?: string;
     startTime?: string;
+    duration?: string;
   }>({});
 
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
@@ -81,6 +82,21 @@ export const TeacherSchedulePage: React.FC = () => {
     setCreateInitial({
       date: `${y}-${m}-${d}`,
       startTime: `${String(hour).padStart(2, '0')}:00`,
+      duration: '60',
+      title: 'Урок',
+      clientId: '',
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleSlotDragSelect = (date: Date, startHour: number, durationMinutes: number) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    setCreateInitial({
+      date: `${y}-${m}-${d}`,
+      startTime: `${String(startHour).padStart(2, '0')}:00`,
+      duration: String(durationMinutes),
       title: 'Урок',
       clientId: '',
     });
@@ -163,6 +179,7 @@ export const TeacherSchedulePage: React.FC = () => {
           lessons={lessons}
           positionLessons={positionLessons}
           onSlotClick={handleSlotClick}
+          onSlotDragSelect={handleSlotDragSelect}
           onQuickComplete={handleQuickComplete}
           onOpenEdit={setEditingLesson}
           getClientDisplayName={getClientDisplayName}
@@ -175,6 +192,7 @@ export const TeacherSchedulePage: React.FC = () => {
           hours={hours}
           positionedDayLessons={positionedDayLessons}
           onSlotClick={handleSlotClick}
+          onSlotDragSelect={handleSlotDragSelect}
           onQuickComplete={handleQuickComplete}
           onOpenEdit={setEditingLesson}
           getClientDisplayName={getClientDisplayName}
@@ -200,6 +218,7 @@ export const TeacherSchedulePage: React.FC = () => {
         initialTitle={createInitial.title}
         initialDate={createInitial.date}
         initialStartTime={createInitial.startTime}
+        initialDuration={createInitial.duration || '60'}
         onCreated={loadData}
       />
 

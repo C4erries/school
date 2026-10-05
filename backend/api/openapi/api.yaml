@@ -1280,6 +1280,7 @@ components:
         - id
         - teacher_id
         - client_id
+        - title
         - start_time
         - end_time
         - format
@@ -1299,6 +1300,9 @@ components:
           type: string
           format: uuid
           example: '123e4567-e89b-12d3-a456-426614174002'
+        title:
+          type: string
+          example: 'Подготовка к ОГЭ'
         classroom_id:
           type: string
           format: uuid
@@ -1341,10 +1345,14 @@ components:
       type: object
       required:
         - client_id
+        - title
         - start_time
         - end_time
         - format
       properties:
+        title:
+          type: string
+          example: 'Подготовка к ОГЭ'
         client_id:
           type: string
           format: uuid
@@ -1384,6 +1392,9 @@ components:
     UpdateLessonRequest:
       type: object
       properties:
+        title:
+          type: string
+          example: 'Подготовка к ОГЭ'
         client_id:
           type: string
           format: uuid

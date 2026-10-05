@@ -293,6 +293,9 @@ type CreateLessonRequest struct {
 
 	// StartTime Example: 2026-10-05T10:00:00Z
 	StartTime time.Time `json:"start_time"`
+
+	// Title Example: Подготовка к ОГЭ
+	Title string `json:"title"`
 }
 
 // CreateSubscriptionRequest defines model for CreateSubscriptionRequest.
@@ -399,6 +402,9 @@ type LessonResponse struct {
 
 	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174001
 	TeacherId openapi_types.UUID `json:"teacher_id"`
+
+	// Title Example: Подготовка к ОГЭ
+	Title string `json:"title"`
 
 	// UpdatedAt Example: 2026-10-04T12:00:00Z
 	UpdatedAt time.Time `json:"updated_at"`
@@ -513,6 +519,7 @@ type UpdateLessonRequest struct {
 	LocationOrUrl *string       `json:"location_or_url,omitempty"`
 	Notes         *string       `json:"notes,omitempty"`
 	StartTime     *time.Time    `json:"start_time,omitempty"`
+	Title         *string       `json:"title,omitempty"`
 }
 
 // UserDefaultRates defines model for UserDefaultRates.

@@ -70,6 +70,7 @@ type UpdateClassroomInput struct {
 type ScheduleLessonInput struct {
 	TeacherID     uuid.UUID
 	ClientID      uuid.UUID
+	Title         string
 	ClassroomID   *uuid.UUID
 	StartTime     time.Time
 	EndTime       time.Time
@@ -78,10 +79,14 @@ type ScheduleLessonInput struct {
 	Notes         string
 }
 
+// CreateLessonInput алиас для ScheduleLessonInput.
+type CreateLessonInput = ScheduleLessonInput
+
 type UpdateLessonInput struct {
 	LessonID       uuid.UUID
 	CallerID       uuid.UUID
 	CallerRole     domain.Role
+	Title          *string
 	ClientID       *uuid.UUID
 	ClassroomID    *uuid.UUID
 	ClearClassroom bool
@@ -232,11 +237,17 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 		classroomID = input.ClassroomID
 	}
 
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		title = "Занятие"
+	}
+
 	now := time.Now().UTC()
 	lesson := &domain.Lesson{
 		ID:            uuid.New(),
 		TeacherID:     input.TeacherID,
 		ClientID:      input.ClientID,
+		Title:         title,
 		ClassroomID:   classroomID,
 		StartTime:     input.StartTime,
 		EndTime:       input.EndTime,
@@ -403,9 +414,22 @@ func (s *Service) UpdateLesson(ctx context.Context, input UpdateLessonInput) (*d
 		}
 	}
 
+	if input.Title != nil {
+		title := strings.TrimSpace(*input.Title)
+		if title == "" {
+			title = "Занятие"
+		}
+		lesson.Title = title
+	}
+
 	if input.LocationOrURL != nil {
 		lesson.LocationOrURL = strings.TrimSpace(*input.LocationOrURL)
 	}
+	// Если передан валидный classroom_id и LocationOrURL не передан или пустой, сбрасываем LocationOrURL
+	if lesson.ClassroomID != nil && *lesson.ClassroomID != uuid.Nil && (input.LocationOrURL == nil || strings.TrimSpace(*input.LocationOrURL) == "") {
+		lesson.LocationOrURL = ""
+	}
+
 	if input.Notes != nil {
 		lesson.Notes = strings.TrimSpace(*input.Notes)
 	}

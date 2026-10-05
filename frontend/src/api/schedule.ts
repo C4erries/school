@@ -351,10 +351,10 @@ export async function getLessons(params?: {
   const data: Lesson[] = await res.json();
   return data.map((l) => ({
     ...l,
-    title: l.title || l.notes || 'Занятие',
-    online_link: l.location_or_url || l.online_link || undefined,
-    classroom_name: l.classroom_name || (l.format === 'offline' ? l.location_or_url : undefined),
-    comment: l.comment || l.notes,
+    title: l.title || 'Занятие',
+    online_link: (l.location_or_url && l.location_or_url.startsWith('http')) ? l.location_or_url : (l.online_link || undefined),
+    classroom_name: l.classroom_name || (l.format === 'offline' && !l.location_or_url?.startsWith('http') ? l.location_or_url : undefined),
+    comment: l.notes || '',
     decline_reason: l.decline_reason || l.cancel_reason,
   }));
 }
@@ -370,7 +370,7 @@ export async function createLesson(data: CreateLessonRequest): Promise<Lesson> {
     start_time: data.start_time,
     end_time: data.end_time,
     location_or_url: data.online_link || null,
-    notes: data.title + (data.comment ? ` (${data.comment})` : ''),
+    notes: data.comment || null,
   };
 
   const res = await fetch(`${BASE_URL}/lessons`, {
@@ -387,7 +387,8 @@ export async function createLesson(data: CreateLessonRequest): Promise<Lesson> {
   const created: Lesson = await res.json();
   return {
     ...created,
-    title: created.title || created.notes || data.title,
+    title: created.title || data.title,
+    comment: created.notes || data.comment || '',
     online_link: created.format === 'online' ? (created.location_or_url || data.online_link) : undefined,
   };
 }
