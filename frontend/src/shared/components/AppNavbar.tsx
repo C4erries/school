@@ -10,6 +10,7 @@ import {
   Building2,
   BookOpen,
   LayoutDashboard,
+  Receipt,
 } from 'lucide-react';
 
 export const AppNavbar: React.FC = () => {
@@ -119,6 +120,20 @@ export const AppNavbar: React.FC = () => {
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>Ученики</span>
+          </Link>
+        )}
+
+        {(user?.role === 'teacher' || user?.role === 'owner') && (
+          <Link
+            to="/teacher/finance"
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              isActive('/teacher/finance')
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <Receipt className="w-3.5 h-3.5" />
+            <span>Бухгалтерия</span>
           </Link>
         )}
       </nav>

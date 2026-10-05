@@ -9,6 +9,7 @@ import { DashboardPage } from '../pages/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { TeacherSchedulePage } from '../pages/teacher/TeacherSchedulePage';
 import { TeacherClientsPage } from '../pages/teacher/TeacherClientsPage';
+import { TeacherFinancePage } from '../pages/teacher/TeacherFinancePage';
 
 export const App: React.FC = () => {
   return (
@@ -55,6 +56,16 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={['teacher', 'owner']}>
                   <TeacherClientsPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Финансовая бухгалтерия: сводка, долги, журнал оплат, партнерские выплаты, экспорт */}
+            <Route
+              path="/teacher/finance"
+              element={
+                <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                  <TeacherFinancePage />
                 </ProtectedRoute>
               }
             />

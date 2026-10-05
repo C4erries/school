@@ -36,6 +36,51 @@ func (e AdjustBalanceRequestFormat) Valid() bool {
 	}
 }
 
+// Defines values for CreatePaymentRequestFormat.
+const (
+	CreatePaymentRequestFormatGroup      CreatePaymentRequestFormat = "group"
+	CreatePaymentRequestFormatIndividual CreatePaymentRequestFormat = "individual"
+	CreatePaymentRequestFormatPair       CreatePaymentRequestFormat = "pair"
+)
+
+// Valid indicates whether the value is a known member of the CreatePaymentRequestFormat enum.
+func (e CreatePaymentRequestFormat) Valid() bool {
+	switch e {
+	case CreatePaymentRequestFormatGroup:
+		return true
+	case CreatePaymentRequestFormatIndividual:
+		return true
+	case CreatePaymentRequestFormatPair:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreatePaymentRequestPaymentMethod.
+const (
+	CreatePaymentRequestPaymentMethodCard     CreatePaymentRequestPaymentMethod = "card"
+	CreatePaymentRequestPaymentMethodCash     CreatePaymentRequestPaymentMethod = "cash"
+	CreatePaymentRequestPaymentMethodOther    CreatePaymentRequestPaymentMethod = "other"
+	CreatePaymentRequestPaymentMethodTransfer CreatePaymentRequestPaymentMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the CreatePaymentRequestPaymentMethod enum.
+func (e CreatePaymentRequestPaymentMethod) Valid() bool {
+	switch e {
+	case CreatePaymentRequestPaymentMethodCard:
+		return true
+	case CreatePaymentRequestPaymentMethodCash:
+		return true
+	case CreatePaymentRequestPaymentMethodOther:
+		return true
+	case CreatePaymentRequestPaymentMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateSubscriptionRequestFormat.
 const (
 	CreateSubscriptionRequestFormatGroup      CreateSubscriptionRequestFormat = "group"
@@ -99,6 +144,51 @@ func (e LessonStatus) Valid() bool {
 	}
 }
 
+// Defines values for PaymentResponseFormat.
+const (
+	PaymentResponseFormatGroup      PaymentResponseFormat = "group"
+	PaymentResponseFormatIndividual PaymentResponseFormat = "individual"
+	PaymentResponseFormatPair       PaymentResponseFormat = "pair"
+)
+
+// Valid indicates whether the value is a known member of the PaymentResponseFormat enum.
+func (e PaymentResponseFormat) Valid() bool {
+	switch e {
+	case PaymentResponseFormatGroup:
+		return true
+	case PaymentResponseFormatIndividual:
+		return true
+	case PaymentResponseFormatPair:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PaymentResponsePaymentMethod.
+const (
+	PaymentResponsePaymentMethodCard     PaymentResponsePaymentMethod = "card"
+	PaymentResponsePaymentMethodCash     PaymentResponsePaymentMethod = "cash"
+	PaymentResponsePaymentMethodOther    PaymentResponsePaymentMethod = "other"
+	PaymentResponsePaymentMethodTransfer PaymentResponsePaymentMethod = "transfer"
+)
+
+// Valid indicates whether the value is a known member of the PaymentResponsePaymentMethod enum.
+func (e PaymentResponsePaymentMethod) Valid() bool {
+	switch e {
+	case PaymentResponsePaymentMethodCard:
+		return true
+	case PaymentResponsePaymentMethodCash:
+		return true
+	case PaymentResponsePaymentMethodOther:
+		return true
+	case PaymentResponsePaymentMethodTransfer:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Assistant Role = "assistant"
@@ -152,7 +242,7 @@ type AdjustBalanceRequest struct {
 	// Format Example: individual
 	Format AdjustBalanceRequestFormat `json:"format"`
 
-	// Reason Example: Компенсация за технический сбой
+	// Reason Example: Подарочный урок
 	Reason string `json:"reason"`
 }
 
@@ -214,15 +304,13 @@ type ClientBalances struct {
 
 // ClientResponse defines model for ClientResponse.
 type ClientResponse struct {
-	Balances  ClientBalances     `json:"balances"`
-	BaseRate  *float32           `json:"base_rate,omitempty"`
-	CreatedAt time.Time          `json:"created_at"`
-	Id        openapi_types.UUID `json:"id"`
-
-	// IsArchived Example: false
-	IsArchived bool    `json:"is_archived"`
-	Name       string  `json:"name"`
-	Phone      *string `json:"phone,omitempty"`
+	Balances   ClientBalances     `json:"balances"`
+	BaseRate   *float32           `json:"base_rate,omitempty"`
+	CreatedAt  time.Time          `json:"created_at"`
+	Id         openapi_types.UUID `json:"id"`
+	IsArchived bool               `json:"is_archived"`
+	Name       string             `json:"name"`
+	Phone      *string            `json:"phone,omitempty"`
 
 	// RateGroup Example: 800
 	RateGroup *float32 `json:"rate_group,omitempty"`
@@ -298,6 +386,45 @@ type CreateLessonRequest struct {
 	Title string `json:"title"`
 }
 
+// CreatePartnerPayoutRequest defines model for CreatePartnerPayoutRequest.
+type CreatePartnerPayoutRequest struct {
+	// CommissionAmount Example: 6000
+	CommissionAmount float32 `json:"commission_amount"`
+
+	// GrossAmount Example: 30000
+	GrossAmount float32    `json:"gross_amount"`
+	Notes       *string    `json:"notes,omitempty"`
+	PaidAt      *time.Time `json:"paid_at,omitempty"`
+
+	// PeriodMonth Example: 2026-10
+	PeriodMonth string             `json:"period_month"`
+	TagId       openapi_types.UUID `json:"tag_id"`
+}
+
+// CreatePaymentRequest defines model for CreatePaymentRequest.
+type CreatePaymentRequest struct {
+	// Amount Example: 6000
+	Amount   float32            `json:"amount"`
+	ClientId openapi_types.UUID `json:"client_id"`
+
+	// Format Example: individual
+	Format CreatePaymentRequestFormat `json:"format"`
+
+	// Hours Example: 4
+	Hours  float32    `json:"hours"`
+	Notes  *string    `json:"notes,omitempty"`
+	PaidAt *time.Time `json:"paid_at,omitempty"`
+
+	// PaymentMethod Example: transfer
+	PaymentMethod *CreatePaymentRequestPaymentMethod `json:"payment_method,omitempty"`
+}
+
+// CreatePaymentRequestFormat Example: individual
+type CreatePaymentRequestFormat string
+
+// CreatePaymentRequestPaymentMethod Example: transfer
+type CreatePaymentRequestPaymentMethod string
+
 // CreateSubscriptionRequest defines model for CreateSubscriptionRequest.
 type CreateSubscriptionRequest struct {
 	// Balance Example: 10
@@ -345,6 +472,30 @@ type ErrorDetail struct {
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Error ErrorDetail `json:"error"`
+}
+
+// FinanceSummaryResponse defines model for FinanceSummaryResponse.
+type FinanceSummaryResponse struct {
+	// ActiveSubscriptionsCount Example: 12
+	ActiveSubscriptionsCount int `json:"active_subscriptions_count"`
+
+	// DebtorsCount Example: 2
+	DebtorsCount int `json:"debtors_count"`
+
+	// Month Example: 2026-10
+	Month string `json:"month"`
+
+	// TotalCommissions Example: 8400
+	TotalCommissions float32 `json:"total_commissions"`
+
+	// TotalDebts Example: 3500
+	TotalDebts float32 `json:"total_debts"`
+
+	// TotalEarned Example: 42000
+	TotalEarned float32 `json:"total_earned"`
+
+	// TotalPayments Example: 45000
+	TotalPayments float32 `json:"total_payments"`
 }
 
 // HealthResponse defines model for HealthResponse.
@@ -421,6 +572,84 @@ type LoginRequest struct {
 	// Password Example: securePassword123
 	Password string `json:"password"`
 }
+
+// PartnerPayoutResponse defines model for PartnerPayoutResponse.
+type PartnerPayoutResponse struct {
+	// CommissionAmount Example: 6000
+	CommissionAmount float32   `json:"commission_amount"`
+	CreatedAt        time.Time `json:"created_at"`
+
+	// GrossAmount Example: 30000
+	GrossAmount float32            `json:"gross_amount"`
+	Id          openapi_types.UUID `json:"id"`
+	Notes       *string            `json:"notes,omitempty"`
+	PaidAt      time.Time          `json:"paid_at"`
+
+	// PeriodMonth Example: 2026-10
+	PeriodMonth string             `json:"period_month"`
+	TagId       openapi_types.UUID `json:"tag_id"`
+	TeacherId   openapi_types.UUID `json:"teacher_id"`
+}
+
+// PartnerSettlementResponse defines model for PartnerSettlementResponse.
+type PartnerSettlementResponse struct {
+	// CommissionAmount Example: 6000
+	CommissionAmount float32 `json:"commission_amount"`
+
+	// GrossAmount Example: 30000
+	GrossAmount float32 `json:"gross_amount"`
+
+	// IsPaid Example: false
+	IsPaid bool `json:"is_paid"`
+
+	// LessonsCount Example: 15
+	LessonsCount int                 `json:"lessons_count"`
+	PaidAt       *time.Time          `json:"paid_at,omitempty"`
+	PayoutId     *openapi_types.UUID `json:"payout_id,omitempty"`
+
+	// PeriodMonth Example: 2026-10
+	PeriodMonth string `json:"period_month"`
+
+	// SchoolPercent Example: 20
+	SchoolPercent int `json:"school_percent"`
+
+	// TagColor Example: indigo
+	TagColor *string            `json:"tag_color,omitempty"`
+	TagId    openapi_types.UUID `json:"tag_id"`
+
+	// TagName Example: Фоксфорд
+	TagName string `json:"tag_name"`
+}
+
+// PaymentResponse defines model for PaymentResponse.
+type PaymentResponse struct {
+	// Amount Example: 6000
+	Amount   float32            `json:"amount"`
+	ClientId openapi_types.UUID `json:"client_id"`
+
+	// ClientName Example: Иван Иванов
+	ClientName *string   `json:"client_name,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+
+	// Format Example: individual
+	Format PaymentResponseFormat `json:"format"`
+
+	// Hours Example: 4
+	Hours  float32            `json:"hours"`
+	Id     openapi_types.UUID `json:"id"`
+	Notes  *string            `json:"notes,omitempty"`
+	PaidAt time.Time          `json:"paid_at"`
+
+	// PaymentMethod Example: transfer
+	PaymentMethod PaymentResponsePaymentMethod `json:"payment_method"`
+	TeacherId     openapi_types.UUID           `json:"teacher_id"`
+}
+
+// PaymentResponseFormat Example: individual
+type PaymentResponseFormat string
+
+// PaymentResponsePaymentMethod Example: transfer
+type PaymentResponsePaymentMethod string
 
 // RefreshRequest defines model for RefreshRequest.
 type RefreshRequest struct {
@@ -519,7 +748,9 @@ type UpdateLessonRequest struct {
 	LocationOrUrl *string       `json:"location_or_url,omitempty"`
 	Notes         *string       `json:"notes,omitempty"`
 	StartTime     *time.Time    `json:"start_time,omitempty"`
-	Title         *string       `json:"title,omitempty"`
+
+	// Title Example: Подготовка к ОГЭ
+	Title *string `json:"title,omitempty"`
 }
 
 // UserDefaultRates defines model for UserDefaultRates.
@@ -579,6 +810,39 @@ type GetDashboardMetricsParams struct {
 	To   time.Time `form:"to" json:"to"`
 }
 
+// ExportLessonsParams defines parameters for ExportLessons.
+type ExportLessonsParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// ExportPaymentsParams defines parameters for ExportPayments.
+type ExportPaymentsParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// ListPartnerSettlementsParams defines parameters for ListPartnerSettlements.
+type ListPartnerSettlementsParams struct {
+	// Month Расчетный месяц в формате YYYY-MM (по умолчанию текущий)
+	Month *string `form:"month,omitempty" json:"month,omitempty"`
+}
+
+// ListPaymentsParams defines parameters for ListPayments.
+type ListPaymentsParams struct {
+	ClientId *openapi_types.UUID `form:"client_id,omitempty" json:"client_id,omitempty"`
+	From     *time.Time          `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time          `form:"to,omitempty" json:"to,omitempty"`
+	Limit    *int                `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset   *int                `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// GetFinanceSummaryParams defines parameters for GetFinanceSummary.
+type GetFinanceSummaryParams struct {
+	// Month Расчетный месяц в формате YYYY-MM (по умолчанию текущий)
+	Month *string `form:"month,omitempty" json:"month,omitempty"`
+}
+
 // ListLessonsParams defines parameters for ListLessons.
 type ListLessonsParams struct {
 	TeacherId   *openapi_types.UUID `form:"teacher_id,omitempty" json:"teacher_id,omitempty"`
@@ -615,6 +879,12 @@ type CreateSubscriptionJSONRequestBody = CreateSubscriptionRequest
 
 // AssignClientTagJSONRequestBody defines body for AssignClientTag for application/json ContentType.
 type AssignClientTagJSONRequestBody = AssignTagRequest
+
+// CreatePartnerPayoutJSONRequestBody defines body for CreatePartnerPayout for application/json ContentType.
+type CreatePartnerPayoutJSONRequestBody = CreatePartnerPayoutRequest
+
+// CreatePaymentJSONRequestBody defines body for CreatePayment for application/json ContentType.
+type CreatePaymentJSONRequestBody = CreatePaymentRequest
 
 // CreateLessonJSONRequestBody defines body for CreateLesson for application/json ContentType.
 type CreateLessonJSONRequestBody = CreateLessonRequest
@@ -690,6 +960,30 @@ type ServerInterface interface {
 	// GetDashboardMetrics Метрики дашборда
 	// (GET /dashboard/metrics)
 	GetDashboardMetrics(w http.ResponseWriter, r *http.Request, params GetDashboardMetricsParams)
+	// ExportClients Экспорт базы учеников в CSV (UTF-8 BOM)
+	// (GET /export/clients)
+	ExportClients(w http.ResponseWriter, r *http.Request)
+	// ExportLessons Экспорт расписания уроков в CSV (UTF-8 BOM)
+	// (GET /export/lessons)
+	ExportLessons(w http.ResponseWriter, r *http.Request, params ExportLessonsParams)
+	// ExportPayments Экспорт журнала оплат в CSV (UTF-8 BOM)
+	// (GET /export/payments)
+	ExportPayments(w http.ResponseWriter, r *http.Request, params ExportPaymentsParams)
+	// CreatePartnerPayout Фиксация выплаты комиссии партнерской школе
+	// (POST /finance/partner-payouts)
+	CreatePartnerPayout(w http.ResponseWriter, r *http.Request)
+	// ListPartnerSettlements Расчет взаиморасчетов с партнерскими школами по тегам
+	// (GET /finance/partner-settlements)
+	ListPartnerSettlements(w http.ResponseWriter, r *http.Request, params ListPartnerSettlementsParams)
+	// ListPayments Журнал поступивших оплат
+	// (GET /finance/payments)
+	ListPayments(w http.ResponseWriter, r *http.Request, params ListPaymentsParams)
+	// CreatePayment Внесение оплаты учеником
+	// (POST /finance/payments)
+	CreatePayment(w http.ResponseWriter, r *http.Request)
+	// GetFinanceSummary Сводка финансовой аналитики и дебиторской задолженности
+	// (GET /finance/summary)
+	GetFinanceSummary(w http.ResponseWriter, r *http.Request, params GetFinanceSummaryParams)
 	// GetHealth Проверка работоспособности сервиса
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1193,6 +1487,291 @@ func (siw *ServerInterfaceWrapper) GetDashboardMetrics(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ExportClients operation middleware
+func (siw *ServerInterfaceWrapper) ExportClients(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportClients(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportLessons operation middleware
+func (siw *ServerInterfaceWrapper) ExportLessons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportLessonsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportLessons(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportPayments operation middleware
+func (siw *ServerInterfaceWrapper) ExportPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportPaymentsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePartnerPayout operation middleware
+func (siw *ServerInterfaceWrapper) CreatePartnerPayout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePartnerPayout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPartnerSettlements operation middleware
+func (siw *ServerInterfaceWrapper) ListPartnerSettlements(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPartnerSettlementsParams
+
+	// ------------- Optional query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPartnerSettlements(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPayments operation middleware
+func (siw *ServerInterfaceWrapper) ListPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPaymentsParams
+
+	// ------------- Optional query parameter "client_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "client_id", r.URL.Query(), &params.ClientId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "client_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "client_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "offset", r.URL.Query(), &params.Offset, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "offset"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePayment operation middleware
+func (siw *ServerInterfaceWrapper) CreatePayment(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePayment(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFinanceSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetFinanceSummary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetFinanceSummaryParams
+
+	// ------------- Optional query parameter "month" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "month", r.URL.Query(), &params.Month, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "month"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "month", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFinanceSummary(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -1615,11 +2194,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/clients/{id}", wrapper.DeleteClient)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/clients/{id}", wrapper.GetClient)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/clients/{id}", wrapper.UpdateClient)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/tags", wrapper.AssignClientTag)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/clients/{id}/tags/{tag_id}", wrapper.RemoveClientTag)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/archive", wrapper.ArchiveClient)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/unarchive", wrapper.UnarchiveClient)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/adjust-balance", wrapper.AdjustClientBalance)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/tags", wrapper.AssignClientTag)
-	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/clients/{id}/tags/{tag_id}", wrapper.RemoveClientTag)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/tags", wrapper.ListTags)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tags", wrapper.CreateTag)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/tags/{id}", wrapper.DeleteTag)
@@ -1629,6 +2208,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/lessons/{id}", wrapper.UpdateLesson)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/complete", wrapper.CompleteLesson)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons/{id}/cancel", wrapper.CancelLesson)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/finance/summary", wrapper.GetFinanceSummary)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/finance/payments", wrapper.ListPayments)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/finance/payments", wrapper.CreatePayment)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/finance/partner-settlements", wrapper.ListPartnerSettlements)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/finance/partner-payouts", wrapper.CreatePartnerPayout)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/clients", wrapper.ExportClients)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/lessons", wrapper.ExportLessons)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/payments", wrapper.ExportPayments)
 
 	return m
 }

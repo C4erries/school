@@ -11,6 +11,7 @@ import (
 	"github.com/C4erries/school/backend/internal/application/auth"
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
+	"github.com/C4erries/school/backend/internal/application/finance"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres"
@@ -30,6 +31,7 @@ type Container struct {
 	ScheduleService  *schedule.Service
 	CRMService       *crm.Service
 	DashboardService *dashboard.Service
+	FinanceService   *finance.Service
 }
 
 // NewContainer инициализирует все адаптеры и зависимости согласно конфигурации.
@@ -68,7 +70,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	}
 
 	// 4. Репозитории и адаптеры инфраструктуры
-	_ = postgres.NewTransactor(db)
+	transactor := postgres.NewTransactor(db)
 	userRepo := postgres.NewUserRepository(db)
 	classroomRepo := postgres.NewClassroomRepository(db, valkeyClient)
 	clientRepo := postgres.NewClientRepository(db)
@@ -76,6 +78,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	tagRepo := postgres.NewTagRepository(db, valkeyClient)
 	adjRepo := postgres.NewBalanceAdjustmentRepository(db)
 	lessonRepo := postgres.NewLessonRepository(db)
+	paymentRepo := postgres.NewPaymentRepository(db)
+	payoutRepo := postgres.NewPartnerPayoutRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 	sessionStore := valkeyadapter.NewSessionStore(valkeyClient)
@@ -85,6 +89,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
 	crmService := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
 	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
+	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)
 
 	// 6. HTTP API Handler и роутер
 	apiHandler := httpserver.NewAPIHandler(
@@ -94,6 +99,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		dashboardService,
 		tokenManager,
 		cfg.App.Version,
+		financeService,
 	)
 	mux := httpserver.BuildMux(apiHandler, logger)
 	handlerWithLogging := httpserver.LoggingMiddleware(logger)(mux)
@@ -111,6 +117,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		ScheduleService:  scheduleService,
 		CRMService:       crmService,
 		DashboardService: dashboardService,
+		FinanceService:   financeService,
 	}, nil
 }
 

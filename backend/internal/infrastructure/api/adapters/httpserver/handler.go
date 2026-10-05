@@ -11,6 +11,7 @@ import (
 	"github.com/C4erries/school/backend/internal/application/auth"
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
+	"github.com/C4erries/school/backend/internal/application/finance"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/domain"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver/generated"
@@ -23,6 +24,7 @@ type APIHandler struct {
 	scheduleService  *schedule.Service
 	crmService       *crm.Service
 	dashboardService *dashboard.Service
+	financeService   *finance.Service
 	tokenValidator   TokenValidator
 	version          string
 }
@@ -34,8 +36,9 @@ func NewAPIHandler(
 	dashboardService *dashboard.Service,
 	tokenValidator TokenValidator,
 	version string,
+	extra ...interface{},
 ) *APIHandler {
-	return &APIHandler{
+	h := &APIHandler{
 		authService:      authService,
 		scheduleService:  scheduleService,
 		crmService:       crmService,
@@ -43,6 +46,12 @@ func NewAPIHandler(
 		tokenValidator:   tokenValidator,
 		version:          version,
 	}
+	for _, ext := range extra {
+		if f, ok := ext.(*finance.Service); ok {
+			h.financeService = f
+		}
+	}
+	return h
 }
 
 func (h *APIHandler) authenticate(w http.ResponseWriter, r *http.Request) (*security.UserClaims, bool) {

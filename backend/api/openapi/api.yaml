@@ -170,6 +170,72 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /users/me/rates:
+    get:
+      summary: Получение дефолтных ставок преподавателя
+      operationId: getUserDefaultRates
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDefaultRates'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Обновление дефолтных ставок преподавателя
+      operationId: updateUserDefaultRates
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDefaultRates'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDefaultRates'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /classrooms:
     get:
       summary: Получение списка учебных кабинетов
@@ -252,6 +318,19 @@ paths:
         - Clients
       security:
         - BearerAuth: []
+      parameters:
+        - name: is_archived
+          in: query
+          required: false
+          description: Фильтр по архивному статусу (null - все, false - только активные, true - только архивные)
+          schema:
+            type: boolean
+        - name: search
+          in: query
+          required: false
+          description: Поиск по имени или телефону
+          schema:
+            type: string
       responses:
         '200':
           description: OK
@@ -566,6 +645,159 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ClientResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clients/{id}/archive:
+    post:
+      summary: Архивация клиента
+      operationId: archiveClient
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clients/{id}/unarchive:
+    post:
+      summary: Восстановление клиента из архива
+      operationId: unarchiveClient
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clients/{id}/adjust-balance:
+    post:
+      summary: Ручная корректировка баланса абонемента с аудитом
+      operationId: adjustClientBalance
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdjustBalanceRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Не авторизован
           content:
@@ -1025,6 +1257,350 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /finance/summary:
+    get:
+      summary: Сводка финансовой аналитики и дебиторской задолженности
+      operationId: getFinanceSummary
+      tags:
+        - Finance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          description: Расчетный месяц в формате YYYY-MM (по умолчанию текущий)
+          schema:
+            type: string
+            example: "2026-10"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinanceSummaryResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /finance/payments:
+    get:
+      summary: Журнал поступивших оплат
+      operationId: listPayments
+      tags:
+        - Finance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: client_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Список платежей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Внесение оплаты учеником
+      operationId: createPayment
+      tags:
+        - Finance
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePaymentRequest'
+      responses:
+        '201':
+          description: Платеж успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /finance/partner-settlements:
+    get:
+      summary: Расчет взаиморасчетов с партнерскими школами по тегам
+      operationId: listPartnerSettlements
+      tags:
+        - Finance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: false
+          description: Расчетный месяц в формате YYYY-MM (по умолчанию текущий)
+          schema:
+            type: string
+            example: "2026-10"
+      responses:
+        '200':
+          description: Взаиморасчеты по партнерским тегам за месяц
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PartnerSettlementResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /finance/partner-payouts:
+    post:
+      summary: Фиксация выплаты комиссии партнерской школе
+      operationId: createPartnerPayout
+      tags:
+        - Finance
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePartnerPayoutRequest'
+      responses:
+        '201':
+          description: Выплата успешно зафиксирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnerPayoutResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Тег не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Выплата за указанный месяц уже зафиксирована
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/clients:
+    get:
+      summary: Экспорт базы учеников в CSV (UTF-8 BOM)
+      operationId: exportClients
+      tags:
+        - Export
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: CSV файл реестра клиентов
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/lessons:
+    get:
+      summary: Экспорт расписания уроков в CSV (UTF-8 BOM)
+      operationId: exportLessons
+      tags:
+        - Export
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSV файл расписания уроков
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/payments:
+    get:
+      summary: Экспорт журнала оплат в CSV (UTF-8 BOM)
+      operationId: exportPayments
+      tags:
+        - Export
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: CSV файл журнала оплат
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1069,10 +1645,39 @@ components:
           example: '+79991234567'
         role:
           $ref: '#/components/schemas/Role'
+        default_rate_individual:
+          type: number
+          nullable: true
+          example: 1500
+        default_rate_pair:
+          type: number
+          nullable: true
+          example: 1000
+        default_rate_group:
+          type: number
+          nullable: true
+          example: 700
         created_at:
           type: string
           format: date-time
           example: '2026-10-04T12:00:00Z'
+
+    UserDefaultRates:
+      type: object
+      required:
+        - rate_individual
+        - rate_pair
+        - rate_group
+      properties:
+        rate_individual:
+          type: number
+          example: 1500
+        rate_pair:
+          type: number
+          example: 1000
+        rate_group:
+          type: number
+          example: 700
 
     TokenPair:
       type: object
@@ -1505,6 +2110,7 @@ components:
         - teacher_id
         - name
         - rate_individual
+        - is_archived
         - tags
         - balances
         - created_at
@@ -1537,6 +2143,9 @@ components:
         school_percent_tag:
           type: integer
           nullable: true
+        is_archived:
+          type: boolean
+          default: false
         tags:
           type: array
           items:
@@ -1574,6 +2183,10 @@ components:
         school_percent_tag:
           type: integer
           default: 0
+        is_archived:
+          type: boolean
+          nullable: true
+          default: false
         tag_ids:
           type: array
           items:
@@ -1596,11 +2209,35 @@ components:
         rate_group:
           type: number
           nullable: true
+        is_archived:
+          type: boolean
+          nullable: true
         tag_ids:
           type: array
           items:
             type: string
             format: uuid
+
+    AdjustBalanceRequest:
+      type: object
+      required:
+        - delta_hours
+        - format
+        - reason
+      properties:
+        delta_hours:
+          type: number
+          example: 1.5
+        format:
+          type: string
+          enum:
+            - individual
+            - pair
+            - group
+          example: individual
+        reason:
+          type: string
+          example: "Подарочный урок"
 
     SubscriptionResponse:
       type: object
@@ -1663,4 +2300,253 @@ components:
           type: number
         average_rate:
           type: number
+
+    FinanceSummaryResponse:
+      type: object
+      required:
+        - month
+        - total_payments
+        - total_earned
+        - total_debts
+        - total_commissions
+        - active_subscriptions_count
+        - debtors_count
+      properties:
+        month:
+          type: string
+          example: "2026-10"
+        total_payments:
+          type: number
+          example: 45000
+        total_earned:
+          type: number
+          example: 42000
+        total_debts:
+          type: number
+          example: 3500
+        total_commissions:
+          type: number
+          example: 8400
+        active_subscriptions_count:
+          type: integer
+          example: 12
+        debtors_count:
+          type: integer
+          example: 2
+
+    CreatePaymentRequest:
+      type: object
+      required:
+        - client_id
+        - amount
+        - hours
+        - format
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        amount:
+          type: number
+          example: 6000
+        hours:
+          type: number
+          example: 4
+        format:
+          type: string
+          enum:
+            - individual
+            - pair
+            - group
+          example: individual
+        payment_method:
+          type: string
+          enum:
+            - transfer
+            - cash
+            - card
+            - other
+          default: transfer
+          example: transfer
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PaymentResponse:
+      type: object
+      required:
+        - id
+        - teacher_id
+        - client_id
+        - amount
+        - hours
+        - format
+        - payment_method
+        - paid_at
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        client_name:
+          type: string
+          nullable: true
+          example: "Иван Иванов"
+        amount:
+          type: number
+          example: 6000
+        hours:
+          type: number
+          example: 4
+        format:
+          type: string
+          enum:
+            - individual
+            - pair
+            - group
+          example: individual
+        payment_method:
+          type: string
+          enum:
+            - transfer
+            - cash
+            - card
+            - other
+          example: transfer
+        paid_at:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    PartnerSettlementResponse:
+      type: object
+      required:
+        - tag_id
+        - tag_name
+        - school_percent
+        - period_month
+        - lessons_count
+        - gross_amount
+        - commission_amount
+        - is_paid
+      properties:
+        tag_id:
+          type: string
+          format: uuid
+        tag_name:
+          type: string
+          example: "Фоксфорд"
+        tag_color:
+          type: string
+          nullable: true
+          example: "indigo"
+        school_percent:
+          type: integer
+          example: 20
+        period_month:
+          type: string
+          example: "2026-10"
+        lessons_count:
+          type: integer
+          example: 15
+        gross_amount:
+          type: number
+          example: 30000
+        commission_amount:
+          type: number
+          example: 6000
+        is_paid:
+          type: boolean
+          example: false
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        payout_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    CreatePartnerPayoutRequest:
+      type: object
+      required:
+        - tag_id
+        - period_month
+        - gross_amount
+        - commission_amount
+      properties:
+        tag_id:
+          type: string
+          format: uuid
+        period_month:
+          type: string
+          example: "2026-10"
+        gross_amount:
+          type: number
+          example: 30000
+        commission_amount:
+          type: number
+          example: 6000
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+
+    PartnerPayoutResponse:
+      type: object
+      required:
+        - id
+        - teacher_id
+        - tag_id
+        - period_month
+        - gross_amount
+        - commission_amount
+        - paid_at
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        tag_id:
+          type: string
+          format: uuid
+        period_month:
+          type: string
+          example: "2026-10"
+        gross_amount:
+          type: number
+          example: 30000
+        commission_amount:
+          type: number
+          example: 6000
+        paid_at:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
 
