@@ -1,0 +1,160 @@
+import React from 'react';
+import { GlassCard } from '../../../shared/components/GlassCard';
+import { GlassButton } from '../../../shared/components/GlassButton';
+import { Badge } from '../../../shared/components/Badge';
+import { Lesson, LessonFormat } from '../../../types/schedule';
+import { Calendar as CalendarIcon, Check, Edit2, Clock, MapPin, Video } from 'lucide-react';
+
+interface ScheduleListViewProps {
+  dayLessons: Lesson[];
+  isLoading: boolean;
+  onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
+  onOpenEdit: (lesson: Lesson) => void;
+  getClientDisplayName: (lesson: Lesson) => string;
+}
+
+export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
+  dayLessons,
+  isLoading,
+  onQuickComplete,
+  onOpenEdit,
+  getClientDisplayName,
+}) => {
+  const getStatusBadge = (status: Lesson['status']) => {
+    switch (status) {
+      case 'scheduled':
+      case 'confirmed':
+        return <Badge variant="mint">Запланирован</Badge>;
+      case 'pending_confirmation':
+        return <Badge variant="amber">Ожидание</Badge>;
+      case 'completed':
+        return <Badge variant="indigo">Проведён</Badge>;
+      case 'no_show':
+        return <Badge variant="coral">Неявка</Badge>;
+      case 'cancelled':
+      case 'cancelled_by_teacher':
+      case 'cancelled_by_student':
+        return <Badge variant="neutral">Отменён</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
+  const getFormatBadge = (format: LessonFormat) => {
+    switch (format) {
+      case 'pair':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-purple-500/15 text-purple-700 border border-purple-400/30">
+            Пара
+          </span>
+        );
+      case 'group':
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-amber-500/15 text-amber-700 border border-amber-400/30">
+            Группа
+          </span>
+        );
+      case 'individual':
+      default:
+        return (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-indigo-500/15 text-indigo-700 border border-indigo-400/30">
+            Индив.
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {dayLessons.map((lesson) => {
+        const studentName = getClientDisplayName(lesson);
+        return (
+          <GlassCard
+            key={lesson.id}
+            onClick={() => onOpenEdit(lesson)}
+            className="p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-all"
+          >
+            <div className="flex items-start gap-4">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+                style={{
+                  backgroundColor:
+                    lesson.classroom_color ||
+                    (lesson.online_link || lesson.format === 'online' ? '#10B981' : '#4F46E5'),
+                }}
+              >
+                {(lesson.online_link || lesson.format === 'online') ? (
+                  <Video className="w-6 h-6" />
+                ) : (
+                  <MapPin className="w-6 h-6" />
+                )}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-slate-900 text-base">{studentName}</h3>
+                  {getFormatBadge(lesson.format)}
+                  {getStatusBadge(lesson.status)}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
+                  <span className="font-semibold text-slate-800">{lesson.title}</span>
+                  <span>•</span>
+                  <span className="flex items-center gap-1 font-mono">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                    {new Date(lesson.start_time).toLocaleTimeString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}{' '}
+                    –{' '}
+                    {new Date(lesson.end_time).toLocaleTimeString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                {lesson.classroom_name && (
+                  <div className="text-xs text-indigo-600 font-medium mt-1">
+                    Аудитория: {lesson.classroom_name}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end md:self-auto">
+              {lesson.status === 'scheduled' && (
+                <GlassButton
+                  variant="mint"
+                  size="sm"
+                  onClick={(e) => onQuickComplete(e, lesson.id)}
+                  icon={<Check className="w-3.5 h-3.5" />}
+                >
+                  Проведён
+                </GlassButton>
+              )}
+              <GlassButton
+                variant="secondary"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenEdit(lesson);
+                }}
+                icon={<Edit2 className="w-3.5 h-3.5" />}
+              >
+                Изменить
+              </GlassButton>
+            </div>
+          </GlassCard>
+        );
+      })}
+
+      {dayLessons.length === 0 && !isLoading && (
+        <div className="p-12 text-center liquid-glass rounded-3xl">
+          <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <p className="text-base font-medium text-slate-700">На этот день уроков нет</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Кликните на свободное время в сетке или нажмите «Назначить урок»
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};

@@ -16,10 +16,15 @@ var (
 	ErrUnauthorizedAction = errors.New("unauthorized action")
 )
 
+type ClientFilter struct {
+	IsArchived *bool
+	Search     *string
+}
+
 type ClientRepository interface {
 	Create(ctx context.Context, client *domain.Client) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error)
-	ListByTeacherID(ctx context.Context, teacherID uuid.UUID) ([]*domain.Client, error)
+	ListByTeacherID(ctx context.Context, teacherID uuid.UUID, filter ...ClientFilter) ([]*domain.Client, error)
 	Update(ctx context.Context, client *domain.Client) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -30,6 +35,11 @@ type SubscriptionRepository interface {
 	GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientSubscription, error)
 	Update(ctx context.Context, sub *domain.ClientSubscription) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+type BalanceAdjustmentRepository interface {
+	Create(ctx context.Context, adj *domain.ClientBalanceAdjustment) error
+	ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientBalanceAdjustment, error)
 }
 
 type TagRepository interface {
@@ -46,15 +56,21 @@ type Service struct {
 	clientRepo ClientRepository
 	subRepo    SubscriptionRepository
 	tagRepo    TagRepository
+	adjRepo    BalanceAdjustmentRepository
 }
 
-func NewService(clientRepo ClientRepository, subRepo SubscriptionRepository, tagRepo ...TagRepository) *Service {
+func NewService(clientRepo ClientRepository, subRepo SubscriptionRepository, repos ...interface{}) *Service {
 	s := &Service{
 		clientRepo: clientRepo,
 		subRepo:    subRepo,
 	}
-	if len(tagRepo) > 0 {
-		s.tagRepo = tagRepo[0]
+	for _, r := range repos {
+		switch v := r.(type) {
+		case TagRepository:
+			s.tagRepo = v
+		case BalanceAdjustmentRepository:
+			s.adjRepo = v
+		}
 	}
 	return s
 }
@@ -68,6 +84,7 @@ type CreateClientInput struct {
 	RatePair         *float64
 	RateGroup        *float64
 	SchoolPercentTag int
+	IsArchived       bool
 	TagIDs           []uuid.UUID
 }
 
@@ -80,6 +97,7 @@ type UpdateClientInput struct {
 	RateIndividual *float64
 	RatePair       *float64
 	RateGroup      *float64
+	IsArchived     *bool
 	TagIDs         *[]uuid.UUID
 }
 
@@ -119,6 +137,7 @@ func (s *Service) CreateClientWithRates(ctx context.Context, input CreateClientI
 		RatePair:         input.RatePair,
 		RateGroup:        input.RateGroup,
 		SchoolPercentTag: input.SchoolPercentTag,
+		IsArchived:       input.IsArchived,
 		Tags:             make([]domain.Tag, 0),
 		Balances:         domain.ClientBalances{},
 		CreatedAt:        time.Now().UTC(),
@@ -172,6 +191,10 @@ func (s *Service) UpdateClient(ctx context.Context, input UpdateClientInput) (*d
 		client.RateGroup = input.RateGroup
 	}
 
+	if input.IsArchived != nil {
+		client.IsArchived = *input.IsArchived
+	}
+
 	if err := s.clientRepo.Update(ctx, client); err != nil {
 		return nil, fmt.Errorf("update client: %w", err)
 	}
@@ -183,6 +206,125 @@ func (s *Service) UpdateClient(ctx context.Context, input UpdateClientInput) (*d
 	}
 
 	return s.clientRepo.GetByID(ctx, client.ID)
+}
+
+func (s *Service) ArchiveClient(ctx context.Context, clientID, callerID uuid.UUID, callerRole domain.Role) (*domain.Client, error) {
+	client, err := s.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	if callerRole != domain.RoleOwner && client.TeacherID != callerID {
+		return nil, ErrUnauthorizedAction
+	}
+
+	client.IsArchived = true
+	if err := s.clientRepo.Update(ctx, client); err != nil {
+		return nil, fmt.Errorf("archive client: %w", err)
+	}
+
+	return s.clientRepo.GetByID(ctx, clientID)
+}
+
+func (s *Service) UnarchiveClient(ctx context.Context, clientID, callerID uuid.UUID, callerRole domain.Role) (*domain.Client, error) {
+	client, err := s.clientRepo.GetByID(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+
+	if callerRole != domain.RoleOwner && client.TeacherID != callerID {
+		return nil, ErrUnauthorizedAction
+	}
+
+	client.IsArchived = false
+	if err := s.clientRepo.Update(ctx, client); err != nil {
+		return nil, fmt.Errorf("unarchive client: %w", err)
+	}
+
+	return s.clientRepo.GetByID(ctx, clientID)
+}
+
+type AdjustBalanceInput struct {
+	ClientID   uuid.UUID
+	CallerID   uuid.UUID
+	CallerRole domain.Role
+	Format     domain.SubscriptionFormat
+	DeltaHours float64
+	Reason     string
+}
+
+func (s *Service) AdjustBalance(ctx context.Context, input AdjustBalanceInput) (*domain.Client, error) {
+	if !input.Format.IsValid() {
+		return nil, domain.ErrInvalidSubscriptionFormat
+	}
+	reason := strings.TrimSpace(input.Reason)
+	if reason == "" {
+		return nil, errors.New("adjustment reason is required")
+	}
+	if input.DeltaHours == 0 {
+		return nil, errors.New("delta hours cannot be zero")
+	}
+
+	client, err := s.clientRepo.GetByID(ctx, input.ClientID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.CallerRole != domain.RoleOwner && client.TeacherID != input.CallerID {
+		return nil, ErrUnauthorizedAction
+	}
+
+	// 1. Обновляем баланс абонемента соответствующего формата
+	if s.subRepo != nil {
+		subs, err := s.subRepo.GetByClientID(ctx, input.ClientID)
+		if err != nil {
+			return nil, fmt.Errorf("get subscriptions: %w", err)
+		}
+
+		var matchingSub *domain.ClientSubscription
+		for _, sub := range subs {
+			if sub.Format == input.Format {
+				matchingSub = sub
+				break
+			}
+		}
+
+		if matchingSub != nil {
+			matchingSub.Balance += input.DeltaHours
+			if err := s.subRepo.Update(ctx, matchingSub); err != nil {
+				return nil, fmt.Errorf("update subscription: %w", err)
+			}
+		} else {
+			newSub := &domain.ClientSubscription{
+				ID:        uuid.New(),
+				ClientID:  input.ClientID,
+				Format:    input.Format,
+				Balance:   input.DeltaHours,
+				CreatedAt: time.Now().UTC(),
+			}
+			if err := s.subRepo.Create(ctx, newSub); err != nil {
+				return nil, fmt.Errorf("create subscription: %w", err)
+			}
+		}
+	}
+
+	// 2. Логируем запись в client_balance_adjustments
+	if s.adjRepo != nil {
+		adj := &domain.ClientBalanceAdjustment{
+			ID:         uuid.New(),
+			ClientID:   input.ClientID,
+			TeacherID:  client.TeacherID,
+			Format:     input.Format,
+			DeltaHours: input.DeltaHours,
+			Reason:     reason,
+			CreatedAt:  time.Now().UTC(),
+		}
+		if err := s.adjRepo.Create(ctx, adj); err != nil {
+			return nil, fmt.Errorf("create balance adjustment: %w", err)
+		}
+	}
+
+	return s.clientRepo.GetByID(ctx, input.ClientID)
 }
 
 func (s *Service) DeleteClient(ctx context.Context, id, callerID uuid.UUID, callerRole domain.Role) error {
@@ -198,8 +340,8 @@ func (s *Service) DeleteClient(ctx context.Context, id, callerID uuid.UUID, call
 	return s.clientRepo.Delete(ctx, id)
 }
 
-func (s *Service) ListClients(ctx context.Context, teacherID uuid.UUID) ([]*domain.Client, error) {
-	return s.clientRepo.ListByTeacherID(ctx, teacherID)
+func (s *Service) ListClients(ctx context.Context, teacherID uuid.UUID, filter ...ClientFilter) ([]*domain.Client, error) {
+	return s.clientRepo.ListByTeacherID(ctx, teacherID, filter...)
 }
 
 func (s *Service) GetClient(ctx context.Context, id uuid.UUID) (*domain.Client, error) {

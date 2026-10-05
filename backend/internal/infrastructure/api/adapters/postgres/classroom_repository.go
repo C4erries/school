@@ -3,26 +3,34 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
+	valkeylib "github.com/valkey-io/valkey-go"
 
 	"github.com/C4erries/school/backend/internal/domain"
 )
 
 // ClassroomRepository реализует работу с аудиториями/кабинетами в PostgreSQL.
 type ClassroomRepository struct {
-	db *sql.DB
-	sb sq.StatementBuilderType
+	db           *sql.DB
+	sb           sq.StatementBuilderType
+	valkeyClient valkeylib.Client
 }
 
-func NewClassroomRepository(db *sql.DB) *ClassroomRepository {
-	return &ClassroomRepository{
+func NewClassroomRepository(db *sql.DB, valkeyClient ...valkeylib.Client) *ClassroomRepository {
+	repo := &ClassroomRepository{
 		db: db,
 		sb: sq.StatementBuilder.PlaceholderFormat(sq.Dollar),
 	}
+	if len(valkeyClient) > 0 {
+		repo.valkeyClient = valkeyClient[0]
+	}
+	return repo
 }
 
 func (r *ClassroomRepository) getDBTX(ctx context.Context) DBTX {
@@ -47,11 +55,27 @@ func (r *ClassroomRepository) Create(ctx context.Context, c *domain.Classroom) e
 		return fmt.Errorf("exec insert classroom: %w", err)
 	}
 
+	if r.valkeyClient != nil {
+		_ = r.valkeyClient.Do(ctx, r.valkeyClient.B().Del().Key("cache:classrooms:list").Build())
+	}
+
 	return nil
 }
 
 // GetByID возвращает кабинет по идентификатору.
 func (r *ClassroomRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Classroom, error) {
+	cacheKey := fmt.Sprintf("cache:classrooms:%s", id)
+	if r.valkeyClient != nil {
+		cmd := r.valkeyClient.B().Get().Key(cacheKey).Cache()
+		res := r.valkeyClient.DoCache(ctx, cmd, 10*time.Minute)
+		if str, err := res.ToString(); err == nil && str != "" {
+			var cached domain.Classroom
+			if err := json.Unmarshal([]byte(str), &cached); err == nil {
+				return &cached, nil
+			}
+		}
+	}
+
 	query, args, err := r.sb.Select("id", "name", "capacity", "color", "description", "created_at").
 		From("classrooms").
 		Where(sq.Eq{"id": id}).
@@ -81,11 +105,29 @@ func (r *ClassroomRepository) GetByID(ctx context.Context, id uuid.UUID) (*domai
 		c.Description = desc.String
 	}
 
+	if r.valkeyClient != nil {
+		if data, err := json.Marshal(c); err == nil {
+			_ = r.valkeyClient.Do(ctx, r.valkeyClient.B().Set().Key(cacheKey).Value(string(data)).Ex(10*time.Minute).Build())
+		}
+	}
+
 	return &c, nil
 }
 
 // List возвращает все кабинеты, отсортированные по имени.
 func (r *ClassroomRepository) List(ctx context.Context) ([]*domain.Classroom, error) {
+	cacheKey := "cache:classrooms:list"
+	if r.valkeyClient != nil {
+		cmd := r.valkeyClient.B().Get().Key(cacheKey).Cache()
+		res := r.valkeyClient.DoCache(ctx, cmd, 10*time.Minute)
+		if str, err := res.ToString(); err == nil && str != "" {
+			var cached []*domain.Classroom
+			if err := json.Unmarshal([]byte(str), &cached); err == nil {
+				return cached, nil
+			}
+		}
+	}
+
 	query, args, err := r.sb.Select("id", "name", "capacity", "color", "description", "created_at").
 		From("classrooms").
 		OrderBy("name ASC").
@@ -124,6 +166,12 @@ func (r *ClassroomRepository) List(ctx context.Context) ([]*domain.Classroom, er
 		return nil, fmt.Errorf("rows err: %w", err)
 	}
 
+	if r.valkeyClient != nil {
+		if data, err := json.Marshal(classrooms); err == nil {
+			_ = r.valkeyClient.Do(ctx, r.valkeyClient.B().Set().Key(cacheKey).Value(string(data)).Ex(10*time.Minute).Build())
+		}
+	}
+
 	return classrooms, nil
 }
 
@@ -153,6 +201,10 @@ func (r *ClassroomRepository) Update(ctx context.Context, c *domain.Classroom) e
 		return domain.ErrClassroomNotFound
 	}
 
+	if r.valkeyClient != nil {
+		_ = r.valkeyClient.Do(ctx, r.valkeyClient.B().Del().Key("cache:classrooms:list", fmt.Sprintf("cache:classrooms:%s", c.ID)).Build())
+	}
+
 	return nil
 }
 
@@ -176,6 +228,10 @@ func (r *ClassroomRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	if rows == 0 {
 		return domain.ErrClassroomNotFound
+	}
+
+	if r.valkeyClient != nil {
+		_ = r.valkeyClient.Do(ctx, r.valkeyClient.B().Del().Key("cache:classrooms:list", fmt.Sprintf("cache:classrooms:%s", id)).Build())
 	}
 
 	return nil

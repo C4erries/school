@@ -231,3 +231,39 @@ func (s *Service) generateTokens(ctx context.Context, user *domain.User) (*Token
 		ExpiresIn:    expiresIn,
 	}, nil
 }
+
+type UserDefaultRates struct {
+	RateIndividual float64
+	RatePair       float64
+	RateGroup      float64
+}
+
+func (s *Service) GetDefaultRates(ctx context.Context, userID uuid.UUID) (*UserDefaultRates, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, domain.ErrUserNotFound
+	}
+	rates := &UserDefaultRates{}
+	if user.DefaultRateIndividual != nil {
+		rates.RateIndividual = *user.DefaultRateIndividual
+	}
+	if user.DefaultRatePair != nil {
+		rates.RatePair = *user.DefaultRatePair
+	}
+	if user.DefaultRateGroup != nil {
+		rates.RateGroup = *user.DefaultRateGroup
+	}
+	return rates, nil
+}
+
+func (s *Service) UpdateDefaultRates(ctx context.Context, userID uuid.UUID, rates UserDefaultRates) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return domain.ErrUserNotFound
+	}
+	user.DefaultRateIndividual = &rates.RateIndividual
+	user.DefaultRatePair = &rates.RatePair
+	user.DefaultRateGroup = &rates.RateGroup
+	return s.userRepo.Update(ctx, user)
+}
+

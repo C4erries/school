@@ -15,6 +15,27 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AdjustBalanceRequestFormat.
+const (
+	AdjustBalanceRequestFormatGroup      AdjustBalanceRequestFormat = "group"
+	AdjustBalanceRequestFormatIndividual AdjustBalanceRequestFormat = "individual"
+	AdjustBalanceRequestFormatPair       AdjustBalanceRequestFormat = "pair"
+)
+
+// Valid indicates whether the value is a known member of the AdjustBalanceRequestFormat enum.
+func (e AdjustBalanceRequestFormat) Valid() bool {
+	switch e {
+	case AdjustBalanceRequestFormatGroup:
+		return true
+	case AdjustBalanceRequestFormatIndividual:
+		return true
+	case AdjustBalanceRequestFormatPair:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateSubscriptionRequestFormat.
 const (
 	CreateSubscriptionRequestFormatGroup      CreateSubscriptionRequestFormat = "group"
@@ -123,6 +144,21 @@ func (e SubscriptionResponseFormat) Valid() bool {
 	}
 }
 
+// AdjustBalanceRequest defines model for AdjustBalanceRequest.
+type AdjustBalanceRequest struct {
+	// DeltaHours Example: 1.5
+	DeltaHours float32 `json:"delta_hours"`
+
+	// Format Example: individual
+	Format AdjustBalanceRequestFormat `json:"format"`
+
+	// Reason Example: Компенсация за технический сбой
+	Reason string `json:"reason"`
+}
+
+// AdjustBalanceRequestFormat Example: individual
+type AdjustBalanceRequestFormat string
+
 // AssignTagRequest defines model for AssignTagRequest.
 type AssignTagRequest struct {
 	TagId openapi_types.UUID `json:"tag_id"`
@@ -182,8 +218,11 @@ type ClientResponse struct {
 	BaseRate  *float32           `json:"base_rate,omitempty"`
 	CreatedAt time.Time          `json:"created_at"`
 	Id        openapi_types.UUID `json:"id"`
-	Name      string             `json:"name"`
-	Phone     *string            `json:"phone,omitempty"`
+
+	// IsArchived Example: false
+	IsArchived bool    `json:"is_archived"`
+	Name       string  `json:"name"`
+	Phone      *string `json:"phone,omitempty"`
 
 	// RateGroup Example: 800
 	RateGroup *float32 `json:"rate_group,omitempty"`
@@ -215,9 +254,10 @@ type CreateClassroomRequest struct {
 
 // CreateClientRequest defines model for CreateClientRequest.
 type CreateClientRequest struct {
-	BaseRate *float32 `json:"base_rate,omitempty"`
-	Name     string   `json:"name"`
-	Phone    *string  `json:"phone,omitempty"`
+	BaseRate   *float32 `json:"base_rate,omitempty"`
+	IsArchived *bool    `json:"is_archived,omitempty"`
+	Name       string   `json:"name"`
+	Phone      *string  `json:"phone,omitempty"`
 
 	// RateGroup Example: 800
 	RateGroup *float32 `json:"rate_group,omitempty"`
@@ -452,6 +492,7 @@ type TokenPair struct {
 
 // UpdateClientRequest defines model for UpdateClientRequest.
 type UpdateClientRequest struct {
+	IsArchived     *bool                 `json:"is_archived,omitempty"`
 	Name           *string               `json:"name,omitempty"`
 	Phone          *string               `json:"phone,omitempty"`
 	RateGroup      *float32              `json:"rate_group,omitempty"`
@@ -474,10 +515,31 @@ type UpdateLessonRequest struct {
 	StartTime     *time.Time    `json:"start_time,omitempty"`
 }
 
+// UserDefaultRates defines model for UserDefaultRates.
+type UserDefaultRates struct {
+	// RateGroup Example: 700
+	RateGroup float32 `json:"rate_group"`
+
+	// RateIndividual Example: 1500
+	RateIndividual float32 `json:"rate_individual"`
+
+	// RatePair Example: 1000
+	RatePair float32 `json:"rate_pair"`
+}
+
 // UserResponse defines model for UserResponse.
 type UserResponse struct {
 	// CreatedAt Example: 2026-10-04T12:00:00Z
 	CreatedAt time.Time `json:"created_at"`
+
+	// DefaultRateGroup Example: 700
+	DefaultRateGroup *float32 `json:"default_rate_group,omitempty"`
+
+	// DefaultRateIndividual Example: 1500
+	DefaultRateIndividual *float32 `json:"default_rate_individual,omitempty"`
+
+	// DefaultRatePair Example: 1000
+	DefaultRatePair *float32 `json:"default_rate_pair,omitempty"`
 
 	// Email Example: student@school.ru
 	Email openapi_types.Email `json:"email"`
@@ -493,6 +555,15 @@ type UserResponse struct {
 
 	// Role Example: student
 	Role Role `json:"role"`
+}
+
+// ListClientsParams defines parameters for ListClients.
+type ListClientsParams struct {
+	// IsArchived Фильтр по архивному статусу (null - все, false - только активные, true - только архивные)
+	IsArchived *bool `form:"is_archived,omitempty" json:"is_archived,omitempty"`
+
+	// Search Поиск по имени или телефону
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
 // GetDashboardMetricsParams defines parameters for GetDashboardMetrics.
@@ -529,6 +600,9 @@ type CreateClientJSONRequestBody = CreateClientRequest
 // UpdateClientJSONRequestBody defines body for UpdateClient for application/json ContentType.
 type UpdateClientJSONRequestBody = UpdateClientRequest
 
+// AdjustClientBalanceJSONRequestBody defines body for AdjustClientBalance for application/json ContentType.
+type AdjustClientBalanceJSONRequestBody = AdjustBalanceRequest
+
 // CreateSubscriptionJSONRequestBody defines body for CreateSubscription for application/json ContentType.
 type CreateSubscriptionJSONRequestBody = CreateSubscriptionRequest
 
@@ -546,6 +620,9 @@ type CancelLessonJSONRequestBody = CancelLessonRequest
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
+
+// UpdateUserDefaultRatesJSONRequestBody defines body for UpdateUserDefaultRates for application/json ContentType.
+type UpdateUserDefaultRatesJSONRequestBody = UserDefaultRates
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -569,7 +646,7 @@ type ServerInterface interface {
 	CreateClassroom(w http.ResponseWriter, r *http.Request)
 	// ListClients Список клиентов
 	// (GET /clients)
-	ListClients(w http.ResponseWriter, r *http.Request)
+	ListClients(w http.ResponseWriter, r *http.Request, params ListClientsParams)
 	// CreateClient Создание клиента
 	// (POST /clients)
 	CreateClient(w http.ResponseWriter, r *http.Request)
@@ -582,6 +659,12 @@ type ServerInterface interface {
 	// UpdateClient Редактирование клиента
 	// (PATCH /clients/{id})
 	UpdateClient(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// AdjustClientBalance Ручная корректировка баланса абонемента с аудитом
+	// (POST /clients/{id}/adjust-balance)
+	AdjustClientBalance(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// ArchiveClient Архивация клиента
+	// (POST /clients/{id}/archive)
+	ArchiveClient(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// ListSubscriptions Список абонементов
 	// (GET /clients/{id}/subscriptions)
 	ListSubscriptions(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
@@ -594,6 +677,9 @@ type ServerInterface interface {
 	// RemoveClientTag Отвязать тег от клиента
 	// (DELETE /clients/{id}/tags/{tag_id})
 	RemoveClientTag(w http.ResponseWriter, r *http.Request, id openapi_types.UUID, tagId openapi_types.UUID)
+	// UnarchiveClient Восстановление клиента из архива
+	// (POST /clients/{id}/unarchive)
+	UnarchiveClient(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
 	// GetDashboardMetrics Метрики дашборда
 	// (GET /dashboard/metrics)
 	GetDashboardMetrics(w http.ResponseWriter, r *http.Request, params GetDashboardMetricsParams)
@@ -624,6 +710,12 @@ type ServerInterface interface {
 	// DeleteTag Удаление тега
 	// (DELETE /tags/{id})
 	DeleteTag(w http.ResponseWriter, r *http.Request, id openapi_types.UUID)
+	// GetUserDefaultRates Получение дефолтных ставок преподавателя
+	// (GET /users/me/rates)
+	GetUserDefaultRates(w http.ResponseWriter, r *http.Request)
+	// UpdateUserDefaultRates Обновление дефолтных ставок преподавателя
+	// (PUT /users/me/rates)
+	UpdateUserDefaultRates(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -722,8 +814,40 @@ func (siw *ServerInterfaceWrapper) CreateClassroom(w http.ResponseWriter, r *htt
 // ListClients operation middleware
 func (siw *ServerInterfaceWrapper) ListClients(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListClientsParams
+
+	// ------------- Optional query parameter "is_archived" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "is_archived", r.URL.Query(), &params.IsArchived, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "is_archived"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "is_archived", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "search", r.URL.Query(), &params.Search, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "search"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListClients(w, r)
+		siw.Handler.ListClients(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -816,6 +940,58 @@ func (siw *ServerInterfaceWrapper) UpdateClient(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateClient(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AdjustClientBalance operation middleware
+func (siw *ServerInterfaceWrapper) AdjustClientBalance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdjustClientBalance(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ArchiveClient operation middleware
+func (siw *ServerInterfaceWrapper) ArchiveClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ArchiveClient(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -929,6 +1105,32 @@ func (siw *ServerInterfaceWrapper) RemoveClientTag(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveClientTag(w, r, id, tagId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnarchiveClient operation middleware
+func (siw *ServerInterfaceWrapper) UnarchiveClient(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnarchiveClient(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1242,6 +1444,34 @@ func (siw *ServerInterfaceWrapper) DeleteTag(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetUserDefaultRates operation middleware
+func (siw *ServerInterfaceWrapper) GetUserDefaultRates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUserDefaultRates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUserDefaultRates operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUserDefaultRates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUserDefaultRates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1367,6 +1597,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/auth/refresh", wrapper.RefreshTokens)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/auth/me", wrapper.GetCurrentUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/users/me/rates", wrapper.GetUserDefaultRates)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/users/me/rates", wrapper.UpdateUserDefaultRates)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/classrooms", wrapper.ListClassrooms)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/classrooms", wrapper.CreateClassroom)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/clients", wrapper.ListClients)
@@ -1376,6 +1608,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/clients/{id}", wrapper.DeleteClient)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/clients/{id}", wrapper.GetClient)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/clients/{id}", wrapper.UpdateClient)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/archive", wrapper.ArchiveClient)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/unarchive", wrapper.UnarchiveClient)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/adjust-balance", wrapper.AdjustClientBalance)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/clients/{id}/tags", wrapper.AssignClientTag)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/clients/{id}/tags/{tag_id}", wrapper.RemoveClientTag)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/tags", wrapper.ListTags)

@@ -67,6 +67,7 @@ func mapClientToResponse(c *domain.Client) generated.ClientResponse {
 		RatePair:         ratePair,
 		RateGroup:        rateGroup,
 		SchoolPercentTag: &schoolPercentTag,
+		IsArchived:       c.IsArchived,
 		Tags:             tags,
 		Balances:         balances,
 		CreatedAt:        c.CreatedAt,
@@ -74,7 +75,7 @@ func mapClientToResponse(c *domain.Client) generated.ClientResponse {
 }
 
 // ListClients реализует GET /clients.
-func (h *APIHandler) ListClients(w http.ResponseWriter, r *http.Request) {
+func (h *APIHandler) ListClients(w http.ResponseWriter, r *http.Request, params generated.ListClientsParams) {
 	claims, ok := h.authenticate(w, r)
 	if !ok {
 		return
@@ -85,7 +86,15 @@ func (h *APIHandler) ListClients(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clients, err := h.crmService.ListClients(r.Context(), claims.UserID)
+	var filter []crm.ClientFilter
+	if params.IsArchived != nil || (params.Search != nil && strings.TrimSpace(*params.Search) != "") {
+		filter = append(filter, crm.ClientFilter{
+			IsArchived: params.IsArchived,
+			Search:     params.Search,
+		})
+	}
+
+	clients, err := h.crmService.ListClients(r.Context(), claims.UserID, filter...)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to list clients")
 		return
@@ -155,6 +164,11 @@ func (h *APIHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		tagIDs = *req.TagIds
 	}
 
+	isArchived := false
+	if req.IsArchived != nil {
+		isArchived = *req.IsArchived
+	}
+
 	client, err := h.crmService.CreateClientWithRates(r.Context(), crm.CreateClientInput{
 		TeacherID:        claims.UserID,
 		Name:             name,
@@ -164,6 +178,7 @@ func (h *APIHandler) CreateClient(w http.ResponseWriter, r *http.Request) {
 		RatePair:         ratePair,
 		RateGroup:        rateGroup,
 		SchoolPercentTag: schoolPercentTag,
+		IsArchived:       isArchived,
 		TagIDs:           tagIDs,
 	})
 	if err != nil {
@@ -247,6 +262,7 @@ func (h *APIHandler) UpdateClient(w http.ResponseWriter, r *http.Request, id ope
 		RateIndividual: rateIndiv,
 		RatePair:       ratePair,
 		RateGroup:      rateGroup,
+		IsArchived:     req.IsArchived,
 		TagIDs:         req.TagIds,
 	})
 	if err != nil {
@@ -440,4 +456,118 @@ func (h *APIHandler) CreateSubscription(w http.ResponseWriter, r *http.Request, 
 		Balance:   float32(sub.Balance),
 		CreatedAt: sub.CreatedAt,
 	})
+}
+
+// ArchiveClient реализует POST /clients/{id}/archive.
+func (h *APIHandler) ArchiveClient(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can archive clients")
+		return
+	}
+
+	client, err := h.crmService.ArchiveClient(r.Context(), id, claims.UserID, claims.Role)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrClientNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "client not found")
+		case errors.Is(err, crm.ErrUnauthorizedAction):
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to archive client")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapClientToResponse(client))
+}
+
+// UnarchiveClient реализует POST /clients/{id}/unarchive.
+func (h *APIHandler) UnarchiveClient(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can unarchive clients")
+		return
+	}
+
+	client, err := h.crmService.UnarchiveClient(r.Context(), id, claims.UserID, claims.Role)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrClientNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "client not found")
+		case errors.Is(err, crm.ErrUnauthorizedAction):
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to unarchive client")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapClientToResponse(client))
+}
+
+// AdjustClientBalance реализует POST /clients/{id}/adjust-balance.
+func (h *APIHandler) AdjustClientBalance(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can adjust client balance")
+		return
+	}
+
+	var req generated.AdjustBalanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "reason is required")
+		return
+	}
+
+	if req.DeltaHours == 0 {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "delta_hours cannot be zero")
+		return
+	}
+
+	format := domain.SubscriptionFormat(req.Format)
+	if !format.IsValid() {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid subscription format")
+		return
+	}
+
+	client, err := h.crmService.AdjustBalance(r.Context(), crm.AdjustBalanceInput{
+		ClientID:   id,
+		CallerID:   claims.UserID,
+		CallerRole: claims.Role,
+		Format:     format,
+		DeltaHours: float64(req.DeltaHours),
+		Reason:     reason,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrClientNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "client not found")
+		case errors.Is(err, crm.ErrUnauthorizedAction):
+			writeError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to adjust client balance")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapClientToResponse(client))
 }

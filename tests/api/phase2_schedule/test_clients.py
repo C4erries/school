@@ -369,3 +369,80 @@ class TestClients:
             json={"name": "Аноним"},
         )
         assert res_401.status_code == 401, f"Expected 401, got {res_401.status_code}: {res_401.text}"
+
+    def test_client_archive_unarchive_and_filtering(self, client: httpx.Client, teacher_user):
+        """Проверка архивации, разархивации и фильтрации клиентов по статусу и поиску."""
+        headers = teacher_user["headers"]
+        name = f"Архивный {uuid.uuid4().hex[:6]}"
+        create_res = client.post("/api/v1/clients", json={"name": name, "rate_individual": 2000.0}, headers=headers)
+        assert create_res.status_code == 201
+        c_id = create_res.json()["id"]
+        assert create_res.json()["is_archived"] is False
+
+        # 1. Архивация клиента
+        arch_res = client.post(f"/api/v1/clients/{c_id}/archive", headers=headers)
+        assert arch_res.status_code == 200
+        assert arch_res.json()["is_archived"] is True
+
+        # 2. Список клиентов с is_archived=true должен содержать архивированного клиента
+        list_arch = client.get("/api/v1/clients?is_archived=true", headers=headers)
+        assert list_arch.status_code == 200
+        arch_ids = [c["id"] for c in list_arch.json()]
+        assert c_id in arch_ids
+
+        # 3. Список клиентов с is_archived=false НЕ должен содержать архивированного клиента
+        list_active = client.get("/api/v1/clients?is_archived=false", headers=headers)
+        assert list_active.status_code == 200
+        active_ids = [c["id"] for c in list_active.json()]
+        assert c_id not in active_ids
+
+        # 4. Поиск по имени
+        search_res = client.get(f"/api/v1/clients?search={name}", headers=headers)
+        assert search_res.status_code == 200
+        search_ids = [c["id"] for c in search_res.json()]
+        assert c_id in search_ids
+
+        # 5. Разархивация клиента
+        unarch_res = client.post(f"/api/v1/clients/{c_id}/unarchive", headers=headers)
+        assert unarch_res.status_code == 200
+        assert unarch_res.json()["is_archived"] is False
+
+    def test_adjust_client_balance(self, client: httpx.Client, teacher_user):
+        """Проверка ручной корректировки баланса клиента с аудитом."""
+        headers = teacher_user["headers"]
+        name = f"Баланс {uuid.uuid4().hex[:6]}"
+        create_res = client.post("/api/v1/clients", json={"name": name, "rate_individual": 2000.0}, headers=headers)
+        assert create_res.status_code == 201
+        c_id = create_res.json()["id"]
+
+        # Исходный абонемент на 4 часа
+        sub_res = client.post(f"/api/v1/clients/{c_id}/subscriptions", json={"format": "individual", "balance": 4.0}, headers=headers)
+        assert sub_res.status_code == 201
+
+        # 1. Корректировка в плюс (+2.5 часа)
+        adj_res = client.post(f"/api/v1/clients/{c_id}/adjust-balance", json={
+            "delta_hours": 2.5,
+            "format": "individual",
+            "reason": "Компенсация за перенос урока",
+        }, headers=headers)
+        assert adj_res.status_code == 200
+        assert adj_res.json()["balances"]["individual_hours"] == 6.5
+        assert adj_res.json()["balances"]["total_hours"] == 6.5
+
+        # 2. Корректировка в минус (-1.0 час)
+        adj_res2 = client.post(f"/api/v1/clients/{c_id}/adjust-balance", json={
+            "delta_hours": -1.0,
+            "format": "individual",
+            "reason": "Штраф за пропуск",
+        }, headers=headers)
+        assert adj_res2.status_code == 200
+        assert adj_res2.json()["balances"]["individual_hours"] == 5.5
+
+        # 3. Валидация: пустая причина -> 400 Bad Request
+        bad_res = client.post(f"/api/v1/clients/{c_id}/adjust-balance", json={
+            "delta_hours": 1.0,
+            "format": "individual",
+            "reason": "   ",
+        }, headers=headers)
+        assert bad_res.status_code == 400
+

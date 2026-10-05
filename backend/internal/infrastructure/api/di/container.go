@@ -70,10 +70,11 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// 4. Репозитории и адаптеры инфраструктуры
 	_ = postgres.NewTransactor(db)
 	userRepo := postgres.NewUserRepository(db)
-	classroomRepo := postgres.NewClassroomRepository(db)
+	classroomRepo := postgres.NewClassroomRepository(db, valkeyClient)
 	clientRepo := postgres.NewClientRepository(db)
 	subRepo := postgres.NewSubscriptionRepository(db)
-	tagRepo := postgres.NewTagRepository(db)
+	tagRepo := postgres.NewTagRepository(db, valkeyClient)
+	adjRepo := postgres.NewBalanceAdjustmentRepository(db)
 	lessonRepo := postgres.NewLessonRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
@@ -82,7 +83,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// 5. Сервисы уровня Application
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
 	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
-	crmService := crm.NewService(clientRepo, subRepo, tagRepo)
+	crmService := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
 	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
 
 	// 6. HTTP API Handler и роутер

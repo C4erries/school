@@ -28,6 +28,7 @@ type Client struct {
 	RatePair         *float64       `json:"rate_pair" db:"rate_pair"`
 	RateGroup        *float64       `json:"rate_group" db:"rate_group"`
 	SchoolPercentTag int            `json:"school_percent_tag" db:"school_percent_tag"`
+	IsArchived       bool           `json:"is_archived" db:"is_archived"`
 	Tags             []Tag          `json:"tags"`
 	Balances         ClientBalances `json:"balances"`
 	CreatedAt        time.Time      `json:"created_at" db:"created_at"`

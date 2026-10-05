@@ -5,12 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 
+	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/domain"
 )
+
+type ClientFilter = crm.ClientFilter
 
 // ClientRepository реализует хранение клиентов репетитора в PostgreSQL.
 type ClientRepository struct {
@@ -56,6 +60,7 @@ func (r *ClientRepository) Create(ctx context.Context, c *domain.Client) error {
 			"rate_pair",
 			"rate_group",
 			"school_percent_tag",
+			"is_archived",
 			"created_at",
 		).
 		Values(
@@ -68,6 +73,7 @@ func (r *ClientRepository) Create(ctx context.Context, c *domain.Client) error {
 			c.RatePair,
 			c.RateGroup,
 			c.SchoolPercentTag,
+			c.IsArchived,
 			c.CreatedAt,
 		).
 		ToSql()
@@ -95,6 +101,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 		"rate_pair",
 		"rate_group",
 		"school_percent_tag",
+		"is_archived",
 		"created_at",
 	).
 		From("clients").
@@ -118,6 +125,7 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 		&ratePair,
 		&rateGroup,
 		&c.SchoolPercentTag,
+		&c.IsArchived,
 		&c.CreatedAt,
 	)
 	if err != nil {
@@ -158,8 +166,8 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 }
 
 // ListByTeacherID возвращает всех клиентов указанного преподавателя с агрегированными балансами и тегами.
-func (r *ClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.UUID) ([]*domain.Client, error) {
-	query, args, err := r.sb.Select(
+func (r *ClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.UUID, filter ...ClientFilter) ([]*domain.Client, error) {
+	builder := r.sb.Select(
 		"id",
 		"teacher_id",
 		"name",
@@ -169,12 +177,27 @@ func (r *ClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.U
 		"rate_pair",
 		"rate_group",
 		"school_percent_tag",
+		"is_archived",
 		"created_at",
 	).
 		From("clients").
-		Where(sq.Eq{"teacher_id": teacherID}).
-		OrderBy("created_at DESC").
-		ToSql()
+		Where(sq.Eq{"teacher_id": teacherID})
+
+	if len(filter) > 0 {
+		f := filter[0]
+		if f.IsArchived != nil {
+			builder = builder.Where(sq.Eq{"is_archived": *f.IsArchived})
+		}
+		if f.Search != nil && strings.TrimSpace(*f.Search) != "" {
+			term := "%" + strings.TrimSpace(*f.Search) + "%"
+			builder = builder.Where(sq.Or{
+				sq.ILike{"name": term},
+				sq.ILike{"phone": term},
+			})
+		}
+	}
+
+	query, args, err := builder.OrderBy("created_at DESC").ToSql()
 	if err != nil {
 		return nil, fmt.Errorf("build list clients query: %w", err)
 	}
@@ -201,6 +224,7 @@ func (r *ClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.U
 			&ratePair,
 			&rateGroup,
 			&c.SchoolPercentTag,
+			&c.IsArchived,
 			&c.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan client: %w", err)
@@ -276,6 +300,7 @@ func (r *ClientRepository) Update(ctx context.Context, c *domain.Client) error {
 		Set("rate_pair", c.RatePair).
 		Set("rate_group", c.RateGroup).
 		Set("school_percent_tag", c.SchoolPercentTag).
+		Set("is_archived", c.IsArchived).
 		Where(sq.Eq{"id": c.ID}).
 		ToSql()
 	if err != nil {

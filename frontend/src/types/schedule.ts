@@ -73,7 +73,20 @@ export interface Client {
   tag_ids?: string[];
   balance: number;
   balances?: ClientBalances;
+  is_archived?: boolean;
   created_at: string;
+}
+
+export interface UserDefaultRates {
+  rate_individual: number;
+  rate_pair: number;
+  rate_group: number;
+}
+
+export interface AdjustBalanceRequest {
+  format: SubscriptionFormat;
+  delta_hours: number;
+  reason: string;
 }
 
 export interface ClientSubscription {

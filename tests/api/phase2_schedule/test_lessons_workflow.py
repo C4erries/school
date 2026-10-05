@@ -231,6 +231,37 @@ class TestLessonsWorkflow:
         assert updated["notes"] == "Перенесенный урок по геометрии"
         assert updated["status"] == "scheduled"
 
+        # 2. Переключаем урок в онлайн (указываем ссылку без classroom_id) -> кабинет должен очиститься
+        patch_online = client.patch(
+            f"/api/v1/lessons/{lesson_id}",
+            json={
+                "location_or_url": "https://meet.google.com/xyz-abc",
+            },
+            headers=teacher["headers"],
+        )
+        assert patch_online.status_code == 200, f"PATCH online failed: {patch_online.text}"
+        online_data = patch_online.json()
+        assert online_data.get("classroom_id") is None
+        assert online_data["location_or_url"] == "https://meet.google.com/xyz-abc"
+
+        # 3. Привязываем кабинет обратно и сбрасываем явным classroom_id: null
+        patch_back = client.patch(
+            f"/api/v1/lessons/{lesson_id}",
+            json={"classroom_id": classroom["id"]},
+            headers=teacher["headers"],
+        )
+        assert patch_back.status_code == 200
+        assert patch_back.json()["classroom_id"] == classroom["id"]
+
+        patch_null = client.patch(
+            f"/api/v1/lessons/{lesson_id}",
+            json={"classroom_id": None},
+            headers=teacher["headers"],
+        )
+        assert patch_null.status_code == 200
+        assert patch_null.json().get("classroom_id") is None
+
+
     def test_lesson_overlap_allowed_for_same_teacher(
         self,
         client: httpx.Client,

@@ -34,14 +34,17 @@ func (r Role) IsValid() bool {
 
 // User представляет сущность пользователя в домене.
 type User struct {
-	ID           uuid.UUID
-	Email        string
-	PasswordHash string
-	FullName     string
-	Phone        *string
-	Role         Role
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                    uuid.UUID
+	Email                 string
+	PasswordHash          string
+	FullName              string
+	Phone                 *string
+	Role                  Role
+	DefaultRateIndividual *float64
+	DefaultRatePair       *float64
+	DefaultRateGroup      *float64
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 // Ошибки валидации и существования пользователя.

@@ -13,6 +13,8 @@ import {
   UpdateLessonRequest,
   FinancialDashboardStats,
   DashboardMetrics,
+  UserDefaultRates,
+  AdjustBalanceRequest,
 } from '../types/schedule';
 import { User, Role } from '../types/auth';
 
@@ -176,8 +178,20 @@ export async function createTag(data: CreateTagRequest): Promise<Tag> {
 // 4. Клиенты и Абонементы (Clients & Format Subscriptions)
 // ---------------------------------------------------------------------------
 
-export async function getClients(): Promise<Client[]> {
-  const res = await fetch(`${BASE_URL}/clients`, { headers: getHeaders() });
+export async function getClients(params?: {
+  is_archived?: boolean;
+  search?: string;
+}): Promise<Client[]> {
+  const query = new URLSearchParams();
+  if (params?.is_archived !== undefined) {
+    query.set('is_archived', String(params.is_archived));
+  }
+  if (params?.search) {
+    query.set('search', params.search);
+  }
+  const queryString = query.toString() ? `?${query.toString()}` : '';
+
+  const res = await fetch(`${BASE_URL}/clients${queryString}`, { headers: getHeaders() });
   if (!res.ok) {
     throw new Error('Не удалось загрузить клиентов');
   }
@@ -201,6 +215,7 @@ export async function getClients(): Promise<Client[]> {
       balance: balances.total_hours ?? c.balance ?? 0,
       balances,
       tags: c.tags ?? (c.tag ? [{ id: 'legacy-tag', name: c.tag, school_percent: c.school_percent_tag ?? 0 }] : []),
+      is_archived: Boolean(c.is_archived),
     };
   });
 }
@@ -337,7 +352,7 @@ export async function getLessons(params?: {
   return data.map((l) => ({
     ...l,
     title: l.title || l.notes || 'Занятие',
-    online_link: l.format === 'online' ? (l.location_or_url || l.online_link) : (l.online_link || undefined),
+    online_link: l.location_or_url || l.online_link || undefined,
     classroom_name: l.classroom_name || (l.format === 'offline' ? l.location_or_url : undefined),
     comment: l.comment || l.notes,
     decline_reason: l.decline_reason || l.cancel_reason,
@@ -388,23 +403,14 @@ export async function updateLesson(lessonId: string, data: UpdateLessonRequest):
   if (data.comment !== undefined) payload.notes = data.comment;
 
   const res = await fetch(`${BASE_URL}/lessons/${lessonId}`, {
-    method: 'PUT',
+    method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
-    // Fallback to PATCH if PUT is not defined
-    const patchRes = await fetch(`${BASE_URL}/lessons/${lessonId}`, {
-      method: 'PATCH',
-      headers: getHeaders(),
-      body: JSON.stringify(payload),
-    });
-    if (!patchRes.ok) {
-      const errorData = await patchRes.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'Не удалось обновить занятие');
-    }
-    return await patchRes.json();
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось обновить занятие');
   }
 
   return await res.json();
@@ -527,4 +533,73 @@ export async function getFinancialDashboard(): Promise<FinancialDashboardStats> 
     average_rate: 0,
     average_hourly_rate: 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// 7. Дефолтные ставки преподавателя (Tutor Default Rates)
+// ---------------------------------------------------------------------------
+
+export async function getDefaultRates(): Promise<UserDefaultRates> {
+  const res = await fetch(`${BASE_URL}/users/me/rates`, { headers: getHeaders() });
+  if (!res.ok) {
+    throw new Error('Не удалось загрузить базовые ставки');
+  }
+  return await res.json();
+}
+
+export async function updateDefaultRates(rates: UserDefaultRates): Promise<UserDefaultRates> {
+  const res = await fetch(`${BASE_URL}/users/me/rates`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(rates),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось обновить базовые ставки');
+  }
+  return await res.json();
+}
+
+// ---------------------------------------------------------------------------
+// 8. Архивация и ручная корректировка баланса клиента (Archive & Adjust Balance)
+// ---------------------------------------------------------------------------
+
+export async function archiveClient(id: string): Promise<Client> {
+  const res = await fetch(`${BASE_URL}/clients/${id}/archive`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось архивировать ученика');
+  }
+  return await res.json();
+}
+
+export async function unarchiveClient(id: string): Promise<Client> {
+  const res = await fetch(`${BASE_URL}/clients/${id}/unarchive`, {
+    method: 'POST',
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось восстановить ученика из архива');
+  }
+  return await res.json();
+}
+
+export async function adjustClientBalance(
+  id: string,
+  data: AdjustBalanceRequest
+): Promise<Client> {
+  const res = await fetch(`${BASE_URL}/clients/${id}/adjust-balance`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось скорректировать баланс');
+  }
+  return await res.json();
 }

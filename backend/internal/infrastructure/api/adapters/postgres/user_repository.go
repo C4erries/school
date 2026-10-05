@@ -43,9 +43,22 @@ func isUniqueViolation(err error) bool {
 
 // Create сохраняет нового пользователя в БД.
 func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
+	defaultIndiv := 1500.0
+	defaultPair := 1000.0
+	defaultGroup := 700.0
+	if u.DefaultRateIndividual != nil {
+		defaultIndiv = *u.DefaultRateIndividual
+	}
+	if u.DefaultRatePair != nil {
+		defaultPair = *u.DefaultRatePair
+	}
+	if u.DefaultRateGroup != nil {
+		defaultGroup = *u.DefaultRateGroup
+	}
+
 	query, args, err := r.sb.Insert("users").
-		Columns("id", "email", "password_hash", "full_name", "phone", "role", "created_at", "updated_at").
-		Values(u.ID, u.Email, u.PasswordHash, u.FullName, u.Phone, string(u.Role), u.CreatedAt, u.UpdatedAt).
+		Columns("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
+		Values(u.ID, u.Email, u.PasswordHash, u.FullName, u.Phone, string(u.Role), defaultIndiv, defaultPair, defaultGroup, u.CreatedAt, u.UpdatedAt).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build insert user query: %w", err)
@@ -64,7 +77,7 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 
 // GetByID находит пользователя по UUID.
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "created_at", "updated_at").
+	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{"id": id}).
 		ToSql()
@@ -74,6 +87,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 	var u domain.User
 	var role string
+	var rateIndiv, ratePair, rateGroup sql.NullFloat64
 	err = r.getDBTX(ctx).QueryRowContext(ctx, query, args...).Scan(
 		&u.ID,
 		&u.Email,
@@ -81,6 +95,9 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 		&u.FullName,
 		&u.Phone,
 		&role,
+		&rateIndiv,
+		&ratePair,
+		&rateGroup,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
@@ -92,12 +109,31 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 	}
 
 	u.Role = domain.Role(role)
+	if rateIndiv.Valid {
+		u.DefaultRateIndividual = &rateIndiv.Float64
+	} else {
+		def := 1500.0
+		u.DefaultRateIndividual = &def
+	}
+	if ratePair.Valid {
+		u.DefaultRatePair = &ratePair.Float64
+	} else {
+		def := 1000.0
+		u.DefaultRatePair = &def
+	}
+	if rateGroup.Valid {
+		u.DefaultRateGroup = &rateGroup.Float64
+	} else {
+		def := 700.0
+		u.DefaultRateGroup = &def
+	}
+
 	return &u, nil
 }
 
 // GetByEmail находит пользователя по email (без учета регистра).
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "created_at", "updated_at").
+	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
 		From("users").
 		Where("LOWER(email) = LOWER(?)", email).
 		ToSql()
@@ -107,6 +143,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 
 	var u domain.User
 	var role string
+	var rateIndiv, ratePair, rateGroup sql.NullFloat64
 	err = r.getDBTX(ctx).QueryRowContext(ctx, query, args...).Scan(
 		&u.ID,
 		&u.Email,
@@ -114,6 +151,9 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		&u.FullName,
 		&u.Phone,
 		&role,
+		&rateIndiv,
+		&ratePair,
+		&rateGroup,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
@@ -125,18 +165,49 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	}
 
 	u.Role = domain.Role(role)
+	if rateIndiv.Valid {
+		u.DefaultRateIndividual = &rateIndiv.Float64
+	} else {
+		def := 1500.0
+		u.DefaultRateIndividual = &def
+	}
+	if ratePair.Valid {
+		u.DefaultRatePair = &ratePair.Float64
+	} else {
+		def := 1000.0
+		u.DefaultRatePair = &def
+	}
+	if rateGroup.Valid {
+		u.DefaultRateGroup = &rateGroup.Float64
+	} else {
+		def := 700.0
+		u.DefaultRateGroup = &def
+	}
+
 	return &u, nil
 }
 
 // Update обновляет поля существующего пользователя.
 func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
-	query, args, err := r.sb.Update("users").
+	builder := r.sb.Update("users").
 		Set("email", u.Email).
 		Set("password_hash", u.PasswordHash).
 		Set("full_name", u.FullName).
 		Set("phone", u.Phone).
 		Set("role", string(u.Role)).
-		Set("updated_at", u.UpdatedAt).
+		Set("updated_at", u.UpdatedAt)
+
+	if u.DefaultRateIndividual != nil {
+		builder = builder.Set("default_rate_individual", *u.DefaultRateIndividual)
+	}
+	if u.DefaultRatePair != nil {
+		builder = builder.Set("default_rate_pair", *u.DefaultRatePair)
+	}
+	if u.DefaultRateGroup != nil {
+		builder = builder.Set("default_rate_group", *u.DefaultRateGroup)
+	}
+
+	query, args, err := builder.
 		Where(sq.Eq{"id": u.ID}).
 		ToSql()
 	if err != nil {

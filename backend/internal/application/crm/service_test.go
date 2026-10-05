@@ -28,7 +28,14 @@ func (m *MockClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*doma
 	}
 	return nil, args.Error(1)
 }
-func (m *MockClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.UUID) ([]*domain.Client, error) {
+func (m *MockClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.UUID, filter ...crm.ClientFilter) ([]*domain.Client, error) {
+	if len(filter) > 0 {
+		args := m.Called(ctx, teacherID, filter[0])
+		if list := args.Get(0); list != nil {
+			return list.([]*domain.Client), args.Error(1)
+		}
+		return nil, args.Error(1)
+	}
 	args := m.Called(ctx, teacherID)
 	if list := args.Get(0); list != nil {
 		return list.([]*domain.Client), args.Error(1)
@@ -244,4 +251,87 @@ func TestCRMService_TagsAndRates(t *testing.T) {
 		tagRepo.AssertExpectations(t)
 		clientRepo.AssertExpectations(t)
 	})
+
+	t.Run("ArchiveClient and UnarchiveClient", func(t *testing.T) {
+		clientID := uuid.New()
+		client := &domain.Client{
+			ID:         clientID,
+			TeacherID:  teacherID,
+			Name:       "Архивный Ученик",
+			IsArchived: false,
+		}
+		clientRepo.On("GetByID", ctx, clientID).Return(client, nil).Times(4)
+		clientRepo.On("Update", ctx, mock.MatchedBy(func(c *domain.Client) bool {
+			return c.ID == clientID && c.IsArchived == true
+		})).Return(nil).Once()
+		clientRepo.On("Update", ctx, mock.MatchedBy(func(c *domain.Client) bool {
+			return c.ID == clientID && c.IsArchived == false
+		})).Return(nil).Once()
+
+		archived, err := svc.ArchiveClient(ctx, clientID, teacherID, domain.RoleTeacher)
+		require.NoError(t, err)
+		assert.True(t, archived.IsArchived)
+
+		unarchived, err := svc.UnarchiveClient(ctx, clientID, teacherID, domain.RoleTeacher)
+		require.NoError(t, err)
+		assert.False(t, unarchived.IsArchived)
+	})
+
+	t.Run("AdjustBalance with audit log", func(t *testing.T) {
+		adjRepo := new(MockBalanceAdjustmentRepository)
+		svcWithAdj := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
+
+		clientID := uuid.New()
+		client := &domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+			Name:      "Балансовый Клиент",
+		}
+		clientRepo.On("GetByID", ctx, clientID).Return(client, nil).Times(2)
+
+		subID := uuid.New()
+		existingSub := &domain.ClientSubscription{
+			ID:       subID,
+			ClientID: clientID,
+			Format:   domain.SubscriptionFormatIndividual,
+			Balance:  5.0,
+		}
+		subRepo.On("GetByClientID", ctx, clientID).Return([]*domain.ClientSubscription{existingSub}, nil).Once()
+		subRepo.On("Update", ctx, mock.MatchedBy(func(sub *domain.ClientSubscription) bool {
+			return sub.ID == subID && sub.Balance == 6.5
+		})).Return(nil).Once()
+
+		adjRepo.On("Create", ctx, mock.MatchedBy(func(adj *domain.ClientBalanceAdjustment) bool {
+			return adj.ClientID == clientID && adj.TeacherID == teacherID && adj.Format == domain.SubscriptionFormatIndividual && adj.DeltaHours == 1.5 && adj.Reason == "Компенсация за сбой"
+		})).Return(nil).Once()
+
+		res, err := svcWithAdj.AdjustBalance(ctx, crm.AdjustBalanceInput{
+			ClientID:   clientID,
+			CallerID:   teacherID,
+			CallerRole: domain.RoleTeacher,
+			Format:     domain.SubscriptionFormatIndividual,
+			DeltaHours: 1.5,
+			Reason:     "Компенсация за сбой",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, clientID, res.ID)
+		adjRepo.AssertExpectations(t)
+		subRepo.AssertExpectations(t)
+	})
+}
+
+type MockBalanceAdjustmentRepository struct {
+	mock.Mock
+}
+
+func (m *MockBalanceAdjustmentRepository) Create(ctx context.Context, adj *domain.ClientBalanceAdjustment) error {
+	return m.Called(ctx, adj).Error(0)
+}
+
+func (m *MockBalanceAdjustmentRepository) ListByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientBalanceAdjustment, error) {
+	args := m.Called(ctx, clientID)
+	if list := args.Get(0); list != nil {
+		return list.([]*domain.ClientBalanceAdjustment), args.Error(1)
+	}
+	return nil, args.Error(1)
 }

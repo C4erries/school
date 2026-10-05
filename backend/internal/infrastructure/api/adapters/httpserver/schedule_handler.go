@@ -3,7 +3,9 @@ package httpserver
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"strings"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 	"github.com/google/uuid"
@@ -267,11 +269,20 @@ func (h *APIHandler) UpdateLesson(w http.ResponseWriter, r *http.Request, id ope
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "failed to read request body")
+		return
+	}
+
 	var req generated.UpdateLessonRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
 		return
 	}
+
+	var rawMap map[string]json.RawMessage
+	_ = json.Unmarshal(bodyBytes, &rawMap)
 
 	var format *domain.LessonFormat
 	if req.Format != nil {
@@ -280,7 +291,16 @@ func (h *APIHandler) UpdateLesson(w http.ResponseWriter, r *http.Request, id ope
 	}
 
 	clearClassroom := false
-	if req.ClassroomId != nil && *req.ClassroomId == openapi_types.UUID(uuid.Nil) {
+	if rawVal, exists := rawMap["classroom_id"]; exists {
+		if string(rawVal) == "null" || (req.ClassroomId != nil && *req.ClassroomId == openapi_types.UUID(uuid.Nil)) {
+			clearClassroom = true
+		}
+	} else if req.ClassroomId != nil && *req.ClassroomId == openapi_types.UUID(uuid.Nil) {
+		clearClassroom = true
+	}
+
+	// Если передан location_or_url без кабинета, гарантируем сброс classroom_id при переводе урока в онлайн
+	if req.LocationOrUrl != nil && strings.TrimSpace(*req.LocationOrUrl) != "" && (req.ClassroomId == nil || *req.ClassroomId == openapi_types.UUID(uuid.Nil)) {
 		clearClassroom = true
 	}
 

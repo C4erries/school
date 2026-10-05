@@ -119,14 +119,7 @@ func (h *APIHandler) Register(w http.ResponseWriter, r *http.Request) {
 			TokenType:    result.Tokens.TokenType,
 			ExpiresIn:    result.Tokens.ExpiresIn,
 		},
-		User: generated.UserResponse{
-			Id:        result.User.ID,
-			Email:     openapi_types.Email(result.User.Email),
-			FullName:  result.User.FullName,
-			Phone:     result.User.Phone,
-			Role:      generated.Role(result.User.Role),
-			CreatedAt: result.User.CreatedAt,
-		},
+		User: mapUserToResponse(result.User),
 	}
 
 	writeJSON(w, http.StatusCreated, resp)
@@ -160,14 +153,7 @@ func (h *APIHandler) Login(w http.ResponseWriter, r *http.Request) {
 			TokenType:    result.Tokens.TokenType,
 			ExpiresIn:    result.Tokens.ExpiresIn,
 		},
-		User: generated.UserResponse{
-			Id:        result.User.ID,
-			Email:     openapi_types.Email(result.User.Email),
-			FullName:  result.User.FullName,
-			Phone:     result.User.Phone,
-			Role:      generated.Role(result.User.Role),
-			CreatedAt: result.User.CreatedAt,
-		},
+		User: mapUserToResponse(result.User),
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -199,17 +185,38 @@ func (h *APIHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 			TokenType:    result.Tokens.TokenType,
 			ExpiresIn:    result.Tokens.ExpiresIn,
 		},
-		User: generated.UserResponse{
-			Id:        result.User.ID,
-			Email:     openapi_types.Email(result.User.Email),
-			FullName:  result.User.FullName,
-			Phone:     result.User.Phone,
-			Role:      generated.Role(result.User.Role),
-			CreatedAt: result.User.CreatedAt,
-		},
+		User: mapUserToResponse(result.User),
 	}
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func mapUserToResponse(u *domain.User) generated.UserResponse {
+	var rateIndiv, ratePair, rateGroup *float32
+	if u.DefaultRateIndividual != nil {
+		v := float32(*u.DefaultRateIndividual)
+		rateIndiv = &v
+	}
+	if u.DefaultRatePair != nil {
+		v := float32(*u.DefaultRatePair)
+		ratePair = &v
+	}
+	if u.DefaultRateGroup != nil {
+		v := float32(*u.DefaultRateGroup)
+		rateGroup = &v
+	}
+
+	return generated.UserResponse{
+		Id:                    u.ID,
+		Email:                 openapi_types.Email(u.Email),
+		FullName:              u.FullName,
+		Phone:                 u.Phone,
+		Role:                  generated.Role(u.Role),
+		DefaultRateIndividual: rateIndiv,
+		DefaultRatePair:       ratePair,
+		DefaultRateGroup:      rateGroup,
+		CreatedAt:             u.CreatedAt,
+	}
 }
 
 // GetCurrentUser реализует эндпоинт GET /auth/me.
@@ -240,16 +247,78 @@ func (h *APIHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := generated.UserResponse{
-		Id:        user.ID,
-		Email:     openapi_types.Email(user.Email),
-		FullName:  user.FullName,
-		Phone:     user.Phone,
-		Role:      generated.Role(user.Role),
-		CreatedAt: user.CreatedAt,
+	writeJSON(w, http.StatusOK, mapUserToResponse(user))
+}
+
+// GetUserDefaultRates реализует GET /users/me/rates.
+func (h *APIHandler) GetUserDefaultRates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
 	}
 
-	writeJSON(w, http.StatusOK, resp)
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can view default rates")
+		return
+	}
+
+	rates, err := h.authService.GetDefaultRates(r.Context(), claims.UserID)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to get default rates")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, generated.UserDefaultRates{
+		RateIndividual: float32(rates.RateIndividual),
+		RatePair:       float32(rates.RatePair),
+		RateGroup:      float32(rates.RateGroup),
+	})
+}
+
+// UpdateUserDefaultRates реализует PUT /users/me/rates.
+func (h *APIHandler) UpdateUserDefaultRates(w http.ResponseWriter, r *http.Request) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can update default rates")
+		return
+	}
+
+	var req generated.UserDefaultRates
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	if req.RateIndividual < 0 || req.RatePair < 0 || req.RateGroup < 0 {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "rates cannot be negative")
+		return
+	}
+
+	err := h.authService.UpdateDefaultRates(r.Context(), claims.UserID, auth.UserDefaultRates{
+		RateIndividual: float64(req.RateIndividual),
+		RatePair:       float64(req.RatePair),
+		RateGroup:      float64(req.RateGroup),
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrUserNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", "user not found")
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update default rates")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, req)
 }
 
 // Проверка на этапе компиляции, что APIHandler полностью имплементирует ServerInterface.

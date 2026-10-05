@@ -61,3 +61,36 @@ class TestTokensAndRBAC:
         data = res.json()
         assert data["status"] == "ok"
         assert data["service"] == "school-api"
+
+    def test_user_default_rates(self, client: httpx.Client, teacher_user):
+        """Проверка получения и обновления дефолтных ставок преподавателя."""
+        headers = teacher_user["headers"]
+
+        # 1. Получаем текущие дефолтные ставки
+        get_res = client.get("/api/v1/users/me/rates", headers=headers)
+        assert get_res.status_code == 200
+        initial_rates = get_res.json()
+        assert "rate_individual" in initial_rates
+        assert "rate_pair" in initial_rates
+        assert "rate_group" in initial_rates
+
+        # 2. Обновляем дефолтные ставки
+        put_payload = {
+            "rate_individual": 2700.0,
+            "rate_pair": 1900.0,
+            "rate_group": 1300.0,
+        }
+        put_res = client.put("/api/v1/users/me/rates", json=put_payload, headers=headers)
+        assert put_res.status_code == 200
+        updated = put_res.json()
+        assert updated["rate_individual"] == 2700.0
+        assert updated["rate_pair"] == 1900.0
+        assert updated["rate_group"] == 1300.0
+
+        # 3. Повторный GET возвращает обновленные значения
+        get_res2 = client.get("/api/v1/users/me/rates", headers=headers)
+        assert get_res2.status_code == 200
+        assert get_res2.json()["rate_individual"] == 2700.0
+        assert get_res2.json()["rate_pair"] == 1900.0
+        assert get_res2.json()["rate_group"] == 1300.0
+
