@@ -8,16 +8,16 @@ import { Check, MapPin, Video } from 'lucide-react';
 
 interface DayDragState {
   isDragging: boolean;
-  startHour: number;
-  currentHour: number;
+  startSlot: number;
+  currentSlot: number;
 }
 
 interface ScheduleDayViewProps {
   currentDate: Date;
   hours: number[];
   positionedDayLessons: PositionedLesson[];
-  onSlotClick: (date: Date, hour: number) => void;
-  onSlotDragSelect?: (date: Date, startHour: number, durationMinutes: number) => void;
+  onSlotClick: (date: Date, hour: number, minute?: number) => void;
+  onSlotDragSelect?: (date: Date, startHour: number, startMinute: number, durationMinutes: number) => void;
   onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
   onOpenEdit: (lesson: Lesson) => void;
   getClientDisplayName: (lesson: Lesson) => string;
@@ -41,19 +41,22 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
     const handleMouseUp = () => {
       const current = dragStateRef.current;
       if (current && current.isDragging) {
-        const minHour = Math.min(current.startHour, current.currentHour);
-        const maxHour = Math.max(current.startHour, current.currentHour);
-        const durationHours = maxHour - minHour + 1;
-        const durationMinutes = durationHours * 60;
+        const minSlot = Math.min(current.startSlot, current.currentSlot);
+        const maxSlot = Math.max(current.startSlot, current.currentSlot);
+        const numSlots = maxSlot - minSlot + 1;
+        const durationMinutes = numSlots * 30;
+        const startTotalMinutes = START_HOUR * 60 + minSlot * 30;
+        const startHour = Math.floor(startTotalMinutes / 60);
+        const startMinute = startTotalMinutes % 60;
 
-        if (durationMinutes > 60 || current.startHour !== current.currentHour) {
+        if (numSlots > 1) {
           if (onSlotDragSelect) {
-            onSlotDragSelect(currentDate, minHour, durationMinutes);
+            onSlotDragSelect(currentDate, startHour, startMinute, durationMinutes);
           } else {
-            onSlotClick(currentDate, minHour);
+            onSlotClick(currentDate, startHour, startMinute);
           }
         } else {
-          onSlotClick(currentDate, minHour);
+          onSlotClick(currentDate, startHour, startMinute);
         }
       }
       dragStateRef.current = null;
@@ -66,24 +69,26 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
     };
   }, [currentDate, onSlotClick, onSlotDragSelect]);
 
-  const handleSlotMouseDown = (e: React.MouseEvent, hour: number) => {
+  const handleSlotMouseDown = (e: React.MouseEvent, hour: number, minute: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
+    const slot = (hour - START_HOUR) * 2 + (minute === 30 ? 1 : 0);
     const state: DayDragState = {
       isDragging: true,
-      startHour: hour,
-      currentHour: hour,
+      startSlot: slot,
+      currentSlot: slot,
     };
     dragStateRef.current = state;
     setDragState(state);
   };
 
-  const handleSlotMouseEnter = (hour: number) => {
+  const handleSlotMouseEnter = (hour: number, minute: number) => {
     const current = dragStateRef.current;
     if (!current || !current.isDragging) return;
-    if (current.currentHour === hour) return;
+    const slot = (hour - START_HOUR) * 2 + (minute === 30 ? 1 : 0);
+    if (current.currentSlot === slot) return;
 
-    const next = { ...current, currentHour: hour };
+    const next = { ...current, currentSlot: slot };
     dragStateRef.current = next;
     setDragState(next);
   };
@@ -137,18 +142,33 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
         {/* Фоновые линии шкалы времени */}
         <div className="relative">
           {hours.map((hour) => (
-            <div
-              key={hour}
-              onMouseDown={(e) => handleSlotMouseDown(e, hour)}
-              onMouseEnter={() => handleSlotMouseEnter(hour)}
-              className="flex items-start border-b border-slate-200/50 hover:bg-indigo-50/20 cursor-pointer transition-colors"
-              style={{ height: `${HOUR_HEIGHT}px` }}
-              title={`Выделите или нажмите для занятия в ${hour}:00`}
-            >
-              <div className="w-16 text-right pr-4 text-xs font-mono text-slate-400 -mt-2.5">
-                {String(hour).padStart(2, '0')}:00
+            <div key={hour} className="border-b border-slate-200/60" style={{ height: `${HOUR_HEIGHT}px` }}>
+              {/* Верхняя половина: :00 - :30 */}
+              <div
+                onMouseDown={(e) => handleSlotMouseDown(e, hour, 0)}
+                onMouseEnter={() => handleSlotMouseEnter(hour, 0)}
+                className="flex items-start border-b border-dashed border-slate-200/40 hover:bg-indigo-50/20 cursor-pointer transition-colors"
+                style={{ height: `${HOUR_HEIGHT / 2}px` }}
+                title={`Выделите или нажмите для занятия в ${String(hour).padStart(2, '0')}:00`}
+              >
+                <div className="w-16 text-right pr-4 text-xs font-mono text-slate-500 font-semibold -mt-2.5">
+                  {String(hour).padStart(2, '0')}:00
+                </div>
+                <div className="flex-1 h-full border-l border-slate-200/60" />
               </div>
-              <div className="flex-1 h-full border-l border-slate-200/60" />
+              {/* Нижняя половина: :30 - :00 */}
+              <div
+                onMouseDown={(e) => handleSlotMouseDown(e, hour, 30)}
+                onMouseEnter={() => handleSlotMouseEnter(hour, 30)}
+                className="flex items-start hover:bg-indigo-50/20 cursor-pointer transition-colors"
+                style={{ height: `${HOUR_HEIGHT / 2}px` }}
+                title={`Выделите или нажмите для занятия в ${String(hour).padStart(2, '0')}:30`}
+              >
+                <div className="w-16 text-right pr-4 text-[10px] font-mono text-slate-300 -mt-2">
+                  :30
+                </div>
+                <div className="flex-1 h-full border-l border-slate-200/60" />
+              </div>
             </div>
           ))}
         </div>
@@ -159,25 +179,39 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
           style={{ height: `${hours.length * HOUR_HEIGHT}px` }}
         >
           {/* Интерактивный Liquid Glass оверлей выделения диапазона */}
-          {dragState && (
-            <div
-              className="absolute left-2 right-2 pointer-events-none z-20 rounded-2xl bg-indigo-500/25 border-2 border-indigo-400/60 backdrop-blur-[2px] p-2 flex flex-col justify-between shadow-sm animate-in fade-in transition-all duration-75"
-              style={{
-                top: `${(Math.min(dragState.startHour, dragState.currentHour) - START_HOUR) * HOUR_HEIGHT}px`,
-                height: `${(Math.abs(dragState.currentHour - dragState.startHour) + 1) * HOUR_HEIGHT}px`,
-              }}
-            >
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 bg-white/90 backdrop-blur-md rounded-xl px-2.5 py-1 w-fit shadow-xs">
-                <span>
-                  {String(Math.min(dragState.startHour, dragState.currentHour)).padStart(2, '0')}:00 –{' '}
-                  {String(Math.max(dragState.startHour, dragState.currentHour) + 1).padStart(2, '0')}:00
-                </span>
-                <span className="text-indigo-600 font-mono text-[11px]">
-                  ({(Math.abs(dragState.currentHour - dragState.startHour) + 1).toFixed(1)} ч)
-                </span>
+          {dragState && (() => {
+            const SLOT_HEIGHT = HOUR_HEIGHT / 2;
+            const minSlot = Math.min(dragState.startSlot, dragState.currentSlot);
+            const maxSlot = Math.max(dragState.startSlot, dragState.currentSlot);
+            const numSlots = maxSlot - minSlot + 1;
+            const durationMinutes = numSlots * 30;
+            const startTotalMinutes = START_HOUR * 60 + minSlot * 30;
+            const startH = Math.floor(startTotalMinutes / 60);
+            const startM = startTotalMinutes % 60;
+            const endTotalMinutes = startTotalMinutes + durationMinutes;
+            const endH = Math.floor(endTotalMinutes / 60);
+            const endM = endTotalMinutes % 60;
+
+            return (
+              <div
+                className="absolute left-2 right-2 pointer-events-none z-20 rounded-2xl bg-indigo-500/25 border-2 border-indigo-400/60 backdrop-blur-[2px] p-2 flex flex-col justify-between shadow-sm animate-in fade-in transition-all duration-75"
+                style={{
+                  top: `${minSlot * SLOT_HEIGHT}px`,
+                  height: `${numSlots * SLOT_HEIGHT}px`,
+                }}
+              >
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 bg-white/90 backdrop-blur-md rounded-xl px-2.5 py-1 w-fit shadow-xs">
+                  <span>
+                    {String(startH).padStart(2, '0')}:{String(startM).padStart(2, '0')} –{' '}
+                    {String(endH).padStart(2, '0')}:{String(endM).padStart(2, '0')}
+                  </span>
+                  <span className="text-indigo-600 font-mono text-[11px]">
+                    ({durationMinutes >= 60 ? `${(durationMinutes / 60).toFixed(1)} ч` : `${durationMinutes} мин`})
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {positionedDayLessons.map((lesson) => {
             const topOffset =
@@ -283,8 +317,20 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
                       </div>
                     ) : (lesson.online_link || lesson.format === 'online') ? (
                       <div className="flex items-center gap-1 text-xs font-medium text-emerald-600 mt-1">
-                        <Video className="w-3.5 h-3.5" />
-                        <span>Онлайн занятие</span>
+                        <Video className="w-3.5 h-3.5 shrink-0" />
+                        {lesson.online_link && lesson.online_link.startsWith('http') ? (
+                          <a
+                            href={lesson.online_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="underline hover:text-emerald-700 truncate"
+                          >
+                            Ссылка на звонок
+                          </a>
+                        ) : (
+                          <span>Онлайн занятие</span>
+                        )}
                       </div>
                     ) : null}
                   </div>

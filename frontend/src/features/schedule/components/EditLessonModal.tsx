@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlassModal } from '../../../shared/components/GlassModal';
 import { GlassInput } from '../../../shared/components/GlassInput';
 import { GlassButton } from '../../../shared/components/GlassButton';
 import { Classroom, Lesson, SubscriptionFormat } from '../../../types/schedule';
 import { updateLesson, cancelLesson, markNoShow } from '../../../api/schedule';
+import { SCHEDULE_TIME_OPTIONS } from '../types';
 import { Trash2, AlertTriangle } from 'lucide-react';
 
 interface EditLessonModalProps {
@@ -41,7 +42,10 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
       setEditTitle(lesson.title);
       const start = new Date(lesson.start_time);
       const end = new Date(lesson.end_time);
-      setEditDate(start.toISOString().split('T')[0]);
+      const y = start.getFullYear();
+      const m = String(start.getMonth() + 1).padStart(2, '0');
+      const d = String(start.getDate()).padStart(2, '0');
+      setEditDate(`${y}-${m}-${d}`);
       setEditStartTime(
         `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`
       );
@@ -53,16 +57,34 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
       setEditFormat(fmt);
 
       // Определение онлайн урока
-      const hasHttpLink = Boolean(lesson.location_or_url && lesson.location_or_url.startsWith('http'));
-      const isOnline = Boolean(lesson.online_link && lesson.online_link.startsWith('http')) || hasHttpLink || (lesson.format as string) === 'online';
+      const isOnline =
+        Boolean(lesson.location_or_url && (lesson.location_or_url.startsWith('http') || lesson.location_or_url === 'online')) ||
+        Boolean(lesson.online_link && lesson.online_link !== 'offline') ||
+        (lesson.format as string) === 'online';
+
       setEditLocationType(isOnline ? 'online' : 'offline');
       setEditClassroomId(lesson.classroom_id || '');
-      setEditOnlineLink(isOnline ? (lesson.online_link || lesson.location_or_url || '') : '');
+      const rawLink = lesson.online_link || lesson.location_or_url || '';
+      setEditOnlineLink(rawLink.startsWith('http') ? rawLink : '');
       setEditComment(lesson.comment || '');
       setCancelReason('');
       setIsCancelling(false);
     }
   }, [lesson, isOpen]);
+
+  const allStartTimeOptions = useMemo(() => {
+    if (editStartTime && !SCHEDULE_TIME_OPTIONS.includes(editStartTime)) {
+      return [...SCHEDULE_TIME_OPTIONS, editStartTime].sort();
+    }
+    return SCHEDULE_TIME_OPTIONS;
+  }, [editStartTime]);
+
+  const allEndTimeOptions = useMemo(() => {
+    if (editEndTime && !SCHEDULE_TIME_OPTIONS.includes(editEndTime)) {
+      return [...SCHEDULE_TIME_OPTIONS, editEndTime].sort();
+    }
+    return SCHEDULE_TIME_OPTIONS;
+  }, [editEndTime]);
 
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,7 +107,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
         end_time: end.toISOString(),
         format: editFormat,
         classroom_id: isOnline ? null : editClassroomId || null,
-        online_link: isOnline ? editOnlineLink.trim() : '', // ПЕРЕДАЕМ ПУСТУЮ СТРОКУ, ЧТОБЫ БЭКЕНД ОЧИСТИЛ location_or_url В БД!
+        online_link: isOnline ? (editOnlineLink.trim() || 'online') : '', // 'online' если ссылки нет, '' если перевод в оффлайн
         comment: editComment.trim(),
       });
 
@@ -157,22 +179,42 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
             required
             disabled={isCancelled}
           />
-          <GlassInput
-            label="Начало"
-            type="time"
-            value={editStartTime}
-            onChange={(e) => setEditStartTime(e.target.value)}
-            required
-            disabled={isCancelled}
-          />
-          <GlassInput
-            label="Конец"
-            type="time"
-            value={editEndTime}
-            onChange={(e) => setEditEndTime(e.target.value)}
-            required
-            disabled={isCancelled}
-          />
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
+              Начало *
+            </label>
+            <select
+              value={editStartTime}
+              onChange={(e) => setEditStartTime(e.target.value)}
+              disabled={isCancelled}
+              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              required
+            >
+              {allStartTimeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
+              Конец *
+            </label>
+            <select
+              value={editEndTime}
+              onChange={(e) => setEditEndTime(e.target.value)}
+              disabled={isCancelled}
+              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
+              required
+            >
+              {allEndTimeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Формат занятия */}

@@ -10,8 +10,8 @@ interface DragState {
   isDragging: boolean;
   day: Date;
   dayKey: string;
-  startHour: number;
-  currentHour: number;
+  startSlot: number;
+  currentSlot: number;
 }
 
 interface ScheduleWeekViewProps {
@@ -21,8 +21,8 @@ interface ScheduleWeekViewProps {
   hours: number[];
   lessons: Lesson[];
   positionLessons: (items: Lesson[]) => PositionedLesson[];
-  onSlotClick: (date: Date, hour: number) => void;
-  onSlotDragSelect?: (date: Date, startHour: number, durationMinutes: number) => void;
+  onSlotClick: (date: Date, hour: number, minute?: number) => void;
+  onSlotDragSelect?: (date: Date, startHour: number, startMinute: number, durationMinutes: number) => void;
   onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
   onOpenEdit: (lesson: Lesson) => void;
   getClientDisplayName: (lesson: Lesson) => string;
@@ -49,19 +49,23 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
     const handleMouseUp = () => {
       const current = dragStateRef.current;
       if (current && current.isDragging) {
-        const minHour = Math.min(current.startHour, current.currentHour);
-        const maxHour = Math.max(current.startHour, current.currentHour);
-        const durationHours = maxHour - minHour + 1;
-        const durationMinutes = durationHours * 60;
+        const minSlot = Math.min(current.startSlot, current.currentSlot);
+        const maxSlot = Math.max(current.startSlot, current.currentSlot);
+        const numSlots = maxSlot - minSlot + 1;
+        const durationMinutes = numSlots * 30;
+        const startTotalMinutes = START_HOUR * 60 + minSlot * 30;
+        const startHour = Math.floor(startTotalMinutes / 60);
+        const startMinute = startTotalMinutes % 60;
 
-        if (durationMinutes > 60 || current.startHour !== current.currentHour) {
+        if (numSlots > 1) {
           if (onSlotDragSelect) {
-            onSlotDragSelect(current.day, minHour, durationMinutes);
+            onSlotDragSelect(current.day, startHour, startMinute, durationMinutes);
           } else {
-            onSlotClick(current.day, minHour);
+            onSlotClick(current.day, startHour, startMinute);
           }
         } else {
-          onSlotClick(current.day, minHour);
+          // Одиночный клик по слоту
+          onSlotClick(current.day, startHour, startMinute);
         }
       }
       dragStateRef.current = null;
@@ -74,29 +78,31 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
     };
   }, [onSlotClick, onSlotDragSelect]);
 
-  const handleSlotMouseDown = (e: React.MouseEvent, day: Date, hour: number) => {
+  const handleSlotMouseDown = (e: React.MouseEvent, day: Date, hour: number, minute: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
     const dayKey = day.toISOString().split('T')[0];
+    const slot = (hour - START_HOUR) * 2 + (minute === 30 ? 1 : 0);
     const state: DragState = {
       isDragging: true,
       day,
       dayKey,
-      startHour: hour,
-      currentHour: hour,
+      startSlot: slot,
+      currentSlot: slot,
     };
     dragStateRef.current = state;
     setDragState(state);
   };
 
-  const handleSlotMouseEnter = (day: Date, hour: number) => {
+  const handleSlotMouseEnter = (day: Date, hour: number, minute: number) => {
     const current = dragStateRef.current;
     if (!current || !current.isDragging) return;
     const dayKey = day.toISOString().split('T')[0];
     if (current.dayKey !== dayKey) return;
-    if (current.currentHour === hour) return;
+    const slot = (hour - START_HOUR) * 2 + (minute === 30 ? 1 : 0);
+    if (current.currentSlot === slot) return;
 
-    const next = { ...current, currentHour: hour };
+    const next = { ...current, currentSlot: slot };
     dragStateRef.current = next;
     setDragState(next);
   };
@@ -168,10 +174,16 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
             {hours.map((hour) => (
               <div
                 key={hour}
-                className="border-b border-transparent text-right pr-3 text-xs font-mono text-slate-400 -mt-2.5"
+                className="border-b border-transparent text-right pr-2.5 text-xs font-mono text-slate-400 relative"
                 style={{ height: `${HOUR_HEIGHT}px` }}
               >
-                {String(hour).padStart(2, '0')}:00
+                <span className="block -mt-2.5 font-semibold text-slate-600">{String(hour).padStart(2, '0')}:00</span>
+                <span
+                  className="block text-[10px] text-slate-300 absolute right-2.5"
+                  style={{ top: `${HOUR_HEIGHT / 2 - 7}px` }}
+                >
+                  :30
+                </span>
               </div>
             ))}
           </div>
@@ -181,6 +193,7 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
             const dayStr = day.toISOString().split('T')[0];
             const dayItems = lessons.filter((l) => l.start_time.startsWith(dayStr));
             const positionedItems = positionLessons(dayItems);
+            const SLOT_HEIGHT = HOUR_HEIGHT / 2;
 
             return (
               <div
@@ -188,38 +201,59 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
                 className="relative border-l border-slate-200/60"
                 style={{ height: `${hours.length * HOUR_HEIGHT}px` }}
               >
-                {/* Фоновые горизонтальные линии и кликабельные слоты */}
+                {/* Фоновые горизонтальные линии и кликабельные слоты с шагом 30 минут */}
                 {hours.map((hour) => (
-                  <div
-                    key={hour}
-                    onMouseDown={(e) => handleSlotMouseDown(e, day, hour)}
-                    onMouseEnter={() => handleSlotMouseEnter(day, hour)}
-                    className="border-b border-slate-200/50 hover:bg-indigo-50/30 cursor-pointer transition-colors"
-                    style={{ height: `${HOUR_HEIGHT}px` }}
-                    title={`Выделите или нажмите на ${day.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${hour}:00`}
-                  />
+                  <div key={hour} className="border-b border-slate-200/60" style={{ height: `${HOUR_HEIGHT}px` }}>
+                    <div
+                      onMouseDown={(e) => handleSlotMouseDown(e, day, hour, 0)}
+                      onMouseEnter={() => handleSlotMouseEnter(day, hour, 0)}
+                      className="border-b border-dashed border-slate-200/40 hover:bg-indigo-50/30 cursor-pointer transition-colors"
+                      style={{ height: `${HOUR_HEIGHT / 2}px` }}
+                      title={`${day.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(hour).padStart(2, '0')}:00`}
+                    />
+                    <div
+                      onMouseDown={(e) => handleSlotMouseDown(e, day, hour, 30)}
+                      onMouseEnter={() => handleSlotMouseEnter(day, hour, 30)}
+                      className="hover:bg-indigo-50/30 cursor-pointer transition-colors"
+                      style={{ height: `${HOUR_HEIGHT / 2}px` }}
+                      title={`${day.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${String(hour).padStart(2, '0')}:30`}
+                    />
+                  </div>
                 ))}
 
                 {/* Интерактивный Liquid Glass оверлей выделения диапазона при перетаскивании мышью */}
-                {dragState && dragState.dayKey === dayStr && (
-                  <div
-                    className="absolute left-1 right-1 pointer-events-none z-20 rounded-2xl bg-indigo-500/25 border-2 border-indigo-400/60 backdrop-blur-[2px] p-2 flex flex-col justify-between shadow-sm animate-in fade-in transition-all duration-75"
-                    style={{
-                      top: `${(Math.min(dragState.startHour, dragState.currentHour) - START_HOUR) * HOUR_HEIGHT}px`,
-                      height: `${(Math.abs(dragState.currentHour - dragState.startHour) + 1) * HOUR_HEIGHT}px`,
-                    }}
-                  >
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 bg-white/90 backdrop-blur-md rounded-xl px-2 py-0.5 w-fit shadow-xs">
-                      <span>
-                        {String(Math.min(dragState.startHour, dragState.currentHour)).padStart(2, '0')}:00 –{' '}
-                        {String(Math.max(dragState.startHour, dragState.currentHour) + 1).padStart(2, '0')}:00
-                      </span>
-                      <span className="text-indigo-600 font-mono text-[10px]">
-                        ({(Math.abs(dragState.currentHour - dragState.startHour) + 1).toFixed(1)} ч)
-                      </span>
+                {dragState && dragState.dayKey === dayStr && (() => {
+                  const minSlot = Math.min(dragState.startSlot, dragState.currentSlot);
+                  const maxSlot = Math.max(dragState.startSlot, dragState.currentSlot);
+                  const numSlots = maxSlot - minSlot + 1;
+                  const durationMinutes = numSlots * 30;
+                  const startTotalMinutes = START_HOUR * 60 + minSlot * 30;
+                  const startH = Math.floor(startTotalMinutes / 60);
+                  const startM = startTotalMinutes % 60;
+                  const endTotalMinutes = startTotalMinutes + durationMinutes;
+                  const endH = Math.floor(endTotalMinutes / 60);
+                  const endM = endTotalMinutes % 60;
+
+                  return (
+                    <div
+                      className="absolute left-1 right-1 pointer-events-none z-20 rounded-2xl bg-indigo-500/25 border-2 border-indigo-400/60 backdrop-blur-[2px] p-2 flex flex-col justify-between shadow-sm animate-in fade-in transition-all duration-75"
+                      style={{
+                        top: `${minSlot * SLOT_HEIGHT}px`,
+                        height: `${numSlots * SLOT_HEIGHT}px`,
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950 bg-white/90 backdrop-blur-md rounded-xl px-2 py-0.5 w-fit shadow-xs">
+                        <span>
+                          {String(startH).padStart(2, '0')}:{String(startM).padStart(2, '0')} –{' '}
+                          {String(endH).padStart(2, '0')}:{String(endM).padStart(2, '0')}
+                        </span>
+                        <span className="text-indigo-600 font-mono text-[10px]">
+                          ({durationMinutes >= 60 ? `${(durationMinutes / 60).toFixed(1)} ч` : `${durationMinutes} мин`})
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Размещение уроков в колонке дня */}
                 {positionedItems.map((lesson) => {
@@ -321,7 +355,19 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
                           ) : (lesson.online_link || lesson.format === 'online') ? (
                             <div className="text-[10px] text-emerald-600 font-medium truncate flex items-center gap-1 mt-0.5">
                               <Video className="w-2.5 h-2.5 shrink-0" />
-                              <span>Онлайн</span>
+                              {lesson.online_link && lesson.online_link.startsWith('http') ? (
+                                <a
+                                  href={lesson.online_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="underline hover:text-emerald-700 truncate"
+                                >
+                                  Звонок
+                                </a>
+                              ) : (
+                                <span>Онлайн</span>
+                              )}
                             </div>
                           ) : null}
                         </div>

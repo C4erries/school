@@ -126,11 +126,29 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
                     })}
                   </span>
                 </div>
-                {lesson.classroom_name && (
-                  <div className="text-xs text-indigo-600 font-medium mt-1">
-                    Аудитория: {lesson.classroom_name}
+                {lesson.classroom_name ? (
+                  <div className="text-xs text-indigo-600 font-medium mt-1 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Аудитория: {lesson.classroom_name}</span>
                   </div>
-                )}
+                ) : (lesson.online_link || lesson.format === 'online') ? (
+                  <div className="text-xs text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                    <Video className="w-3.5 h-3.5" />
+                    {lesson.online_link && lesson.online_link.startsWith('http') ? (
+                      <a
+                        href={lesson.online_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="underline hover:text-emerald-700"
+                      >
+                        Ссылка на звонок
+                      </a>
+                    ) : (
+                      <span>Онлайн занятие</span>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
 

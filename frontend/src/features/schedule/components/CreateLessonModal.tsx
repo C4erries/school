@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GlassModal } from '../../../shared/components/GlassModal';
 import { GlassInput } from '../../../shared/components/GlassInput';
 import { GlassButton } from '../../../shared/components/GlassButton';
 import { Classroom, Client, SubscriptionFormat } from '../../../types/schedule';
 import { createLesson } from '../../../api/schedule';
+import { SCHEDULE_TIME_OPTIONS } from '../types';
 
 interface CreateLessonModalProps {
   isOpen: boolean;
@@ -56,6 +57,13 @@ export const CreateLessonModal: React.FC<CreateLessonModalProps> = ({
     }
   }, [isOpen, initialClientId, initialTitle, initialDate, initialStartTime, initialDuration]);
 
+  const allStartTimeOptions = useMemo(() => {
+    if (lessonStartTime && !SCHEDULE_TIME_OPTIONS.includes(lessonStartTime)) {
+      return [...SCHEDULE_TIME_OPTIONS, lessonStartTime].sort();
+    }
+    return SCHEDULE_TIME_OPTIONS;
+  }, [lessonStartTime]);
+
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedClientId || !lessonTitle.trim()) return;
@@ -73,7 +81,7 @@ export const CreateLessonModal: React.FC<CreateLessonModalProps> = ({
         title: lessonTitle.trim(),
         format: selectedFormat,
         classroom_id: locationType === 'offline' ? selectedClassroomId || null : null,
-        online_link: locationType === 'online' ? onlineLink : undefined,
+        online_link: locationType === 'online' ? (onlineLink.trim() || 'online') : undefined,
         comment: lessonComment.trim() || undefined,
         start_time: start.toISOString(),
         end_time: end.toISOString(),
@@ -141,13 +149,23 @@ export const CreateLessonModal: React.FC<CreateLessonModalProps> = ({
             onChange={(e) => setLessonDate(e.target.value)}
             required
           />
-          <GlassInput
-            label="Время начала *"
-            type="time"
-            value={lessonStartTime}
-            onChange={(e) => setLessonStartTime(e.target.value)}
-            required
-          />
+          <div>
+            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
+              Время начала *
+            </label>
+            <select
+              value={lessonStartTime}
+              onChange={(e) => setLessonStartTime(e.target.value)}
+              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500"
+              required
+            >
+              {allStartTimeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
               Длительность

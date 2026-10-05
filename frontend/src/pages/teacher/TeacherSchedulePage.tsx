@@ -75,13 +75,13 @@ export const TeacherSchedulePage: React.FC = () => {
     setCurrentDate(next);
   };
 
-  const handleSlotClick = (date: Date, hour: number) => {
+  const handleSlotClick = (date: Date, hour: number, minute: number = 0) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     setCreateInitial({
       date: `${y}-${m}-${d}`,
-      startTime: `${String(hour).padStart(2, '0')}:00`,
+      startTime: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
       duration: '60',
       title: 'Урок',
       clientId: '',
@@ -89,13 +89,18 @@ export const TeacherSchedulePage: React.FC = () => {
     setIsCreateOpen(true);
   };
 
-  const handleSlotDragSelect = (date: Date, startHour: number, durationMinutes: number) => {
+  const handleSlotDragSelect = (
+    date: Date,
+    startHour: number,
+    startMinute: number,
+    durationMinutes: number
+  ) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const d = String(date.getDate()).padStart(2, '0');
     setCreateInitial({
       date: `${y}-${m}-${d}`,
-      startTime: `${String(startHour).padStart(2, '0')}:00`,
+      startTime: `${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}`,
       duration: String(durationMinutes),
       title: 'Урок',
       clientId: '',

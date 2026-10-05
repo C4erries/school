@@ -352,8 +352,10 @@ export async function getLessons(params?: {
   return data.map((l) => ({
     ...l,
     title: l.title || 'Занятие',
-    online_link: (l.location_or_url && l.location_or_url.startsWith('http')) ? l.location_or_url : (l.online_link || undefined),
-    classroom_name: l.classroom_name || (l.format === 'offline' && !l.location_or_url?.startsWith('http') ? l.location_or_url : undefined),
+    online_link: (l.location_or_url && (l.location_or_url.startsWith('http') || l.location_or_url === 'online'))
+      ? l.location_or_url
+      : (l.online_link || undefined),
+    classroom_name: l.classroom_name || (l.format === 'offline' && !l.location_or_url?.startsWith('http') && l.location_or_url !== 'online' ? l.location_or_url : undefined),
     comment: l.notes || '',
     decline_reason: l.decline_reason || l.cancel_reason,
   }));
