@@ -27,10 +27,11 @@ school/
 ```
 
 ### Git
-- Ветка `main` — стабильная.
-- Feature ветки: `feature/auth`, `feature/courses`, etc.
+- Ветка `main` — стабильная, релизная. Изменения попадают в `main` только через Pull Request из `dev`.
+- Ветка `dev` — основная рабочая ветка для активной разработки и спринтов.
+- Feature ветки: `feature/auth`, `feature/schedule`, etc. (создаются от `dev`).
 - Коммиты: conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`).
-- Мёрж через squash (один коммит на фичу).
+- Мёрж через squash / PR.
 
 ---
 
