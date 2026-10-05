@@ -5,19 +5,21 @@ import httpx
 
 @pytest.mark.schedule
 class TestClients:
-    """Интеграционные тесты управления клиентами (Clients) и абонементами (Subscriptions)."""
+    """Интеграционные тесты управления клиентами (Clients), тарифной сеткой, абонементами и динамическими тегами."""
 
-    def test_create_and_get_client_success(self, client: httpx.Client, teacher_user):
-        """Создание и получение клиента преподавателем (201 Created, 200 OK)."""
+    def test_create_and_get_client_with_rate_grid(self, client: httpx.Client, teacher_user):
+        """Создание клиента с тарифной сеткой (rate_individual, rate_pair, rate_group) и проверка GET /api/v1/clients."""
         unique_name = f"Ученик {uuid.uuid4().hex[:6]}"
         payload = {
             "name": unique_name,
             "phone": "+79991234567",
-            "base_rate": 1500.0,
+            "rate_individual": 2000.0,
+            "rate_pair": 1400.0,
+            "rate_group": 1000.0,
             "school_percent_tag": 15,
         }
 
-        # Создание клиента
+        # 1. Создание клиента
         response = client.post("/api/v1/clients", json=payload, headers=teacher_user["headers"])
         assert response.status_code == 201, f"Create client failed: {response.text}"
         data = response.json()
@@ -26,12 +28,21 @@ class TestClients:
         assert data["teacher_id"] == teacher_user["id"]
         assert data["name"] == payload["name"]
         assert data["phone"] == payload["phone"]
-        assert data["base_rate"] == payload["base_rate"]
-        assert data["school_percent_tag"] == payload["school_percent_tag"]
+        assert data["rate_individual"] == 2000.0
+        assert data["rate_pair"] == 1400.0
+        assert data["rate_group"] == 1000.0
+        assert data["base_rate"] == 2000.0
+        assert data["school_percent_tag"] == 15
+        assert "balances" in data
+        assert data["balances"]["individual_hours"] == 0.0
+        assert data["balances"]["pair_hours"] == 0.0
+        assert data["balances"]["group_hours"] == 0.0
+        assert data["balances"]["total_hours"] == 0.0
+        assert data["tags"] == []
         assert "created_at" in data
         client_id = data["id"]
 
-        # Получение списка клиентов
+        # 2. Получение списка клиентов
         list_res = client.get("/api/v1/clients", headers=teacher_user["headers"])
         assert list_res.status_code == 200, f"List clients failed: {list_res.text}"
         clients = list_res.json()
@@ -40,13 +51,175 @@ class TestClients:
         created_client = next((c for c in clients if c["id"] == client_id), None)
         assert created_client is not None
         assert created_client["name"] == unique_name
-        assert created_client["base_rate"] == 1500.0
-        assert created_client["school_percent_tag"] == 15
+        assert created_client["rate_individual"] == 2000.0
+        assert created_client["rate_pair"] == 1400.0
+        assert created_client["rate_group"] == 1000.0
+        assert created_client["balances"]["total_hours"] == 0.0
+
+    def test_client_subscriptions_by_format_and_aggregated_balances(
+        self, client: httpx.Client, teacher_user
+    ):
+        """Покупка абонементов по форматам (individual, pair, group) и проверка агрегации балансов в GET /api/v1/clients."""
+        # 1. Создаем клиента
+        c_res = client.post(
+            "/api/v1/clients",
+            json={
+                "name": f"Клиент с абонементами {uuid.uuid4().hex[:4]}",
+                "rate_individual": 1800.0,
+                "rate_pair": 1200.0,
+                "rate_group": 900.0,
+            },
+            headers=teacher_user["headers"],
+        )
+        assert c_res.status_code == 201
+        client_id = c_res.json()["id"]
+
+        # 2. Добавляем абонемент на индивидуальные часы (10.0 ч)
+        sub_ind = client.post(
+            f"/api/v1/clients/{client_id}/subscriptions",
+            json={"format": "individual", "balance": 10.0},
+            headers=teacher_user["headers"],
+        )
+        assert sub_ind.status_code == 201, f"Failed individual sub: {sub_ind.text}"
+        ind_data = sub_ind.json()
+        assert ind_data["client_id"] == client_id
+        assert ind_data["format"] == "individual"
+        assert ind_data["balance"] == 10.0
+
+        # 3. Добавляем абонемент на парные часы (5.5 ч)
+        sub_pair = client.post(
+            f"/api/v1/clients/{client_id}/subscriptions",
+            json={"format": "pair", "balance": 5.5},
+            headers=teacher_user["headers"],
+        )
+        assert sub_pair.status_code == 201, f"Failed pair sub: {sub_pair.text}"
+        pair_data = sub_pair.json()
+        assert pair_data["format"] == "pair"
+        assert pair_data["balance"] == 5.5
+
+        # 4. Добавляем абонемент на групповые часы (8.0 ч)
+        sub_grp = client.post(
+            f"/api/v1/clients/{client_id}/subscriptions",
+            json={"format": "group", "balance": 8.0},
+            headers=teacher_user["headers"],
+        )
+        assert sub_grp.status_code == 201, f"Failed group sub: {sub_grp.text}"
+        grp_data = sub_grp.json()
+        assert grp_data["format"] == "group"
+        assert grp_data["balance"] == 8.0
+
+        # 5. Проверяем детальный список абонементов
+        list_subs_res = client.get(
+            f"/api/v1/clients/{client_id}/subscriptions",
+            headers=teacher_user["headers"],
+        )
+        assert list_subs_res.status_code == 200
+        subs = list_subs_res.json()
+        assert len(subs) == 3
+        formats = [s["format"] for s in subs]
+        assert "individual" in formats
+        assert "pair" in formats
+        assert "group" in formats
+
+        # 6. Проверяем агрегированные балансы в GET /api/v1/clients
+        clients_res = client.get("/api/v1/clients", headers=teacher_user["headers"])
+        assert clients_res.status_code == 200
+        clients = clients_res.json()
+        target = next((c for c in clients if c["id"] == client_id), None)
+        assert target is not None
+        assert abs(target["balances"]["individual_hours"] - 10.0) < 1e-4
+        assert abs(target["balances"]["pair_hours"] - 5.5) < 1e-4
+        assert abs(target["balances"]["group_hours"] - 8.0) < 1e-4
+        assert abs(target["balances"]["total_hours"] - 23.5) < 1e-4
+
+    def test_tags_crud_and_client_binding(self, client: httpx.Client, teacher_user):
+        """Создание тегов (POST /api/v1/tags), получение списка, привязка к клиенту и отображение в GET /api/v1/clients."""
+        headers = teacher_user["headers"]
+
+        # 1. Создаем два тега
+        t1_res = client.post(
+            "/api/v1/tags",
+            json={"name": f"Школа-Математика {uuid.uuid4().hex[:4]}", "school_percent": 25, "color": "emerald"},
+            headers=headers,
+        )
+        assert t1_res.status_code == 201, f"Failed create tag 1: {t1_res.text}"
+        tag1 = t1_res.json()
+        assert tag1["teacher_id"] == teacher_user["id"]
+        assert tag1["school_percent"] == 25
+        assert tag1["color"] == "emerald"
+
+        t2_res = client.post(
+            "/api/v1/tags",
+            json={"name": f"Олимпиадники {uuid.uuid4().hex[:4]}", "school_percent": 10, "color": "purple"},
+            headers=headers,
+        )
+        assert t2_res.status_code == 201, f"Failed create tag 2: {t2_res.text}"
+        tag2 = t2_res.json()
+
+        # 2. Получение списка тегов преподавателя
+        list_tags = client.get("/api/v1/tags", headers=headers)
+        assert list_tags.status_code == 200
+        tag_ids = [t["id"] for t in list_tags.json()]
+        assert tag1["id"] in tag_ids
+        assert tag2["id"] in tag_ids
+
+        # 3. Создаем клиента сразу с привязанным tag1
+        c_res = client.post(
+            "/api/v1/clients",
+            json={
+                "name": f"Ученик с тегом {uuid.uuid4().hex[:4]}",
+                "rate_individual": 2200.0,
+                "tag_ids": [tag1["id"]],
+            },
+            headers=headers,
+        )
+        assert c_res.status_code == 201
+        client1 = c_res.json()
+        assert len(client1["tags"]) == 1
+        assert client1["tags"][0]["id"] == tag1["id"]
+
+        # 4. Привязываем второй тег через POST /api/v1/clients/{id}/tags
+        assign_res = client.post(
+            f"/api/v1/clients/{client1['id']}/tags",
+            json={"tag_id": tag2["id"]},
+            headers=headers,
+        )
+        assert assign_res.status_code == 200
+        client1_updated = assign_res.json()
+        assert len(client1_updated["tags"]) == 2
+        assigned_ids = [t["id"] for t in client1_updated["tags"]]
+        assert tag1["id"] in assigned_ids
+        assert tag2["id"] in assigned_ids
+
+        # 5. Проверяем выдачу в общем списке клиентов GET /api/v1/clients
+        clients_list = client.get("/api/v1/clients", headers=headers).json()
+        c_found = next((c for c in clients_list if c["id"] == client1["id"]), None)
+        assert c_found is not None
+        assert len(c_found["tags"]) == 2
+
+        # 6. Отвязываем tag1 через DELETE /api/v1/clients/{id}/tags/{tag_id}
+        remove_res = client.delete(
+            f"/api/v1/clients/{client1['id']}/tags/{tag1['id']}",
+            headers=headers,
+        )
+        assert remove_res.status_code == 200
+        c_after_remove = remove_res.json()
+        assert len(c_after_remove["tags"]) == 1
+        assert c_after_remove["tags"][0]["id"] == tag2["id"]
+
+    def test_tags_protection_forbidden_for_student(self, client: httpx.Client, student_user):
+        """Защита: ученик не может создавать теги (403 Forbidden)."""
+        res = client.post(
+            "/api/v1/tags",
+            json={"name": "Хакерский тег", "school_percent": 0},
+            headers=student_user["headers"],
+        )
+        assert res.status_code == 403
 
     def test_clients_isolation_between_teachers(
         self, client: httpx.Client, teacher_user, registered_user
     ):
-        """Проверка изоляции данных: учитель А видит только своих клиентов, учитель Б — своих."""
+        """Проверка изоляции данных: учитель А видит только своих клиентов и теги, учитель Б — своих."""
         _, other_teacher_reg = registered_user(role="teacher")
         other_token = other_teacher_reg["tokens"]["access_token"]
         other_headers = {"Authorization": f"Bearer {other_token}"}
@@ -54,7 +227,7 @@ class TestClients:
         # Учитель 1 создает клиента
         res1 = client.post(
             "/api/v1/clients",
-            json={"name": f"Клиент Т1 {uuid.uuid4().hex[:4]}", "base_rate": 2000.0},
+            json={"name": f"Клиент Т1 {uuid.uuid4().hex[:4]}", "rate_individual": 2000.0},
             headers=teacher_user["headers"],
         )
         assert res1.status_code == 201
@@ -63,7 +236,7 @@ class TestClients:
         # Учитель 2 создает клиента
         res2 = client.post(
             "/api/v1/clients",
-            json={"name": f"Клиент Т2 {uuid.uuid4().hex[:4]}", "base_rate": 1800.0},
+            json={"name": f"Клиент Т2 {uuid.uuid4().hex[:4]}", "rate_individual": 1800.0},
             headers=other_headers,
         )
         assert res2.status_code == 201
@@ -85,65 +258,16 @@ class TestClients:
         """Запрос без токена возвращает 401 Unauthorized."""
         res = client.post(
             "/api/v1/clients",
-            json={"name": "Анонимный клиент", "base_rate": 1000.0},
+            json={"name": "Анонимный клиент", "rate_individual": 1000.0},
         )
         assert res.status_code == 401
 
     def test_create_client_validation_error(self, client: httpx.Client, teacher_user):
         """Невалидные данные при создании клиента возвращают 400 Bad Request."""
-        # Отсутствует обязательное поле base_rate
+        # Отсутствует обязательное поле rate_individual / base_rate
         res = client.post(
             "/api/v1/clients",
             json={"name": "Клиент без ставки"},
             headers=teacher_user["headers"],
         )
         assert res.status_code == 400
-
-    def test_create_and_list_subscriptions(self, client: httpx.Client, teacher_user):
-        """Создание абонементов (по урокам и часам) и получение списка абонементов клиента."""
-        # 1. Создаем клиента
-        c_res = client.post(
-            "/api/v1/clients",
-            json={"name": f"Клиент с абонементом {uuid.uuid4().hex[:4]}", "base_rate": 1200.0},
-            headers=teacher_user["headers"],
-        )
-        assert c_res.status_code == 201
-        client_id = c_res.json()["id"]
-
-        # 2. Добавляем абонемент на количество уроков (type="lessons")
-        sub1_res = client.post(
-            f"/api/v1/clients/{client_id}/subscriptions",
-            json={"type": "lessons", "balance": 8.0},
-            headers=teacher_user["headers"],
-        )
-        assert sub1_res.status_code == 201, f"Failed to create lessons subscription: {sub1_res.text}"
-        sub1 = sub1_res.json()
-        assert "id" in sub1
-        assert sub1["client_id"] == client_id
-        assert sub1["type"] == "lessons"
-        assert sub1["balance"] == 8.0
-        assert "created_at" in sub1
-
-        # 3. Добавляем абонемент на количество часов (type="hours")
-        sub2_res = client.post(
-            f"/api/v1/clients/{client_id}/subscriptions",
-            json={"type": "hours", "balance": 12.5},
-            headers=teacher_user["headers"],
-        )
-        assert sub2_res.status_code == 201, f"Failed to create hours subscription: {sub2_res.text}"
-        sub2 = sub2_res.json()
-        assert sub2["client_id"] == client_id
-        assert sub2["type"] == "hours"
-        assert sub2["balance"] == 12.5
-
-        # 4. Получаем список абонементов клиента
-        list_sub_res = client.get(
-            f"/api/v1/clients/{client_id}/subscriptions",
-            headers=teacher_user["headers"],
-        )
-        assert list_sub_res.status_code == 200, f"Failed to list subscriptions: {list_sub_res.text}"
-        subs = list_sub_res.json()
-        assert isinstance(subs, list)
-        sub_ids = [s["id"] for s in subs]
-        assert sub1["id"] in sub_ids
-        assert sub2["id"] in sub_ids

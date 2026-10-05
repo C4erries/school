@@ -93,11 +93,19 @@ func TestClientHandler_ClientsAndSubscriptions(t *testing.T) {
 	handler := httpserver.NewAPIHandler(nil, nil, crmSvc, nil, tokenMgr, "v1")
 
 	t.Run("CreateClient success", func(t *testing.T) {
+		clientID := uuid.New()
 		clientRepo.On("Create", mock.Anything, mock.MatchedBy(func(c *domain.Client) bool {
-			return c.TeacherID == teacherID && c.Name == "Мария" && c.BaseRate == 2000
+			return c.TeacherID == teacherID && c.Name == "Мария" && c.RateIndividual == 2000
 		})).Return(nil).Once()
+		clientRepo.On("GetByID", mock.Anything, mock.AnythingOfType("uuid.UUID")).Return(&domain.Client{
+			ID:             clientID,
+			TeacherID:      teacherID,
+			Name:           "Мария",
+			RateIndividual: 2000,
+			CreatedAt:      time.Now(),
+		}, nil).Once()
 
-		reqBody := `{"name":"Мария","base_rate":2000,"school_percent_tag":15}`
+		reqBody := `{"name":"Мария","rate_individual":2000,"school_percent_tag":15}`
 		req := httptest.NewRequest(http.MethodPost, "/clients", bytes.NewBufferString(reqBody))
 		req.Header.Set("Authorization", "Bearer teacher_token")
 		req.Header.Set("Content-Type", "application/json")
@@ -110,13 +118,23 @@ func TestClientHandler_ClientsAndSubscriptions(t *testing.T) {
 		err := json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.Equal(t, "Мария", resp.Name)
-		assert.Equal(t, float32(2000), resp.BaseRate)
-		assert.Equal(t, 15, resp.SchoolPercentTag)
+		assert.Equal(t, float32(2000), resp.RateIndividual)
 	})
 
 	t.Run("ListClients success", func(t *testing.T) {
 		clients := []*domain.Client{
-			{ID: uuid.New(), TeacherID: teacherID, Name: "Мария", BaseRate: 2000, SchoolPercentTag: 15, CreatedAt: time.Now()},
+			{
+				ID:             uuid.New(),
+				TeacherID:      teacherID,
+				Name:           "Мария",
+				RateIndividual: 2000,
+				CreatedAt:      time.Now(),
+				Balances: domain.ClientBalances{
+					IndividualHours: 8.5,
+					PairHours:       4.0,
+					TotalHours:      12.5,
+				},
+			},
 		}
 		clientRepo.On("ListByTeacherID", mock.Anything, teacherID).Return(clients, nil).Once()
 
@@ -132,6 +150,9 @@ func TestClientHandler_ClientsAndSubscriptions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, resp, 1)
 		assert.Equal(t, "Мария", resp[0].Name)
+		assert.Equal(t, float32(8.5), resp[0].Balances.IndividualHours)
+		assert.Equal(t, float32(4.0), resp[0].Balances.PairHours)
+		assert.Equal(t, float32(12.5), resp[0].Balances.TotalHours)
 	})
 
 	t.Run("CreateSubscription success", func(t *testing.T) {
@@ -141,10 +162,10 @@ func TestClientHandler_ClientsAndSubscriptions(t *testing.T) {
 			TeacherID: teacherID,
 		}, nil).Once()
 		subRepo.On("Create", mock.Anything, mock.MatchedBy(func(s *domain.ClientSubscription) bool {
-			return s.ClientID == clientID && s.Type == domain.SubscriptionTypeLessons && s.Balance == 10
+			return s.ClientID == clientID && s.Format == domain.SubscriptionFormatIndividual && s.Balance == 10
 		})).Return(nil).Once()
 
-		reqBody := `{"type":"lessons","balance":10}`
+		reqBody := `{"format":"individual","balance":10}`
 		req := httptest.NewRequest(http.MethodPost, "/clients/"+clientID.String()+"/subscriptions", bytes.NewBufferString(reqBody))
 		req.Header.Set("Authorization", "Bearer teacher_token")
 		req.Header.Set("Content-Type", "application/json")
@@ -156,7 +177,7 @@ func TestClientHandler_ClientsAndSubscriptions(t *testing.T) {
 		var resp generated.SubscriptionResponse
 		err := json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
-		assert.Equal(t, "lessons", resp.Type)
+		assert.Equal(t, generated.SubscriptionResponseFormatIndividual, resp.Format)
 		assert.Equal(t, float32(10), resp.Balance)
 	})
 }

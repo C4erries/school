@@ -126,19 +126,19 @@ func TestCRMService_Subscriptions(t *testing.T) {
 
 	t.Run("CreateSubscription", func(t *testing.T) {
 		subRepo.On("Create", ctx, mock.MatchedBy(func(s *domain.ClientSubscription) bool {
-			return s.ClientID == clientID && s.Type == domain.SubscriptionTypeLessons && s.Balance == 8
+			return s.ClientID == clientID && s.Format == domain.SubscriptionFormatIndividual && s.Balance == 8
 		})).Return(nil).Once()
 
-		s, err := svc.CreateSubscription(ctx, clientID, domain.SubscriptionTypeLessons, 8)
+		s, err := svc.CreateSubscription(ctx, clientID, domain.SubscriptionFormatIndividual, 8)
 		require.NoError(t, err)
-		assert.Equal(t, domain.SubscriptionTypeLessons, s.Type)
+		assert.Equal(t, domain.SubscriptionFormatIndividual, s.Format)
 		assert.Equal(t, 8.0, s.Balance)
 		subRepo.AssertExpectations(t)
 	})
 
 	t.Run("ListSubscriptions", func(t *testing.T) {
 		expected := []*domain.ClientSubscription{
-			{ID: uuid.New(), ClientID: clientID, Type: domain.SubscriptionTypeLessons, Balance: 8, CreatedAt: time.Now()},
+			{ID: uuid.New(), ClientID: clientID, Format: domain.SubscriptionFormatIndividual, Balance: 8, CreatedAt: time.Now()},
 		}
 		subRepo.On("GetByClientID", ctx, clientID).Return(expected, nil).Once()
 
@@ -146,5 +146,102 @@ func TestCRMService_Subscriptions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expected, res)
 		subRepo.AssertExpectations(t)
+	})
+}
+
+type MockTagRepository struct {
+	mock.Mock
+}
+
+func (m *MockTagRepository) Create(ctx context.Context, tag *domain.Tag) error {
+	return m.Called(ctx, tag).Error(0)
+}
+func (m *MockTagRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Tag, error) {
+	args := m.Called(ctx, id)
+	if t := args.Get(0); t != nil {
+		return t.(*domain.Tag), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+func (m *MockTagRepository) ListByTeacherID(ctx context.Context, teacherID uuid.UUID) ([]*domain.Tag, error) {
+	args := m.Called(ctx, teacherID)
+	if list := args.Get(0); list != nil {
+		return list.([]*domain.Tag), args.Error(1)
+	}
+	return nil, args.Error(1)
+}
+func (m *MockTagRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return m.Called(ctx, id).Error(0)
+}
+func (m *MockTagRepository) AssignToClient(ctx context.Context, clientID, tagID uuid.UUID) error {
+	return m.Called(ctx, clientID, tagID).Error(0)
+}
+func (m *MockTagRepository) RemoveFromClient(ctx context.Context, clientID, tagID uuid.UUID) error {
+	return m.Called(ctx, clientID, tagID).Error(0)
+}
+func (m *MockTagRepository) SetClientTags(ctx context.Context, clientID uuid.UUID, tagIDs []uuid.UUID) error {
+	return m.Called(ctx, clientID, tagIDs).Error(0)
+}
+
+func TestCRMService_TagsAndRates(t *testing.T) {
+	ctx := context.Background()
+	clientRepo := new(MockClientRepository)
+	subRepo := new(MockSubscriptionRepository)
+	tagRepo := new(MockTagRepository)
+	svc := crm.NewService(clientRepo, subRepo, tagRepo)
+
+	teacherID := uuid.New()
+
+	t.Run("CreateTag success", func(t *testing.T) {
+		tagRepo.On("Create", ctx, mock.MatchedBy(func(tag *domain.Tag) bool {
+			return tag.TeacherID == teacherID && tag.Name == "Школа №12" && tag.SchoolPercent == 30 && tag.Color == "indigo"
+		})).Return(nil).Once()
+
+		tag, err := svc.CreateTag(ctx, teacherID, "Школа №12", 30, "indigo")
+		require.NoError(t, err)
+		assert.Equal(t, "Школа №12", tag.Name)
+		assert.Equal(t, 30, tag.SchoolPercent)
+		tagRepo.AssertExpectations(t)
+	})
+
+	t.Run("CreateClientWithRates", func(t *testing.T) {
+		ratePair := 1000.0
+		rateGroup := 800.0
+		clientRepo.On("Create", ctx, mock.MatchedBy(func(c *domain.Client) bool {
+			return c.TeacherID == teacherID && c.Name == "Алексей" && c.RateIndividual == 1500 && *c.RatePair == 1000
+		})).Return(nil).Once()
+
+		c, err := svc.CreateClientWithRates(ctx, crm.CreateClientInput{
+			TeacherID:      teacherID,
+			Name:           "Алексей",
+			RateIndividual: 1500,
+			RatePair:       &ratePair,
+			RateGroup:      &rateGroup,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "Алексей", c.Name)
+		assert.Equal(t, 1500.0, c.RateIndividual)
+		assert.Equal(t, 1000.0, *c.RatePair)
+		clientRepo.AssertExpectations(t)
+	})
+
+	t.Run("AssignTagToClient", func(t *testing.T) {
+		clientID := uuid.New()
+		tagID := uuid.New()
+
+		clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil).Twice()
+		tagRepo.On("GetByID", ctx, tagID).Return(&domain.Tag{
+			ID:        tagID,
+			TeacherID: teacherID,
+		}, nil).Once()
+		tagRepo.On("AssignToClient", ctx, clientID, tagID).Return(nil).Once()
+
+		_, err := svc.AssignTagToClient(ctx, clientID, tagID, teacherID, domain.RoleTeacher)
+		require.NoError(t, err)
+		tagRepo.AssertExpectations(t)
+		clientRepo.AssertExpectations(t)
 	})
 }

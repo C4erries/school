@@ -8,10 +8,24 @@ import (
 )
 
 var (
-	ErrSubscriptionNotFound = errors.New("subscription not found")
+	ErrSubscriptionNotFound      = errors.New("subscription not found")
+	ErrInvalidSubscriptionFormat = errors.New("invalid subscription format, must be individual, pair, or group")
 )
 
-type SubscriptionType string
+type SubscriptionFormat string
+
+const (
+	SubscriptionFormatIndividual SubscriptionFormat = "individual"
+	SubscriptionFormatPair       SubscriptionFormat = "pair"
+	SubscriptionFormatGroup      SubscriptionFormat = "group"
+)
+
+func (f SubscriptionFormat) IsValid() bool {
+	return f == SubscriptionFormatIndividual || f == SubscriptionFormatPair || f == SubscriptionFormatGroup
+}
+
+// SubscriptionType оставлен для обратной совместимости.
+type SubscriptionType = SubscriptionFormat
 
 const (
 	SubscriptionTypeLessons SubscriptionType = "lessons"
@@ -19,9 +33,9 @@ const (
 )
 
 type ClientSubscription struct {
-	ID        uuid.UUID        `json:"id" db:"id"`
-	ClientID  uuid.UUID        `json:"client_id" db:"client_id"`
-	Type      SubscriptionType `json:"type" db:"type"`
-	Balance   float64          `json:"balance" db:"balance"`
-	CreatedAt time.Time        `json:"created_at" db:"created_at"`
+	ID        uuid.UUID          `json:"id" db:"id"`
+	ClientID  uuid.UUID          `json:"client_id" db:"client_id"`
+	Format    SubscriptionFormat `json:"format" db:"format"`
+	Balance   float64            `json:"balance" db:"balance"`
+	CreatedAt time.Time          `json:"created_at" db:"created_at"`
 }

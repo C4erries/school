@@ -4,8 +4,6 @@ import { GlassButton } from '../../shared/components/GlassButton';
 import { GlassInput } from '../../shared/components/GlassInput';
 import { GlassModal } from '../../shared/components/GlassModal';
 import { Badge } from '../../shared/components/Badge';
-import { AppNavbar } from '../../shared/components/AppNavbar';
-import { LiquidBackground } from '../../shared/components/LiquidBackground';
 import { Classroom, TeacherStudent, Lesson } from '../../types/schedule';
 import { User } from '../../types/auth';
 import {
@@ -178,13 +176,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen text-slate-800 p-4 sm:p-8 relative overflow-hidden">
-      <LiquidBackground />
-
-      <div className="max-w-6xl mx-auto space-y-6 relative z-10">
-        <AppNavbar />
-
-        {/* Dashboard Title & Tabs */}
+    <div className="space-y-6">
+      {/* Dashboard Title & Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
@@ -497,7 +490,7 @@ export const AdminDashboard: React.FC = () => {
 
                       <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 flex-wrap">
                         <span className="font-medium text-slate-700">
-                          Преподаватель: {lesson.teacher_name || 'Александр Верников'}
+                          Преподаватель: {lesson.teacher_name || 'Преподаватель'}
                         </span>
                         <span>•</span>
                         <span className="font-medium text-slate-700">
@@ -544,7 +537,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
         )}
-      </div>
 
       {/* ------------------------------------------------------------- */}
       {/* MODAL: ДОБАВЛЕНИЕ КАБИНЕТА */}

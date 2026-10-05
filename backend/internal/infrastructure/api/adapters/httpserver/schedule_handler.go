@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/google/uuid"
 
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/domain"
@@ -252,6 +253,65 @@ func (h *APIHandler) CancelLesson(w http.ResponseWriter, r *http.Request, id ope
 			writeError(w, http.StatusBadRequest, "INVALID_STATUS", err.Error())
 		default:
 			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to cancel lesson")
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, mapLessonToResponse(lesson))
+}
+
+// UpdateLesson реализует PATCH /lessons/{id}.
+func (h *APIHandler) UpdateLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	var req generated.UpdateLessonRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
+		return
+	}
+
+	var format *domain.LessonFormat
+	if req.Format != nil {
+		f := domain.LessonFormat(*req.Format)
+		format = &f
+	}
+
+	clearClassroom := false
+	if req.ClassroomId != nil && *req.ClassroomId == openapi_types.UUID(uuid.Nil) {
+		clearClassroom = true
+	}
+
+	lesson, err := h.scheduleService.UpdateLesson(r.Context(), schedule.UpdateLessonInput{
+		LessonID:       id,
+		CallerID:       claims.UserID,
+		CallerRole:     claims.Role,
+		ClientID:       req.ClientId,
+		ClassroomID:    req.ClassroomId,
+		ClearClassroom: clearClassroom,
+		StartTime:      req.StartTime,
+		EndTime:        req.EndTime,
+		Format:         format,
+		LocationOrURL:  req.LocationOrUrl,
+		Notes:          req.Notes,
+		CancelReason:   req.CancelReason,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrLessonNotFound):
+			writeError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
+		case errors.Is(err, domain.ErrUnauthorizedLessonAction):
+			writeError(w, http.StatusForbidden, "FORBIDDEN", err.Error())
+		case errors.Is(err, domain.ErrClassroomCollision):
+			writeError(w, http.StatusConflict, "CLASSROOM_COLLISION", err.Error())
+		case errors.Is(err, domain.ErrInvalidTimeRange),
+			errors.Is(err, domain.ErrInvalidLessonFormat),
+			errors.Is(err, domain.ErrClassroomNotFound):
+			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update lesson")
 		}
 		return
 	}

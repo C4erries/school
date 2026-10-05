@@ -35,8 +35,8 @@ func (r *SubscriptionRepository) getDBTX(ctx context.Context) DBTX {
 // Create сохраняет новый абонемент в БД.
 func (r *SubscriptionRepository) Create(ctx context.Context, sub *domain.ClientSubscription) error {
 	query, args, err := r.sb.Insert("client_subscriptions").
-		Columns("id", "client_id", "type", "balance", "created_at").
-		Values(sub.ID, sub.ClientID, string(sub.Type), sub.Balance, sub.CreatedAt).
+		Columns("id", "client_id", "format", "balance", "created_at").
+		Values(sub.ID, sub.ClientID, string(sub.Format), sub.Balance, sub.CreatedAt).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build insert subscription query: %w", err)
@@ -52,7 +52,7 @@ func (r *SubscriptionRepository) Create(ctx context.Context, sub *domain.ClientS
 
 // GetByID находит абонемент по идентификатору.
 func (r *SubscriptionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientSubscription, error) {
-	query, args, err := r.sb.Select("id", "client_id", "type", "balance", "created_at").
+	query, args, err := r.sb.Select("id", "client_id", "format", "balance", "created_at").
 		From("client_subscriptions").
 		Where(sq.Eq{"id": id}).
 		ToSql()
@@ -61,11 +61,11 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 	}
 
 	var sub domain.ClientSubscription
-	var typeStr string
+	var formatStr string
 	err = r.getDBTX(ctx).QueryRowContext(ctx, query, args...).Scan(
 		&sub.ID,
 		&sub.ClientID,
-		&typeStr,
+		&formatStr,
 		&sub.Balance,
 		&sub.CreatedAt,
 	)
@@ -76,13 +76,13 @@ func (r *SubscriptionRepository) GetByID(ctx context.Context, id uuid.UUID) (*do
 		return nil, fmt.Errorf("query subscription by id: %w", err)
 	}
 
-	sub.Type = domain.SubscriptionType(typeStr)
+	sub.Format = domain.SubscriptionFormat(formatStr)
 	return &sub, nil
 }
 
 // GetByClientID возвращает все абонементы клиента.
 func (r *SubscriptionRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientSubscription, error) {
-	query, args, err := r.sb.Select("id", "client_id", "type", "balance", "created_at").
+	query, args, err := r.sb.Select("id", "client_id", "format", "balance", "created_at").
 		From("client_subscriptions").
 		Where(sq.Eq{"client_id": clientID}).
 		OrderBy("created_at ASC").
@@ -100,17 +100,17 @@ func (r *SubscriptionRepository) GetByClientID(ctx context.Context, clientID uui
 	var subs []*domain.ClientSubscription
 	for rows.Next() {
 		var sub domain.ClientSubscription
-		var typeStr string
+		var formatStr string
 		if err := rows.Scan(
 			&sub.ID,
 			&sub.ClientID,
-			&typeStr,
+			&formatStr,
 			&sub.Balance,
 			&sub.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}
-		sub.Type = domain.SubscriptionType(typeStr)
+		sub.Format = domain.SubscriptionFormat(formatStr)
 		subs = append(subs, &sub)
 	}
 
@@ -121,10 +121,10 @@ func (r *SubscriptionRepository) GetByClientID(ctx context.Context, clientID uui
 	return subs, nil
 }
 
-// Update обновляет тип и баланс абонемента.
+// Update обновляет формат и баланс абонемента.
 func (r *SubscriptionRepository) Update(ctx context.Context, sub *domain.ClientSubscription) error {
 	query, args, err := r.sb.Update("client_subscriptions").
-		Set("type", string(sub.Type)).
+		Set("format", string(sub.Format)).
 		Set("balance", sub.Balance).
 		Where(sq.Eq{"id": sub.ID}).
 		ToSql()

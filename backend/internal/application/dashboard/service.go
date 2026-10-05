@@ -62,27 +62,23 @@ func (s *Service) GetMetrics(ctx context.Context, teacherID uuid.UUID, from, to 
 			continue
 		}
 
-		durationHours := lesson.EndTime.Sub(lesson.StartTime).Hours()
-		lessonRevenue := durationHours * client.BaseRate
+		durationHours := lesson.EndTime.Sub(lesson.StartTime).Seconds() / 3600.0
+		clientRate := client.RateForFormat(lesson.Format)
+		lessonRevenue := durationHours * clientRate
 
 		gross += lessonRevenue
 
-		if lesson.Status == domain.StatusCompleted {
-			// Учитываем процент школы
-			commission := lessonRevenue * (float64(client.SchoolPercentTag) / 100.0)
-			net += (lessonRevenue - commission)
-		} else if lesson.Status == domain.StatusScheduled {
-			// Считаем, что запланированные уроки тоже приносят potential net, 
-			// или Net Income считается только по завершенным?
-			// В задаче "Net Tutor Income (Реальный заработок репетитора с учетом тегов/комиссий школы за этот месяц)". 
-			// Пусть будет по всем неудаленным (scheduled + completed), но комиссия вычитается
-			commission := lessonRevenue * (float64(client.SchoolPercentTag) / 100.0)
-			net += (lessonRevenue - commission)
-		}
+		schoolPercent := client.MaxSchoolPercent()
+		commission := lessonRevenue * (float64(schoolPercent) / 100.0)
+		net += (lessonRevenue - commission)
 
+		rate := client.RateIndividual
+		if rate == 0 {
+			rate = client.BaseRate
+		}
 		if !uniqueClients[client.ID] {
 			uniqueClients[client.ID] = true
-			totalRate += client.BaseRate
+			totalRate += rate
 		}
 		totalHours += durationHours
 	}

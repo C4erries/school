@@ -39,6 +39,7 @@ type ClientRepository interface {
 type SubscriptionRepository interface {
 	GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientSubscription, error)
 	Update(ctx context.Context, sub *domain.ClientSubscription) error
+	Create(ctx context.Context, sub *domain.ClientSubscription) error
 }
 
 // LessonRepository определяет контракт хранилища занятий.
@@ -75,6 +76,21 @@ type ScheduleLessonInput struct {
 	Format        domain.LessonFormat
 	LocationOrURL string
 	Notes         string
+}
+
+type UpdateLessonInput struct {
+	LessonID       uuid.UUID
+	CallerID       uuid.UUID
+	CallerRole     domain.Role
+	ClientID       *uuid.UUID
+	ClassroomID    *uuid.UUID
+	ClearClassroom bool
+	StartTime      *time.Time
+	EndTime        *time.Time
+	Format         *domain.LessonFormat
+	LocationOrURL  *string
+	Notes          *string
+	CancelReason   *string
 }
 
 // Service реализует бизнес-логику расписания, аудиторий и проведения уроков.
@@ -187,14 +203,11 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 
 	// Проверяем, что клиент принадлежит учителю
 	if client.TeacherID != input.TeacherID {
-		return nil, domain.ErrUnauthorizedLessonAction // TODO: better error
+		return nil, domain.ErrUnauthorizedLessonAction
 	}
 
 	var classroomID *uuid.UUID
-	if input.Format == domain.FormatOffline {
-		if input.ClassroomID == nil || *input.ClassroomID == uuid.Nil {
-			return nil, domain.ErrClassroomRequiredForOffline
-		}
+	if input.ClassroomID != nil && *input.ClassroomID != uuid.Nil {
 		// Проверяем существование кабинета
 		if _, err := s.classroomRepo.GetByID(ctx, *input.ClassroomID); err != nil {
 			return nil, err
@@ -256,30 +269,34 @@ func (s *Service) CompleteLesson(ctx context.Context, lessonID, callerID uuid.UU
 		return nil, err
 	}
 
-	// Списываем с абонемента, если есть
+	// Списываем точное количество часов с абонемента соответствующего формата
 	if s.subRepo != nil {
+		durationHours := lesson.EndTime.Sub(lesson.StartTime).Seconds() / 3600.0
+		targetFormat := domain.SubscriptionFormat(lesson.Format)
+
 		subs, err := s.subRepo.GetByClientID(ctx, lesson.ClientID)
 		if err == nil {
-			// Спишем с первого абонемента с балансом > 0
-			durationHours := lesson.EndTime.Sub(lesson.StartTime).Hours()
+			var matchingSub *domain.ClientSubscription
 			for _, sub := range subs {
-				if sub.Balance > 0 {
-					if sub.Type == domain.SubscriptionTypeLessons {
-						sub.Balance -= 1
-						if sub.Balance < 0 {
-							sub.Balance = 0
-						}
-						_ = s.subRepo.Update(ctx, sub)
-						break
-					} else if sub.Type == domain.SubscriptionTypeHours {
-						sub.Balance -= durationHours
-						if sub.Balance < 0 {
-							sub.Balance = 0
-						}
-						_ = s.subRepo.Update(ctx, sub)
-						break
-					}
+				if sub.Format == targetFormat {
+					matchingSub = sub
+					break
 				}
+			}
+
+			if matchingSub != nil {
+				matchingSub.Balance -= durationHours
+				_ = s.subRepo.Update(ctx, matchingSub)
+			} else {
+				// Создаем запись абонемента с отрицательным балансом (задолженность в часах)
+				newSub := &domain.ClientSubscription{
+					ID:        uuid.New(),
+					ClientID:  lesson.ClientID,
+					Format:    targetFormat,
+					Balance:   -durationHours,
+					CreatedAt: time.Now().UTC(),
+				}
+				_ = s.subRepo.Create(ctx, newSub)
 			}
 		}
 	}
@@ -307,6 +324,99 @@ func (s *Service) CancelLesson(ctx context.Context, lessonID, callerID uuid.UUID
 
 	if err := s.lessonRepo.Update(ctx, lesson); err != nil {
 		return nil, fmt.Errorf("update cancelled lesson: %w", err)
+	}
+
+	return lesson, nil
+}
+
+func (s *Service) UpdateLesson(ctx context.Context, input UpdateLessonInput) (*domain.Lesson, error) {
+	lesson, err := s.lessonRepo.GetByID(ctx, input.LessonID)
+	if err != nil {
+		return nil, err
+	}
+
+	if input.CallerRole != domain.RoleOwner && lesson.TeacherID != input.CallerID {
+		return nil, domain.ErrUnauthorizedLessonAction
+	}
+
+	startTime := lesson.StartTime
+	endTime := lesson.EndTime
+	if input.StartTime != nil {
+		startTime = *input.StartTime
+	}
+	if input.EndTime != nil {
+		endTime = *input.EndTime
+	}
+
+	if err := domain.ValidateLessonTimes(startTime, endTime); err != nil {
+		return nil, err
+	}
+	lesson.StartTime = startTime
+	lesson.EndTime = endTime
+
+	if input.Format != nil {
+		if !input.Format.IsValid() {
+			return nil, domain.ErrInvalidLessonFormat
+		}
+		lesson.Format = *input.Format
+	}
+
+	if input.ClientID != nil {
+		client, err := s.clientRepo.GetByID(ctx, *input.ClientID)
+		if err != nil {
+			return nil, fmt.Errorf("get client: %w", err)
+		}
+		if client.TeacherID != lesson.TeacherID {
+			return nil, domain.ErrUnauthorizedLessonAction
+		}
+		lesson.ClientID = *input.ClientID
+	}
+
+	if input.ClearClassroom {
+		lesson.ClassroomID = nil
+	} else if input.ClassroomID != nil {
+		if *input.ClassroomID == uuid.Nil {
+			lesson.ClassroomID = nil
+		} else {
+			if _, err := s.classroomRepo.GetByID(ctx, *input.ClassroomID); err != nil {
+				return nil, err
+			}
+			lesson.ClassroomID = input.ClassroomID
+		}
+	}
+
+	// Если указан кабинет, проверяем коллизию с другими уроками
+	if lesson.ClassroomID != nil && *lesson.ClassroomID != uuid.Nil {
+		collision, err := s.lessonRepo.HasClassroomCollision(
+			ctx,
+			*lesson.ClassroomID,
+			lesson.TeacherID,
+			lesson.StartTime,
+			lesson.EndTime,
+			&lesson.ID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("check classroom collision: %w", err)
+		}
+		if collision {
+			return nil, domain.ErrClassroomCollision
+		}
+	}
+
+	if input.LocationOrURL != nil {
+		lesson.LocationOrURL = strings.TrimSpace(*input.LocationOrURL)
+	}
+	if input.Notes != nil {
+		lesson.Notes = strings.TrimSpace(*input.Notes)
+	}
+	if input.CancelReason != nil {
+		lesson.CancelReason = strings.TrimSpace(*input.CancelReason)
+	}
+
+	lesson.UpdatedAt = time.Now().UTC()
+
+	if err := s.lessonRepo.Update(ctx, lesson); err != nil {
+		return nil, fmt.Errorf("update lesson: %w", err)
 	}
 
 	return lesson, nil

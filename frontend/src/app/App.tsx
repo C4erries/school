@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '../features/auth/AuthContext';
 import { ProtectedRoute } from './ProtectedRoute';
+import { AppLayout } from '../shared/components/AppLayout';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { DashboardPage } from '../pages/DashboardPage';
@@ -17,44 +18,47 @@ export const App: React.FC = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Общий дашборд платформы */}
+          {/* Защищенные маршруты, обернутые в сквозной AppLayout согласно ADR-006 */}
           <Route
-            path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                <AppLayout />
               </ProtectedRoute>
             }
-          />
+          >
+            {/* Общий дашборд платформы */}
+            <Route path="/dashboard" element={<DashboardPage />} />
 
-          {/* Панель администратора: кабинеты, распределение учеников, сквозной обзор */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['owner', 'assistant']}>
-                <AdminDashboard />
-              </ProtectedRoute>
-            }
-          />
+            {/* Панель администратора: кабинеты, распределение учеников, сквозной обзор */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['owner', 'assistant']}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
 
-          {/* Расписание преподавателя: закрепленные ученики, назначение урока, Apple Calendar сетка */}
-          <Route
-            path="/teacher/schedule"
-            element={
-              <ProtectedRoute allowedRoles={['teacher', 'owner']}>
-                <TeacherSchedulePage />
-              </ProtectedRoute>
-            }
-          />
+            {/* Расписание преподавателя: закрепленные ученики, назначение урока, Apple Calendar сетка */}
+            <Route
+              path="/teacher/schedule"
+              element={
+                <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                  <TeacherSchedulePage />
+                </ProtectedRoute>
+              }
+            />
 
-          <Route
-            path="/teacher/clients"
-            element={
-              <ProtectedRoute allowedRoles={['teacher', 'owner']}>
-                <TeacherClientsPage />
-              </ProtectedRoute>
-            }
-          />
+            {/* CRM преподавателя: клиенты, тарифная сетка, балансы часов, абонементы */}
+            <Route
+              path="/teacher/clients"
+              element={
+                <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                  <TeacherClientsPage />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
 
           {/* Все остальные маршруты перенаправляем на /dashboard */}
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

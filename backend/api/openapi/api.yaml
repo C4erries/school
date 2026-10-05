@@ -334,6 +334,374 @@ paths:
               schema:
                 $ref: '#/components/schemas/SubscriptionResponse'
 
+  /clients/{id}:
+    get:
+      summary: Получение клиента по ID
+      operationId: getClient
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      summary: Редактирование клиента
+      operationId: updateClient
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClientRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Удаление клиента
+      operationId: deleteClient
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Успешно удален
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clients/{id}/tags:
+    post:
+      summary: Привязать тег к клиенту
+      operationId: assignClientTag
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTagRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент или тег не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /clients/{id}/tags/{tag_id}:
+    delete:
+      summary: Отвязать тег от клиента
+      operationId: removeClientTag
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: tag_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tags:
+    get:
+      summary: Список тегов преподавателя
+      operationId: listTags
+      tags:
+        - Tags
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Создание нового тега
+      operationId: createTag
+      tags:
+        - Tags
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTagRequest'
+      responses:
+        '201':
+          description: Тег успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tags/{id}:
+    delete:
+      summary: Удаление тега
+      operationId: deleteTag
+      tags:
+        - Tags
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Тег успешно удален
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Тег не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /dashboard/metrics:
     get:
       summary: Метрики дашборда
@@ -479,6 +847,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+
+  /lessons/{id}:
+    patch:
+      summary: Редактирование урока
+      operationId: updateLesson
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonRequest'
+      responses:
+        '200':
+          description: Урок успешно обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Урок не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Коллизия кабинета
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /lessons/{id}/complete:
     post:
@@ -828,9 +1261,10 @@ components:
     LessonFormat:
       type: string
       enum:
-        - online
-        - offline
-      example: offline
+        - individual
+        - pair
+        - group
+      example: individual
 
     LessonStatus:
       type: string
@@ -947,14 +1381,121 @@ components:
           nullable: true
           example: 'Форс-мажор'
 
+    UpdateLessonRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        classroom_id:
+          type: string
+          format: uuid
+          nullable: true
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        location_or_url:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        cancel_reason:
+          type: string
+          nullable: true
+
+    ClientBalances:
+      type: object
+      required:
+        - individual_hours
+        - pair_hours
+        - group_hours
+        - total_hours
+      properties:
+        individual_hours:
+          type: number
+          example: 8.5
+        pair_hours:
+          type: number
+          example: 4.0
+        group_hours:
+          type: number
+          example: 0.0
+        total_hours:
+          type: number
+          example: 12.5
+
+    TagResponse:
+      type: object
+      required:
+        - id
+        - teacher_id
+        - name
+        - school_percent
+        - color
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: 'Школа №12'
+        school_percent:
+          type: integer
+          example: 30
+        color:
+          type: string
+          example: 'indigo'
+        created_at:
+          type: string
+          format: date-time
+
+    CreateTagRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: 'Школа №12'
+        school_percent:
+          type: integer
+          default: 0
+          minimum: 0
+          maximum: 100
+          example: 30
+        color:
+          type: string
+          default: 'indigo'
+          example: 'indigo'
+
+    AssignTagRequest:
+      type: object
+      required:
+        - tag_id
+      properties:
+        tag_id:
+          type: string
+          format: uuid
+
     ClientResponse:
       type: object
       required:
         - id
         - teacher_id
         - name
-        - base_rate
-        - school_percent_tag
+        - rate_individual
+        - tags
+        - balances
         - created_at
       properties:
         id:
@@ -970,8 +1511,27 @@ components:
           nullable: true
         base_rate:
           type: number
+          nullable: true
+        rate_individual:
+          type: number
+          example: 1500
+        rate_pair:
+          type: number
+          nullable: true
+          example: 1000
+        rate_group:
+          type: number
+          nullable: true
+          example: 800
         school_percent_tag:
           type: integer
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagResponse'
+        balances:
+          $ref: '#/components/schemas/ClientBalances'
         created_at:
           type: string
           format: date-time
@@ -980,7 +1540,6 @@ components:
       type: object
       required:
         - name
-        - base_rate
       properties:
         name:
           type: string
@@ -989,16 +1548,55 @@ components:
           nullable: true
         base_rate:
           type: number
+          nullable: true
+        rate_individual:
+          type: number
+          example: 1500
+        rate_pair:
+          type: number
+          nullable: true
+          example: 1000
+        rate_group:
+          type: number
+          nullable: true
+          example: 800
         school_percent_tag:
           type: integer
           default: 0
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateClientRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        rate_individual:
+          type: number
+        rate_pair:
+          type: number
+          nullable: true
+        rate_group:
+          type: number
+          nullable: true
+        tag_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
 
     SubscriptionResponse:
       type: object
       required:
         - id
         - client_id
-        - type
+        - format
         - balance
         - created_at
       properties:
@@ -1008,10 +1606,16 @@ components:
         client_id:
           type: string
           format: uuid
-        type:
+        format:
           type: string
+          enum:
+            - individual
+            - pair
+            - group
+          example: individual
         balance:
           type: number
+          example: 10.0
         created_at:
           type: string
           format: date-time
@@ -1019,16 +1623,21 @@ components:
     CreateSubscriptionRequest:
       type: object
       required:
-        - type
         - balance
       properties:
-        type:
+        format:
           type: string
           enum:
-            - lessons
-            - hours
+            - individual
+            - pair
+            - group
+          example: individual
+        type:
+          type: string
+          example: individual
         balance:
           type: number
+          example: 10.0
 
     DashboardMetricsResponse:
       type: object

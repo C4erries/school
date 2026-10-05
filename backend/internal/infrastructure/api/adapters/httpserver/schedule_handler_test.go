@@ -193,7 +193,7 @@ func TestScheduleHandler_Lessons(t *testing.T) {
 		reqObj := generated.CreateLessonRequest{
 			ClientId:    clientID,
 			ClassroomId: &classroomID,
-			Format:      generated.Offline,
+			Format:      generated.LessonFormatIndividual,
 			StartTime:   start,
 			EndTime:     end,
 		}
@@ -223,7 +223,7 @@ func TestScheduleHandler_Lessons(t *testing.T) {
 		reqObj := generated.CreateLessonRequest{
 			ClientId:    clientID,
 			ClassroomId: &classroomID,
-			Format:      generated.Offline,
+			Format:      generated.LessonFormatIndividual,
 			StartTime:   start,
 			EndTime:     end,
 		}
@@ -260,5 +260,35 @@ func TestScheduleHandler_Lessons(t *testing.T) {
 		err := json.Unmarshal(rec.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.Equal(t, generated.Completed, resp.Status)
+	})
+
+	t.Run("Update lesson by teacher", func(t *testing.T) {
+		lessonID := uuid.New()
+		l := &domain.Lesson{
+			ID:        lessonID,
+			TeacherID: teacherID,
+			ClientID:  clientID,
+			StartTime: start,
+			EndTime:   end,
+			Format:    domain.FormatIndividual,
+			Status:    domain.StatusScheduled,
+		}
+		lRepo.On("GetByID", mock.Anything, lessonID).Return(l, nil).Once()
+		lRepo.On("Update", mock.Anything, mock.AnythingOfType("*domain.Lesson")).Return(nil).Once()
+
+		reqBody := `{"notes":"Новая тема"}`
+		req := httptest.NewRequest(http.MethodPatch, "/lessons/"+lessonID.String(), bytes.NewBufferString(reqBody))
+		req.Header.Set("Authorization", "Bearer teacher_token")
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+
+		handler.UpdateLesson(rec, req, lessonID)
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		var resp generated.LessonResponse
+		err := json.Unmarshal(rec.Body.Bytes(), &resp)
+		require.NoError(t, err)
+		assert.NotNil(t, resp.Notes)
+		assert.Equal(t, "Новая тема", *resp.Notes)
 	})
 }

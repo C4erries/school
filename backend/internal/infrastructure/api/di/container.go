@@ -73,6 +73,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	classroomRepo := postgres.NewClassroomRepository(db)
 	clientRepo := postgres.NewClientRepository(db)
 	subRepo := postgres.NewSubscriptionRepository(db)
+	tagRepo := postgres.NewTagRepository(db)
 	lessonRepo := postgres.NewLessonRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
@@ -81,7 +82,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	// 5. Сервисы уровня Application
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
 	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
-	crmService := crm.NewService(clientRepo, subRepo)
+	crmService := crm.NewService(clientRepo, subRepo, tagRepo)
 	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
 
 	// 6. HTTP API Handler и роутер

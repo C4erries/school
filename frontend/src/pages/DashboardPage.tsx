@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/useAuth';
 import { GlassCard } from '../shared/components/GlassCard';
 import { Badge } from '../shared/components/Badge';
-import { AppNavbar } from '../shared/components/AppNavbar';
-import { LiquidBackground } from '../shared/components/LiquidBackground';
 import { checkBackendHealth } from '../api/health';
 import { getFinancialDashboard } from '../api/schedule';
 import { HealthResponse } from '../types/health';
@@ -74,11 +72,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen text-slate-800 p-4 sm:p-8 relative overflow-hidden">
-      <LiquidBackground />
-
-      <div className="max-w-5xl mx-auto space-y-6 relative z-10">
-        <AppNavbar />
+    <div className="space-y-6">
 
         {/* Приветственный блок с профилем */}
         <GlassCard className="relative overflow-hidden">
@@ -242,7 +236,6 @@ export const DashboardPage: React.FC = () => {
             Школьная платформа © 2026
           </div>
         </footer>
-      </div>
     </div>
   );
 };

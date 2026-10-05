@@ -12,8 +12,13 @@ import (
 type LessonFormat string
 
 const (
-	FormatOnline  LessonFormat = "online"
-	FormatOffline LessonFormat = "offline"
+	FormatIndividual LessonFormat = "individual"
+	FormatPair       LessonFormat = "pair"
+	FormatGroup      LessonFormat = "group"
+
+	// Алиасы для обратной совместимости, если где-то еще вызываются
+	FormatOnline  LessonFormat = "individual"
+	FormatOffline LessonFormat = "individual"
 )
 
 func (f LessonFormat) String() string {
@@ -21,7 +26,7 @@ func (f LessonFormat) String() string {
 }
 
 func (f LessonFormat) IsValid() bool {
-	return f == FormatOnline || f == FormatOffline
+	return f == FormatIndividual || f == FormatPair || f == FormatGroup
 }
 
 // LessonStatus определяет статус жизненного цикла занятия.
@@ -74,7 +79,7 @@ var (
 	ErrInvalidLessonStatus         = errors.New("invalid lesson status transition")
 	ErrUnauthorizedLessonAction    = errors.New("unauthorized action for this lesson")
 	ErrClassroomRequiredForOffline = errors.New("classroom is required for offline lesson")
-	ErrInvalidLessonFormat         = errors.New("invalid lesson format, must be online or offline")
+	ErrInvalidLessonFormat         = errors.New("invalid lesson format, must be individual, pair, or group")
 	ErrLessonAlreadyFinished       = errors.New("lesson is already completed or cancelled")
 )
 

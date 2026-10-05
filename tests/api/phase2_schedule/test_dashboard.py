@@ -75,7 +75,7 @@ class TestDashboard:
                 "client_id": client1["id"],
                 "start_time": to_rfc3339(test_day.replace(hour=10, minute=0, second=0)),
                 "end_time": to_rfc3339(test_day.replace(hour=11, minute=0, second=0)),
-                "format": "online",
+                "format": "individual",
             },
             headers=teacher["headers"],
         )
@@ -90,7 +90,7 @@ class TestDashboard:
                 "client_id": client2["id"],
                 "start_time": to_rfc3339(test_day.replace(hour=12, minute=0, second=0)),
                 "end_time": to_rfc3339(test_day.replace(hour=14, minute=0, second=0)),
-                "format": "online",
+                "format": "individual",
             },
             headers=teacher["headers"],
         )
@@ -103,7 +103,7 @@ class TestDashboard:
                 "client_id": client1["id"],
                 "start_time": to_rfc3339(test_day.replace(hour=15, minute=0, second=0)),
                 "end_time": to_rfc3339(test_day.replace(hour=16, minute=0, second=0)),
-                "format": "online",
+                "format": "individual",
             },
             headers=teacher["headers"],
         )

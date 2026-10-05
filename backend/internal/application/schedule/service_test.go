@@ -77,6 +77,10 @@ func (m *MockSubscriptionRepository) Update(ctx context.Context, sub *domain.Cli
 	return m.Called(ctx, sub).Error(0)
 }
 
+func (m *MockSubscriptionRepository) Create(ctx context.Context, sub *domain.ClientSubscription) error {
+	return m.Called(ctx, sub).Error(0)
+}
+
 // MockLessonRepository
 type MockLessonRepository struct {
 	mock.Mock
@@ -315,13 +319,14 @@ func TestScheduleService_Lessons(t *testing.T) {
 			ClientID:  clientID,
 			StartTime: start,
 			EndTime:   end,
+			Format:    domain.FormatIndividual,
 			Status:    domain.StatusScheduled,
 		}
 
 		sub := &domain.ClientSubscription{
 			ID:       uuid.New(),
 			ClientID: clientID,
-			Type:     domain.SubscriptionTypeLessons,
+			Format:   domain.SubscriptionFormatIndividual,
 			Balance:  5,
 		}
 
@@ -377,6 +382,42 @@ func TestScheduleService_Lessons(t *testing.T) {
 		res, err := svc.ListLessons(ctx, filter)
 		require.NoError(t, err)
 		assert.Equal(t, expected, res)
+		lRepo.AssertExpectations(t)
+	})
+
+	t.Run("Update lesson success", func(t *testing.T) {
+		lRepo := new(MockLessonRepository)
+		lessonID := uuid.New()
+		existing := &domain.Lesson{
+			ID:        lessonID,
+			TeacherID: teacherID,
+			ClientID:  clientID,
+			StartTime: start,
+			EndTime:   end,
+			Format:    domain.FormatIndividual,
+			Status:    domain.StatusScheduled,
+		}
+
+		newNotes := "Новые заметки"
+		newEnd := start.Add(90 * time.Minute)
+
+		lRepo.On("GetByID", ctx, lessonID).Return(existing, nil).Once()
+		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
+			return l.ID == lessonID && l.Notes == newNotes && l.EndTime.Equal(newEnd)
+		})).Return(nil).Once()
+
+		svc := schedule.NewService(nil, lRepo, nil, nil)
+		updated, err := svc.UpdateLesson(ctx, schedule.UpdateLessonInput{
+			LessonID:   lessonID,
+			CallerID:   teacherID,
+			CallerRole: domain.RoleTeacher,
+			EndTime:    &newEnd,
+			Notes:      &newNotes,
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, newNotes, updated.Notes)
+		assert.Equal(t, newEnd, updated.EndTime)
 		lRepo.AssertExpectations(t)
 	})
 }

@@ -11,7 +11,9 @@ export type LessonStatus =
   | 'cancelled_by_student'
   | 'no_show';
 
-export type LessonFormat = 'online' | 'offline';
+export type LessonFormat = 'online' | 'offline' | 'individual' | 'pair' | 'group';
+
+export type SubscriptionFormat = 'individual' | 'pair' | 'group';
 
 export interface Classroom {
   id: string;
@@ -33,22 +35,51 @@ export interface TeacherStudent {
   created_at: string;
 }
 
+export interface Tag {
+  id: string;
+  teacher_id?: string;
+  name: string;
+  school_percent: number;
+  color?: string;
+  created_at?: string;
+}
+
+export interface CreateTagRequest {
+  name: string;
+  school_percent: number;
+  color?: string;
+}
+
+export interface ClientBalances {
+  individual_hours: number;
+  pair_hours: number;
+  group_hours: number;
+  total_hours: number;
+}
+
 export interface Client {
   id: string;
   teacher_id?: string;
   user_id?: string;
   name: string;
   phone?: string | null;
-  base_rate: number;
+  base_rate?: number;
+  rate_individual: number;
+  rate_pair?: number | null;
+  rate_group?: number | null;
   school_percent_tag?: number;
   tag?: string | null;
+  tags?: Tag[];
+  tag_ids?: string[];
   balance: number;
+  balances?: ClientBalances;
   created_at: string;
 }
 
 export interface ClientSubscription {
   id: string;
   client_id: string;
+  format?: SubscriptionFormat;
   type?: 'lessons' | 'hours' | string;
   balance?: number;
   amount?: number;
@@ -100,20 +131,27 @@ export interface AssignStudentRequest {
 export interface CreateClientRequest {
   name: string;
   phone?: string | null;
-  base_rate: number;
+  base_rate?: number;
+  rate_individual: number;
+  rate_pair?: number | null;
+  rate_group?: number | null;
   school_percent_tag?: number;
   tag?: string;
+  tag_ids?: string[];
 }
 
 export interface AddSubscriptionRequest {
   client_id: string;
-  type?: 'lessons' | 'hours';
-  balance?: number;
+  format?: SubscriptionFormat;
+  hours?: number;
   amount?: number;
+  balance?: number;
+  type?: 'lessons' | 'hours';
 }
 
 export interface CreateSubscriptionRequest {
-  type: 'lessons' | 'hours';
+  type?: 'lessons' | 'hours';
+  format?: SubscriptionFormat;
   balance: number;
 }
 
@@ -127,6 +165,17 @@ export interface CreateLessonRequest {
   end_time: string;
   online_link?: string;
   comment?: string;
+}
+
+export interface UpdateLessonRequest {
+  title?: string;
+  classroom_id?: string | null;
+  start_time?: string;
+  end_time?: string;
+  format?: LessonFormat;
+  online_link?: string;
+  comment?: string;
+  cancel_reason?: string;
 }
 
 export interface DeclineLessonRequest {
