@@ -37,4 +37,5 @@
 | 0006 | [Единый AppLayout и правила верстки Apple Liquid Glass](0006-app-layout-and-glass-conventions.md) | Accepted | 2026-10-05 |
 | 0007 | [Учет в часах, тарифная сетка ставок и форматные абонементы](0007-hourly-rates-and-format-subscriptions.md) | Accepted | 2026-10-05 |
 | 0008 | [Декомпозиция монолитного фронтенда и Client-Side Caching (CSC) через Valkey](0008-frontend-decomposition-and-valkey-csc.md) | Accepted | 2026-10-05 |
+| 0009 | [Журнал платежей (Payments Ledger), Взаиморасчеты с партнерами и Экспорт данных](0009-financial-ledger-and-partner-settlements.md) | Accepted | 2026-10-06 |
 
