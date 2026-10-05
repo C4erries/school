@@ -7,7 +7,7 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { TeacherSchedulePage } from '../pages/teacher/TeacherSchedulePage';
-import { StudentLessonsPage } from '../pages/student/StudentLessonsPage';
+import { TeacherClientsPage } from '../pages/teacher/TeacherClientsPage';
 
 export const App: React.FC = () => {
   return (
@@ -47,12 +47,11 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Личный кабинет ученика: подтверждение в 1 клик, отклонение с причиной, созвоны */}
           <Route
-            path="/student/lessons"
+            path="/teacher/clients"
             element={
-              <ProtectedRoute allowedRoles={['student', 'owner']}>
-                <StudentLessonsPage />
+              <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                <TeacherClientsPage />
               </ProtectedRoute>
             }
           />

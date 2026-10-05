@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// TeacherStudent представляет связь прикрепления ученика к преподавателю.
+// TeacherStudent представляет связь прикрепления ученика к преподавателю (deprecated in Tutor Assistant).
 type TeacherStudent struct {
 	ID        uuid.UUID
 	TeacherID uuid.UUID

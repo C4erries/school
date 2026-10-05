@@ -9,6 +9,8 @@ import (
 	valkeylib "github.com/valkey-io/valkey-go"
 
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/crm"
+	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres"
@@ -19,13 +21,15 @@ import (
 
 // Container объединяет все зависимости API сервиса (DI сборка).
 type Container struct {
-	Config          *config.Config
-	Logger          *slog.Logger
-	DB              *sql.DB
-	ValkeyClient    valkeylib.Client
-	HTTPServer      *httpserver.Server
-	AuthService     *auth.Service
-	ScheduleService *schedule.Service
+	Config           *config.Config
+	Logger           *slog.Logger
+	DB               *sql.DB
+	ValkeyClient     valkeylib.Client
+	HTTPServer       *httpserver.Server
+	AuthService      *auth.Service
+	ScheduleService  *schedule.Service
+	CRMService       *crm.Service
+	DashboardService *dashboard.Service
 }
 
 // NewContainer инициализирует все адаптеры и зависимости согласно конфигурации.
@@ -67,7 +71,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	_ = postgres.NewTransactor(db)
 	userRepo := postgres.NewUserRepository(db)
 	classroomRepo := postgres.NewClassroomRepository(db)
-	teacherStudentRepo := postgres.NewTeacherStudentRepository(db)
+	clientRepo := postgres.NewClientRepository(db)
+	subRepo := postgres.NewSubscriptionRepository(db)
 	lessonRepo := postgres.NewLessonRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
@@ -75,10 +80,19 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 
 	// 5. Сервисы уровня Application
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
-	scheduleService := schedule.NewService(classroomRepo, teacherStudentRepo, lessonRepo, userRepo)
+	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
+	crmService := crm.NewService(clientRepo, subRepo)
+	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
 
 	// 6. HTTP API Handler и роутер
-	apiHandler := httpserver.NewAPIHandler(authService, scheduleService, tokenManager, cfg.App.Version)
+	apiHandler := httpserver.NewAPIHandler(
+		authService,
+		scheduleService,
+		crmService,
+		dashboardService,
+		tokenManager,
+		cfg.App.Version,
+	)
 	mux := httpserver.BuildMux(apiHandler, logger)
 	handlerWithLogging := httpserver.LoggingMiddleware(logger)(mux)
 
@@ -86,13 +100,15 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	server := httpserver.NewServer(cfg, logger, handlerWithLogging)
 
 	return &Container{
-		Config:          cfg,
-		Logger:          logger,
-		DB:              db,
-		ValkeyClient:    valkeyClient,
-		HTTPServer:      server,
-		AuthService:     authService,
-		ScheduleService: scheduleService,
+		Config:           cfg,
+		Logger:           logger,
+		DB:               db,
+		ValkeyClient:     valkeyClient,
+		HTTPServer:       server,
+		AuthService:      authService,
+		ScheduleService:  scheduleService,
+		CRMService:       crmService,
+		DashboardService: dashboardService,
 	}, nil
 }
 

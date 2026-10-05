@@ -6,14 +6,13 @@ import { Badge } from '../shared/components/Badge';
 import { AppNavbar } from '../shared/components/AppNavbar';
 import { LiquidBackground } from '../shared/components/LiquidBackground';
 import { checkBackendHealth } from '../api/health';
+import { getFinancialDashboard } from '../api/schedule';
 import { HealthResponse } from '../types/health';
+import { FinancialDashboardStats } from '../types/schedule';
 import {
   Calendar,
   Users,
   Wallet,
-  BookOpen,
-  CheckCircle2,
-  Clock,
   Sparkles,
   Building2,
   ArrowRight,
@@ -23,6 +22,7 @@ export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [finStats, setFinStats] = useState<FinancialDashboardStats | null>(null);
 
   useEffect(() => {
     const fetchHealth = async () => {
@@ -33,16 +33,22 @@ export const DashboardPage: React.FC = () => {
         console.error('Health check error:', err);
       }
     };
+    
+    const fetchStats = async () => {
+      if (user?.role === 'teacher') {
+        const stats = await getFinancialDashboard();
+        setFinStats(stats);
+      }
+    };
 
     fetchHealth();
+    fetchStats();
     const interval = setInterval(fetchHealth, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.role]);
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
-      case 'student':
-        return 'mint';
       case 'teacher':
         return 'indigo';
       case 'assistant':
@@ -56,8 +62,6 @@ export const DashboardPage: React.FC = () => {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'student':
-        return 'Ученик';
       case 'teacher':
         return 'Преподаватель';
       case 'assistant':
@@ -186,16 +190,16 @@ export const DashboardPage: React.FC = () => {
 
               <GlassCard
                 interactive
-                onClick={() => navigate('/teacher/schedule')}
+                onClick={() => navigate('/teacher/clients')}
                 className="space-y-3 group"
               >
                 <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Закреплённые ученики</h3>
+                  <h3 className="font-bold text-slate-900 text-base">CRM Репетитора</h3>
                   <p className="text-xs text-slate-500 mt-1">
-                    Быстрый выбор ученика и составление индивидуального графика
+                    Управление учениками, абонементами и ставками
                   </p>
                 </div>
                 <div className="pt-2 text-xs font-semibold text-emerald-600 flex items-center gap-1">
@@ -203,84 +207,30 @@ export const DashboardPage: React.FC = () => {
                 </div>
               </GlassCard>
 
-              <GlassCard className="space-y-3 opacity-80">
+              <GlassCard className="space-y-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
                   <Wallet className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Финансовый дашборд</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Оплата за проведенные часы, расчет процента школы
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-amber-600">
-                  Фаза 3 (Скоро)
-                </div>
-              </GlassCard>
-            </div>
-          </div>
-        )}
-
-        {/* Разделы для Ученика */}
-        {user?.role === 'student' && (
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
-              Мое обучение
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <GlassCard
-                interactive
-                onClick={() => navigate('/student/lessons')}
-                className="space-y-3 group"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Мои занятия</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Подтверждение уроков в 1 клик, ссылки на онлайн-конференции
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-indigo-600 flex items-center gap-1">
-                  Открыть занятия <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </GlassCard>
-
-              <GlassCard className="space-y-3 opacity-80">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Домашние задания</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Материалы уроков и отправка решений
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-emerald-600">
-                  Фаза 3 (Скоро)
-                </div>
-              </GlassCard>
-
-              <GlassCard className="space-y-3 opacity-80">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Баланс занятий</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Оплаченные пакеты уроков и история списаний
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-amber-600">
-                  Пакет активен
+                  <h3 className="font-bold text-slate-900 text-base">Финансы</h3>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-slate-500 flex justify-between">
+                      Gross Revenue: <span className="font-bold text-slate-800">{finStats?.gross_revenue || 0} ₽</span>
+                    </p>
+                    <p className="text-xs text-slate-500 flex justify-between">
+                      Net Income: <span className="font-bold text-emerald-600">{finStats?.net_income || 0} ₽</span>
+                    </p>
+                    <p className="text-xs text-slate-500 flex justify-between">
+                      Avg Rate: <span className="font-bold text-indigo-600">{finStats?.average_hourly_rate || 0} ₽/ч</span>
+                    </p>
+                  </div>
                 </div>
               </GlassCard>
             </div>
           </div>
         )}
+
+
 
         {/* Подвал */}
         <footer className="pt-6 border-t border-slate-200/40 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">

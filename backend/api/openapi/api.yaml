@@ -244,54 +244,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /teachers/students:
+  /clients:
     get:
-      summary: Список закрепленных учеников преподавателя
-      operationId: listTeacherStudents
+      summary: Список клиентов
+      operationId: listClients
       tags:
-        - TeacherStudents
+        - Clients
       security:
         - BearerAuth: []
-      parameters:
-        - name: teacher_id
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-          description: Идентификатор преподавателя (для админа/владельца)
       responses:
         '200':
-          description: Список учеников
+          description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserResponse'
-        '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Недостаточно прав
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                  $ref: '#/components/schemas/ClientResponse'
     post:
-      summary: Прикрепление ученика к преподавателю
-      operationId: assignStudent
+      summary: Создание клиента
+      operationId: createClient
       tags:
-        - TeacherStudents
+        - Clients
       security:
         - BearerAuth: []
       requestBody:
@@ -299,44 +273,95 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AssignStudentRequest'
+              $ref: '#/components/schemas/CreateClientRequest'
       responses:
         '201':
-          description: Ученик успешно прикреплен
+          description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TeacherStudentResponse'
-        '400':
-          description: Ошибка валидации
+                $ref: '#/components/schemas/ClientResponse'
+
+  /clients/{id}/subscriptions:
+    get:
+      summary: Список абонементов
+      operationId: listSubscriptions
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Не авторизован
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionResponse'
+    post:
+      summary: Создание абонемента
+      operationId: createSubscription
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubscriptionRequest'
+      responses:
+        '201':
+          description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Недостаточно прав
+                $ref: '#/components/schemas/SubscriptionResponse'
+
+  /dashboard/metrics:
+    get:
+      summary: Метрики дашборда
+      operationId: getDashboardMetrics
+      tags:
+        - Dashboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
-          description: Ученик уже прикреплен к данному преподавателю
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/DashboardMetricsResponse'
 
   /lessons:
     get:
@@ -353,7 +378,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: student_id
+        - name: client_id
           in: query
           required: false
           schema:
@@ -454,117 +479,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /lessons/{id}/accept:
-    post:
-      summary: Подтверждение урока учеником
-      operationId: acceptLesson
-      tags:
-        - Lessons
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Урок успешно подтвержден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LessonResponse'
-        '400':
-          description: Некорректный статус урока для подтверждения
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Недостаточно прав
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Урок не найден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /lessons/{id}/decline:
-    post:
-      summary: Отклонение урока учеником
-      operationId: declineLesson
-      tags:
-        - Lessons
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeclineLessonRequest'
-      responses:
-        '200':
-          description: Урок успешно отклонен
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LessonResponse'
-        '400':
-          description: Некорректный статус урока для отклонения
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
-          description: Не авторизован
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
-          description: Недостаточно прав
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
-          description: Урок не найден
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
 
   /lessons/{id}/complete:
     post:
@@ -911,46 +825,6 @@ components:
           nullable: true
           example: 'Основной кабинет математики'
 
-    TeacherStudentResponse:
-      type: object
-      required:
-        - id
-        - teacher_id
-        - student_id
-        - created_at
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: '123e4567-e89b-12d3-a456-426614174000'
-        teacher_id:
-          type: string
-          format: uuid
-          example: '123e4567-e89b-12d3-a456-426614174001'
-        student_id:
-          type: string
-          format: uuid
-          example: '123e4567-e89b-12d3-a456-426614174002'
-        created_at:
-          type: string
-          format: date-time
-          example: '2026-10-04T12:00:00Z'
-
-    AssignStudentRequest:
-      type: object
-      required:
-        - teacher_id
-        - student_id
-      properties:
-        teacher_id:
-          type: string
-          format: uuid
-          example: '123e4567-e89b-12d3-a456-426614174001'
-        student_id:
-          type: string
-          format: uuid
-          example: '123e4567-e89b-12d3-a456-426614174002'
-
     LessonFormat:
       type: string
       enum:
@@ -961,21 +835,17 @@ components:
     LessonStatus:
       type: string
       enum:
-        - pending_confirmation
-        - confirmed
+        - scheduled
         - completed
-        - cancelled_by_teacher
-        - cancelled_by_student
-        - declined
-        - no_show
-      example: pending_confirmation
+        - cancelled
+      example: scheduled
 
     LessonResponse:
       type: object
       required:
         - id
         - teacher_id
-        - student_id
+        - client_id
         - start_time
         - end_time
         - format
@@ -991,7 +861,7 @@ components:
           type: string
           format: uuid
           example: '123e4567-e89b-12d3-a456-426614174001'
-        student_id:
+        client_id:
           type: string
           format: uuid
           example: '123e4567-e89b-12d3-a456-426614174002'
@@ -1036,12 +906,12 @@ components:
     CreateLessonRequest:
       type: object
       required:
-        - student_id
+        - client_id
         - start_time
         - end_time
         - format
       properties:
-        student_id:
+        client_id:
           type: string
           format: uuid
           example: '123e4567-e89b-12d3-a456-426614174002'
@@ -1069,14 +939,6 @@ components:
           nullable: true
           example: 'Тема: Квадратные уравнения'
 
-    DeclineLessonRequest:
-      type: object
-      properties:
-        reason:
-          type: string
-          nullable: true
-          example: 'Не могу в это время, давайте перенесем'
-
     CancelLessonRequest:
       type: object
       properties:
@@ -1084,4 +946,101 @@ components:
           type: string
           nullable: true
           example: 'Форс-мажор'
+
+    ClientResponse:
+      type: object
+      required:
+        - id
+        - teacher_id
+        - name
+        - base_rate
+        - school_percent_tag
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        base_rate:
+          type: number
+        school_percent_tag:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    CreateClientRequest:
+      type: object
+      required:
+        - name
+        - base_rate
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        base_rate:
+          type: number
+        school_percent_tag:
+          type: integer
+          default: 0
+
+    SubscriptionResponse:
+      type: object
+      required:
+        - id
+        - client_id
+        - type
+        - balance
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        balance:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+
+    CreateSubscriptionRequest:
+      type: object
+      required:
+        - type
+        - balance
+      properties:
+        type:
+          type: string
+          enum:
+            - lessons
+            - hours
+        balance:
+          type: number
+
+    DashboardMetricsResponse:
+      type: object
+      required:
+        - gross_potential_revenue
+        - net_income
+        - average_rate
+      properties:
+        gross_potential_revenue:
+          type: number
+        net_income:
+          type: number
+        average_rate:
+          type: number
 

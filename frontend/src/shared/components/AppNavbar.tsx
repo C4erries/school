@@ -57,7 +57,7 @@ export const AppNavbar: React.FC = () => {
           </div>
           <div>
             <span className="font-bold text-base tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-              School Platform
+              Tutor Assistant
             </span>
             <span className="block text-xs text-slate-500">
               {getRoleLabel(user?.role)}
@@ -108,17 +108,17 @@ export const AppNavbar: React.FC = () => {
           </Link>
         )}
 
-        {user?.role === 'student' && (
+        {(user?.role === 'teacher' || user?.role === 'owner') && (
           <Link
-            to="/student/lessons"
+            to="/teacher/clients"
             className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              isActive('/student/lessons')
+              isActive('/teacher/clients')
                 ? 'bg-white text-indigo-600 shadow-sm'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Мои занятия</span>
+            <span>Ученики</span>
           </Link>
         )}
       </nav>

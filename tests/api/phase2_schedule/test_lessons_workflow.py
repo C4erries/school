@@ -11,7 +11,7 @@ def to_rfc3339(dt: datetime) -> str:
 
 @pytest.mark.schedule
 class TestLessonsWorkflow:
-    """Интеграционные тесты жизненного цикла уроков, согласования, нахлестов и коллизий кабинетов."""
+    """Интеграционные тесты жизненного цикла уроков, абонементов, нахлестов и коллизий кабинетов."""
 
     @pytest.fixture
     def setup_classroom(self, client: httpx.Client, admin_user):
@@ -22,342 +22,289 @@ class TestLessonsWorkflow:
             json={"name": unique_name, "capacity": 4, "color": "#3B82F6"},
             headers=admin_user["headers"],
         )
-        assert res.status_code == 201
+        assert res.status_code == 201, f"Failed to create classroom: {res.text}"
         return res.json()
 
     @pytest.fixture
-    def teacher_with_student(
-        self,
-        client: httpx.Client,
-        admin_user,
-        teacher_user,
-        student_user,
-    ):
-        """Фикстура связки преподаватель <-> закрепленный ученик."""
-        assign_res = client.post(
-            "/api/v1/teachers/students",
-            json={"teacher_id": teacher_user["id"], "student_id": student_user["id"]},
-            headers=admin_user["headers"],
+    def teacher_with_client(self, client: httpx.Client, teacher_user):
+        """Фикстура создания клиента для преподавателя."""
+        unique_name = f"Клиент-{uuid.uuid4().hex[:6]}"
+        res = client.post(
+            "/api/v1/clients",
+            json={
+                "name": unique_name,
+                "phone": "+79997654321",
+                "base_rate": 1600.0,
+                "school_percent_tag": 20,
+            },
+            headers=teacher_user["headers"],
         )
-        assert assign_res.status_code == 201
-        return teacher_user, student_user
+        assert res.status_code == 201, f"Failed to create client: {res.text}"
+        return teacher_user, res.json()
 
-    def test_lesson_full_lifecycle_accept_and_complete(
+    def test_create_lesson_immediately_scheduled(
         self,
         client: httpx.Client,
-        teacher_with_student,
+        teacher_with_client,
         setup_classroom,
     ):
-        """Полный жизненный цикл урока:
-
-        1. Назначение преподавателем -> pending_confirmation (201)
-        2. Принятие учеником -> confirmed (200)
-        3. Завершение преподавателем -> completed (200)
-        """
-        teacher, student = teacher_with_student
+        """Создание урока преподавателем: статус сразу scheduled (ADR 005, без accept/decline)."""
+        teacher, client_data = teacher_with_client
         classroom = setup_classroom
 
-        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=1)
-        start_time = to_rfc3339(now.replace(hour=10, minute=0, second=0))
-        end_time = to_rfc3339(now.replace(hour=11, minute=0, second=0))
+        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=2)
+        start_time = to_rfc3339(now.replace(hour=11, minute=0, second=0))
+        end_time = to_rfc3339(now.replace(hour=12, minute=0, second=0))
 
-        # 1. Преподаватель назначает оффлайн-урок
         create_payload = {
-            "student_id": student["id"],
+            "client_id": client_data["id"],
             "classroom_id": classroom["id"],
             "start_time": start_time,
             "end_time": end_time,
             "format": "offline",
-            "notes": "Урок по геометрии: теорема Пифагора",
+            "notes": "Урок физики: механика",
         }
-        create_res = client.post(
-            "/api/v1/lessons",
-            json=create_payload,
-            headers=teacher["headers"],
-        )
-        assert create_res.status_code == 201, f"Failed to create lesson: {create_res.text}"
-        lesson = create_res.json()
+        res = client.post("/api/v1/lessons", json=create_payload, headers=teacher["headers"])
+        assert res.status_code == 201, f"Failed to schedule lesson: {res.text}"
+        lesson = res.json()
 
-        assert lesson["status"] == "pending_confirmation"
+        assert "id" in lesson
         assert lesson["teacher_id"] == teacher["id"]
-        assert lesson["student_id"] == student["id"]
+        assert lesson["client_id"] == client_data["id"]
         assert lesson["classroom_id"] == classroom["id"]
+        assert lesson["status"] == "scheduled"
         assert lesson["format"] == "offline"
-        lesson_id = lesson["id"]
 
-        # 2. Ученик принимает урок
-        accept_res = client.post(
-            f"/api/v1/lessons/{lesson_id}/accept",
-            headers=student["headers"],
-        )
-        assert accept_res.status_code == 200, f"Failed to accept lesson: {accept_res.text}"
-        accepted_lesson = accept_res.json()
-        assert accepted_lesson["id"] == lesson_id
-        assert accepted_lesson["status"] == "confirmed"
-
-        # 3. Преподаватель завершает урок
-        complete_res = client.post(
-            f"/api/v1/lessons/{lesson_id}/complete",
-            headers=teacher["headers"],
-        )
-        assert complete_res.status_code == 200, f"Failed to complete lesson: {complete_res.text}"
-        completed_lesson = complete_res.json()
-        assert completed_lesson["id"] == lesson_id
-        assert completed_lesson["status"] == "completed"
-
-    def test_lesson_decline_workflow(
+    def test_lesson_complete_deducts_lessons_subscription(
         self,
         client: httpx.Client,
-        teacher_with_student,
+        teacher_with_client,
     ):
-        """Отклонение урока учеником с указанием причины -> declined (200 OK)."""
-        teacher, student = teacher_with_student
+        """Завершение урока списывает 1 занятие с абонемента ученика типа 'lessons'."""
+        teacher, client_data = teacher_with_client
 
-        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=2)
+        # 1. Добавляем абонемент на 5 занятий
+        sub_res = client.post(
+            f"/api/v1/clients/{client_data['id']}/subscriptions",
+            json={"type": "lessons", "balance": 5.0},
+            headers=teacher["headers"],
+        )
+        assert sub_res.status_code == 201
+        sub_id = sub_res.json()["id"]
+
+        # 2. Создаем онлайн урок
+        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=1)
         start_time = to_rfc3339(now.replace(hour=14, minute=0, second=0))
         end_time = to_rfc3339(now.replace(hour=15, minute=0, second=0))
 
-        # Преподаватель назначает онлайн-урок
-        create_payload = {
-            "student_id": student["id"],
-            "start_time": start_time,
-            "end_time": end_time,
-            "format": "online",
-            "location_or_url": "https://meet.google.com/test-room",
-            "notes": "Подготовка к ОГЭ",
-        }
-        create_res = client.post(
+        lesson_res = client.post(
             "/api/v1/lessons",
-            json=create_payload,
+            json={
+                "client_id": client_data["id"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "format": "online",
+                "notes": "Онлайн занятие",
+            },
             headers=teacher["headers"],
         )
-        assert create_res.status_code == 201
-        lesson_id = create_res.json()["id"]
+        assert lesson_res.status_code == 201
+        lesson_id = lesson_res.json()["id"]
 
-        # Ученик отклоняет урок с указанием причины
-        decline_reason = "Не успеваю вернуться из школы к 14:00"
-        decline_res = client.post(
-            f"/api/v1/lessons/{lesson_id}/decline",
-            json={"reason": decline_reason},
-            headers=student["headers"],
+        # 3. Преподаватель завершает урок
+        comp_res = client.post(
+            f"/api/v1/lessons/{lesson_id}/complete",
+            headers=teacher["headers"],
         )
-        assert decline_res.status_code == 200, f"Failed to decline lesson: {decline_res.text}"
-        declined_lesson = decline_res.json()
-        assert declined_lesson["id"] == lesson_id
-        assert declined_lesson["status"] == "declined"
-        assert declined_lesson["cancel_reason"] == decline_reason
+        assert comp_res.status_code == 200, f"Failed to complete lesson: {comp_res.text}"
+        assert comp_res.json()["status"] == "completed"
 
-        # Повторная попытка подтвердить отклоненный урок должна возвращать 400 Bad Request
-        retry_accept = client.post(
-            f"/api/v1/lessons/{lesson_id}/accept",
-            headers=student["headers"],
-        )
-        assert retry_accept.status_code == 400
+        # 4. Проверяем баланс абонемента (должен уменьшиться с 5 до 4)
+        list_sub = client.get(
+            f"/api/v1/clients/{client_data['id']}/subscriptions",
+            headers=teacher["headers"],
+        ).json()
+        target_sub = next((s for s in list_sub if s["id"] == sub_id), None)
+        assert target_sub is not None
+        assert target_sub["balance"] == 4.0
 
-    def test_same_teacher_overlapping_lessons_allowed(
+    def test_lesson_complete_deducts_hours_subscription(
         self,
         client: httpx.Client,
-        admin_user,
-        teacher_user,
-        registered_user,
-        setup_classroom,
+        teacher_with_client,
     ):
-        """Нахлёст занятий у одного преподавателя:
+        """Завершение урока списывает точную длительность (часы) с абонемента ученика типа 'hours'."""
+        teacher, client_data = teacher_with_client
 
-        Один и тот же преподаватель успешно назначает два урока с частичным
-        пересечением времени (например, 15:00-16:00 и 15:45-16:45) в одном кабинете
-        (разрешено по бизнес-требованиям, например, мини-группа или совмещенный слот).
-        """
-        classroom = setup_classroom
-
-        # Регистрируем двух разных студентов и прикрепляем их к одному преподавателю
-        _, student1 = registered_user(role="student")
-        _, student2 = registered_user(role="student")
-        s1_id = student1["user"]["id"]
-        s2_id = student2["user"]["id"]
-
-        client.post(
-            "/api/v1/teachers/students",
-            json={"teacher_id": teacher_user["id"], "student_id": s1_id},
-            headers=admin_user["headers"],
+        # 1. Добавляем абонемент на 10.0 часов
+        sub_res = client.post(
+            f"/api/v1/clients/{client_data['id']}/subscriptions",
+            json={"type": "hours", "balance": 10.0},
+            headers=teacher["headers"],
         )
-        client.post(
-            "/api/v1/teachers/students",
-            json={"teacher_id": teacher_user["id"], "student_id": s2_id},
-            headers=admin_user["headers"],
-        )
+        assert sub_res.status_code == 201
+        sub_id = sub_res.json()["id"]
 
+        # 2. Создаем онлайн урок длительностью 1.5 часа (10:00 - 11:30)
         now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=3)
-        start_1 = to_rfc3339(now.replace(hour=15, minute=0, second=0))
-        end_1 = to_rfc3339(now.replace(hour=16, minute=0, second=0))
+        start_time = to_rfc3339(now.replace(hour=10, minute=0, second=0))
+        end_time = to_rfc3339(now.replace(hour=11, minute=30, second=0))
 
-        start_2 = to_rfc3339(now.replace(hour=15, minute=45, second=0))
-        end_2 = to_rfc3339(now.replace(hour=16, minute=45, second=0))
-
-        # Урок 1: 15:00 - 16:00
-        res1 = client.post(
+        lesson_res = client.post(
             "/api/v1/lessons",
             json={
-                "student_id": s1_id,
-                "classroom_id": classroom["id"],
-                "start_time": start_1,
-                "end_time": end_1,
-                "format": "offline",
+                "client_id": client_data["id"],
+                "start_time": start_time,
+                "end_time": end_time,
+                "format": "online",
             },
-            headers=teacher_user["headers"],
+            headers=teacher["headers"],
         )
-        assert res1.status_code == 201, f"Failed lesson 1: {res1.text}"
-        data1 = res1.json()
-        assert data1["status"] == "pending_confirmation"
+        assert lesson_res.status_code == 201
+        lesson_id = lesson_res.json()["id"]
 
-        # Урок 2: 15:45 - 16:45 (частичный нахлёст)
-        res2 = client.post(
-            "/api/v1/lessons",
-            json={
-                "student_id": s2_id,
-                "classroom_id": classroom["id"],
-                "start_time": start_2,
-                "end_time": end_2,
-                "format": "offline",
-            },
-            headers=teacher_user["headers"],
+        # 3. Завершаем урок
+        comp_res = client.post(
+            f"/api/v1/lessons/{lesson_id}/complete",
+            headers=teacher["headers"],
         )
-        assert res2.status_code == 201, f"Failed lesson 2 (same teacher overlap): {res2.text}"
-        data2 = res2.json()
-        assert data2["status"] == "pending_confirmation"
-        assert data2["id"] != data1["id"]
+        assert comp_res.status_code == 200
+        assert comp_res.json()["status"] == "completed"
 
-    def test_different_teachers_classroom_collision_conflict(
+        # 4. Проверяем баланс абонемента (должен стать 10.0 - 1.5 = 8.5)
+        list_sub = client.get(
+            f"/api/v1/clients/{client_data['id']}/subscriptions",
+            headers=teacher["headers"],
+        ).json()
+        target_sub = next((s for s in list_sub if s["id"] == sub_id), None)
+        assert target_sub is not None
+        assert abs(target_sub["balance"] - 8.5) < 1e-4
+
+    def test_lesson_overlap_allowed_for_same_teacher(
         self,
         client: httpx.Client,
-        admin_user,
-        teacher_user,
-        registered_user,
-        setup_classroom,
+        teacher_with_client,
     ):
-        """Коллизия кабинета:
+        """Нахлёст занятий: один и тот же репетитор успешно назначает два урока с частичным пересечением времени."""
+        teacher, client1 = teacher_with_client
 
-        Второй преподаватель пытается назначить оффлайн-урок в тот же кабинет
-        в то же время (пересекающийся интервал) -> получает 409 Conflict.
-        """
-        classroom = setup_classroom
-
-        # Преподаватель 1 и студент 1
-        _, s1 = registered_user(role="student")
-        s1_id = s1["user"]["id"]
-        client.post(
-            "/api/v1/teachers/students",
-            json={"teacher_id": teacher_user["id"], "student_id": s1_id},
-            headers=admin_user["headers"],
+        # Создаем второго клиента для того же репетитора
+        c2_res = client.post(
+            "/api/v1/clients",
+            json={"name": f"Клиент-2 {uuid.uuid4().hex[:4]}", "base_rate": 1500.0},
+            headers=teacher["headers"],
         )
-
-        # Преподаватель 2 и студент 2
-        _, t2 = registered_user(role="teacher")
-        t2_id = t2["user"]["id"]
-        t2_token = t2["tokens"]["access_token"]
-        t2_headers = {"Authorization": f"Bearer {t2_token}"}
-
-        _, s2 = registered_user(role="student")
-        s2_id = s2["user"]["id"]
-        client.post(
-            "/api/v1/teachers/students",
-            json={"teacher_id": t2_id, "student_id": s2_id},
-            headers=admin_user["headers"],
-        )
+        assert c2_res.status_code == 201
+        client2 = c2_res.json()
 
         now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=4)
-        start_1 = to_rfc3339(now.replace(hour=12, minute=0, second=0))
-        end_1 = to_rfc3339(now.replace(hour=13, minute=0, second=0))
+        # Урок 1: 15:00 - 16:00
+        start1 = to_rfc3339(now.replace(hour=15, minute=0, second=0))
+        end1 = to_rfc3339(now.replace(hour=16, minute=0, second=0))
 
-        start_2 = to_rfc3339(now.replace(hour=12, minute=30, second=0))
-        end_2 = to_rfc3339(now.replace(hour=13, minute=30, second=0))
+        # Урок 2: 15:45 - 16:45 (нахлёст 15:45 - 16:00)
+        start2 = to_rfc3339(now.replace(hour=15, minute=45, second=0))
+        end2 = to_rfc3339(now.replace(hour=16, minute=45, second=0))
 
-        # Преподаватель 1 бронирует кабинет 12:00 - 13:00 -> 201 Created
         res1 = client.post(
             "/api/v1/lessons",
             json={
-                "student_id": s1_id,
-                "classroom_id": classroom["id"],
-                "start_time": start_1,
-                "end_time": end_1,
-                "format": "offline",
+                "client_id": client1["id"],
+                "start_time": start1,
+                "end_time": end1,
+                "format": "online",
             },
-            headers=teacher_user["headers"],
+            headers=teacher["headers"],
         )
-        assert res1.status_code == 201
+        assert res1.status_code == 201, f"Failed lesson 1: {res1.text}"
 
-        # Преподаватель 2 пытается занять тот же кабинет на 12:30 - 13:30 -> 409 Conflict
         res2 = client.post(
             "/api/v1/lessons",
             json={
-                "student_id": s2_id,
+                "client_id": client2["id"],
+                "start_time": start2,
+                "end_time": end2,
+                "format": "online",
+            },
+            headers=teacher["headers"],
+        )
+        assert res2.status_code == 201, f"Failed lesson 2 overlap: {res2.text}"
+
+    def test_classroom_collision_conflict_409(
+        self,
+        client: httpx.Client,
+        teacher_with_client,
+        registered_user,
+        setup_classroom,
+    ):
+        """Коллизия кабинета: попытка второго преподавателя занять тот же кабинет в то же время -> 409 Conflict."""
+        teacher1, client1 = teacher_with_client
+        classroom = setup_classroom
+
+        # Второй преподаватель и его клиент
+        _, t2_reg = registered_user(role="teacher")
+        t2_headers = {"Authorization": f"Bearer {t2_reg['tokens']['access_token']}"}
+        c2_res = client.post(
+            "/api/v1/clients",
+            json={"name": "Клиент Учителя 2", "base_rate": 1800.0},
+            headers=t2_headers,
+        )
+        assert c2_res.status_code == 201
+        client2 = c2_res.json()
+
+        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=5)
+        # Учитель 1 бронирует кабинет на 17:00 - 18:00
+        start1 = to_rfc3339(now.replace(hour=17, minute=0, second=0))
+        end1 = to_rfc3339(now.replace(hour=18, minute=0, second=0))
+
+        book1_res = client.post(
+            "/api/v1/lessons",
+            json={
+                "client_id": client1["id"],
                 "classroom_id": classroom["id"],
-                "start_time": start_2,
-                "end_time": end_2,
+                "start_time": start1,
+                "end_time": end1,
+                "format": "offline",
+            },
+            headers=teacher1["headers"],
+        )
+        assert book1_res.status_code == 201
+
+        # Учитель 2 пытается занять этот же кабинет на 17:30 - 18:30 (коллизия)
+        start2 = to_rfc3339(now.replace(hour=17, minute=30, second=0))
+        end2 = to_rfc3339(now.replace(hour=18, minute=30, second=0))
+
+        collision_res = client.post(
+            "/api/v1/lessons",
+            json={
+                "client_id": client2["id"],
+                "classroom_id": classroom["id"],
+                "start_time": start2,
+                "end_time": end2,
                 "format": "offline",
             },
             headers=t2_headers,
         )
-        assert res2.status_code == 409
-        error = res2.json()
-        assert error["error"]["code"] == "CLASSROOM_COLLISION"
+        assert collision_res.status_code == 409, f"Expected 409 collision, got {collision_res.status_code}: {collision_res.text}"
 
-    def test_student_cannot_create_lesson_forbidden(
+    def test_lesson_cancel_workflow(
         self,
         client: httpx.Client,
-        student_user,
-        setup_classroom,
+        teacher_with_client,
     ):
-        """Защита: ученик не может назначать уроки (403 Forbidden)."""
-        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=5)
-        payload = {
-            "student_id": student_user["id"],
-            "classroom_id": setup_classroom["id"],
-            "start_time": to_rfc3339(now.replace(hour=10, minute=0, second=0)),
-            "end_time": to_rfc3339(now.replace(hour=11, minute=0, second=0)),
-            "format": "offline",
-        }
-        res = client.post("/api/v1/lessons", json=payload, headers=student_user["headers"])
-        assert res.status_code == 403
-
-    def test_cannot_create_lesson_for_unassigned_student(
-        self,
-        client: httpx.Client,
-        teacher_user,
-        registered_user,
-    ):
-        """Попытка назначить урок не прикрепленному ученику возвращает 400 Bad Request."""
-        _, other_student = registered_user(role="student")
-        now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=5)
-        payload = {
-            "student_id": other_student["user"]["id"],
-            "start_time": to_rfc3339(now.replace(hour=10, minute=0, second=0)),
-            "end_time": to_rfc3339(now.replace(hour=11, minute=0, second=0)),
-            "format": "online",
-        }
-        res = client.post("/api/v1/lessons", json=payload, headers=teacher_user["headers"])
-        assert res.status_code == 400
-        data = res.json()
-        assert data["error"]["code"] == "STUDENT_NOT_ASSIGNED"
-
-    def test_other_student_cannot_accept_lesson_forbidden(
-        self,
-        client: httpx.Client,
-        teacher_with_student,
-        registered_user,
-    ):
-        """Защита: посторонний ученик не может принять чужой урок -> 403 Forbidden."""
-        teacher, student = teacher_with_student
-        _, other_student = registered_user(role="student")
-        other_headers = {"Authorization": f"Bearer {other_student['tokens']['access_token']}"}
+        """Отмена запланированного урока преподавателем с указанием причины."""
+        teacher, client_data = teacher_with_client
 
         now = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(days=6)
+        start_time = to_rfc3339(now.replace(hour=12, minute=0, second=0))
+        end_time = to_rfc3339(now.replace(hour=13, minute=0, second=0))
+
         create_res = client.post(
             "/api/v1/lessons",
             json={
-                "student_id": student["id"],
-                "start_time": to_rfc3339(now.replace(hour=16, minute=0, second=0)),
-                "end_time": to_rfc3339(now.replace(hour=17, minute=0, second=0)),
+                "client_id": client_data["id"],
+                "start_time": start_time,
+                "end_time": end_time,
                 "format": "online",
             },
             headers=teacher["headers"],
@@ -365,9 +312,13 @@ class TestLessonsWorkflow:
         assert create_res.status_code == 201
         lesson_id = create_res.json()["id"]
 
-        # Посторонний ученик пытается принять
-        accept_res = client.post(
-            f"/api/v1/lessons/{lesson_id}/accept",
-            headers=other_headers,
+        # Отмена урока
+        cancel_res = client.post(
+            f"/api/v1/lessons/{lesson_id}/cancel",
+            json={"reason": "Болезнь ученика"},
+            headers=teacher["headers"],
         )
-        assert accept_res.status_code == 403
+        assert cancel_res.status_code == 200
+        cancelled_lesson = cancel_res.json()
+        assert cancelled_lesson["status"] == "cancelled"
+        assert cancelled_lesson["cancel_reason"] == "Болезнь ученика"

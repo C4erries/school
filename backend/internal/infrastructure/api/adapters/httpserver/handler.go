@@ -9,6 +9,8 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/crm"
+	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	"github.com/C4erries/school/backend/internal/domain"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver/generated"
@@ -17,23 +19,29 @@ import (
 
 // APIHandler реализует сгенерированный generated.ServerInterface из OpenAPI спеки.
 type APIHandler struct {
-	authService     *auth.Service
-	scheduleService *schedule.Service
-	tokenValidator  TokenValidator
-	version         string
+	authService      *auth.Service
+	scheduleService  *schedule.Service
+	crmService       *crm.Service
+	dashboardService *dashboard.Service
+	tokenValidator   TokenValidator
+	version          string
 }
 
 func NewAPIHandler(
 	authService *auth.Service,
 	scheduleService *schedule.Service,
+	crmService *crm.Service,
+	dashboardService *dashboard.Service,
 	tokenValidator TokenValidator,
 	version string,
 ) *APIHandler {
 	return &APIHandler{
-		authService:     authService,
-		scheduleService: scheduleService,
-		tokenValidator:  tokenValidator,
-		version:         version,
+		authService:      authService,
+		scheduleService:  scheduleService,
+		crmService:       crmService,
+		dashboardService: dashboardService,
+		tokenValidator:   tokenValidator,
+		version:          version,
 	}
 }
 

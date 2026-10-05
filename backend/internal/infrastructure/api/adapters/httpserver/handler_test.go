@@ -131,7 +131,7 @@ func TestAPIHandler_Register(t *testing.T) {
 	sessionStore.On("SaveRefreshToken", mock.Anything, "refresh_token_123", mock.Anything, 7*24*time.Hour).Return(nil)
 
 	authSvc := auth.NewService(userRepo, hasher, tokenMgr, sessionStore)
-	handler := httpserver.NewAPIHandler(authSvc, nil, tokenMgr, "v1")
+	handler := httpserver.NewAPIHandler(authSvc, nil, nil, nil, tokenMgr, "v1")
 
 	reqBody := `{"email":"new@school.ru","password":"password123","full_name":"Иван Иванов"}`
 	req := httptest.NewRequest(http.MethodPost, "/auth/register", bytes.NewBufferString(reqBody))
@@ -172,7 +172,7 @@ func TestAPIHandler_Login_Success(t *testing.T) {
 	sessionStore.On("SaveRefreshToken", mock.Anything, "refresh_token_login", uID, 7*24*time.Hour).Return(nil)
 
 	authSvc := auth.NewService(userRepo, hasher, tokenMgr, sessionStore)
-	handler := httpserver.NewAPIHandler(authSvc, nil, tokenMgr, "v1")
+	handler := httpserver.NewAPIHandler(authSvc, nil, nil, nil, tokenMgr, "v1")
 
 	reqBody := `{"email":"user@school.ru","password":"password123"}`
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString(reqBody))
@@ -197,7 +197,7 @@ func TestAPIHandler_Login_InvalidCredentials(t *testing.T) {
 	userRepo.On("GetByEmail", mock.Anything, "user@school.ru").Return(nil, domain.ErrUserNotFound)
 
 	authSvc := auth.NewService(userRepo, hasher, tokenMgr, sessionStore)
-	handler := httpserver.NewAPIHandler(authSvc, nil, tokenMgr, "v1")
+	handler := httpserver.NewAPIHandler(authSvc, nil, nil, nil, tokenMgr, "v1")
 
 	reqBody := `{"email":"user@school.ru","password":"wrong"}`
 	req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBufferString(reqBody))
@@ -232,7 +232,7 @@ func TestAPIHandler_GetCurrentUser(t *testing.T) {
 	tokenMgr.On("ValidateAccessToken", "valid_jwt_token").Return(claims, nil)
 
 	authSvc := auth.NewService(userRepo, nil, nil, nil)
-	handler := httpserver.NewAPIHandler(authSvc, nil, tokenMgr, "v1")
+	handler := httpserver.NewAPIHandler(authSvc, nil, nil, nil, tokenMgr, "v1")
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/me", nil)
 	req.Header.Set("Authorization", "Bearer valid_jwt_token")

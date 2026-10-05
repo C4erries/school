@@ -2,7 +2,6 @@ import uuid
 import pytest
 import httpx
 
-
 @pytest.mark.schedule
 class TestClassrooms:
     """Интеграционные тесты управления учебными кабинетами (Classrooms)."""
@@ -28,9 +27,9 @@ class TestClassrooms:
         assert data["description"] == payload["description"]
         assert "created_at" in data
 
-    @pytest.mark.parametrize("user_fixture", ["teacher_user", "student_user"])
+    @pytest.mark.parametrize("user_fixture", ["teacher_user"])
     def test_create_classroom_forbidden_for_non_admin(self, client: httpx.Client, request, user_fixture):
-        """Защита: не-администратор (преподаватель или ученик) не может создавать кабинеты (403 Forbidden)."""
+        """Защита: не-администратор (преподаватель) не может создавать кабинеты (403 Forbidden)."""
         user = request.getfixturevalue(user_fixture)
         payload = {
             "name": f"Неавторизованный кабинет {uuid.uuid4().hex[:4]}",
@@ -55,7 +54,6 @@ class TestClassrooms:
 
     def test_create_classroom_validation_errors(self, client: httpx.Client, admin_user):
         """Валидация при создании кабинета: недопустимая вместимость и пустое имя -> 400 Bad Request."""
-        # 1. Вместимость <= 0
         res1 = client.post(
             "/api/v1/classrooms",
             json={"name": "Кабинет с 0 мест", "capacity": 0},
@@ -63,7 +61,6 @@ class TestClassrooms:
         )
         assert res1.status_code == 400
 
-        # 2. Слишком короткое или пустое имя
         res2 = client.post(
             "/api/v1/classrooms",
             json={"name": "A", "capacity": 4},
@@ -71,9 +68,8 @@ class TestClassrooms:
         )
         assert res2.status_code == 400
 
-    def test_get_classrooms_list_success(self, client: httpx.Client, admin_user, student_user):
+    def test_get_classrooms_list_success(self, client: httpx.Client, admin_user, teacher_user):
         """Получение списка кабинетов (200 OK) авторизованными пользователями."""
-        # Создаем тестовый кабинет
         unique_name = f"Кабинет-Тест {uuid.uuid4().hex[:6]}"
         create_res = client.post(
             "/api/v1/classrooms",
@@ -83,8 +79,7 @@ class TestClassrooms:
         assert create_res.status_code == 201
         created_id = create_res.json()["id"]
 
-        # Запрашиваем список кабинетов от имени студента
-        list_res = client.get("/api/v1/classrooms", headers=student_user["headers"])
+        list_res = client.get("/api/v1/classrooms", headers=teacher_user["headers"])
         assert list_res.status_code == 200
         classrooms = list_res.json()
 

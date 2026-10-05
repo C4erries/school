@@ -14,7 +14,7 @@ import (
 // LessonFilter параметры выборки списка уроков.
 type LessonFilter struct {
 	TeacherID   *uuid.UUID
-	StudentID   *uuid.UUID
+	ClientID    *uuid.UUID
 	ClassroomID *uuid.UUID
 	Status      *domain.LessonStatus
 	From        *time.Time
@@ -30,13 +30,15 @@ type ClassroomRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
-// TeacherStudentRepository определяет контракт привязки учеников к преподавателям.
-type TeacherStudentRepository interface {
-	Create(ctx context.Context, ts *domain.TeacherStudent) error
-	Delete(ctx context.Context, teacherID, studentID uuid.UUID) error
-	IsAssigned(ctx context.Context, teacherID, studentID uuid.UUID) (bool, error)
-	ListStudentsByTeacher(ctx context.Context, teacherID uuid.UUID) ([]*domain.User, error)
-	ListTeachersByStudent(ctx context.Context, studentID uuid.UUID) ([]*domain.User, error)
+// ClientRepository определяет контракт хранилища клиентов.
+type ClientRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error)
+}
+
+// SubscriptionRepository определяет контракт хранилища абонементов.
+type SubscriptionRepository interface {
+	GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientSubscription, error)
+	Update(ctx context.Context, sub *domain.ClientSubscription) error
 }
 
 // LessonRepository определяет контракт хранилища занятий.
@@ -46,11 +48,6 @@ type LessonRepository interface {
 	Update(ctx context.Context, l *domain.Lesson) error
 	HasClassroomCollision(ctx context.Context, classroomID uuid.UUID, teacherID uuid.UUID, startTime, endTime time.Time, excludeLessonID *uuid.UUID) (bool, error)
 	List(ctx context.Context, filter LessonFilter) ([]*domain.Lesson, error)
-}
-
-// UserRepository определяет контракт доступа к пользователям для валидации ролей.
-type UserRepository interface {
-	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 }
 
 // DTO структуры входных данных для сервиса.
@@ -71,7 +68,7 @@ type UpdateClassroomInput struct {
 
 type ScheduleLessonInput struct {
 	TeacherID     uuid.UUID
-	StudentID     uuid.UUID
+	ClientID      uuid.UUID
 	ClassroomID   *uuid.UUID
 	StartTime     time.Time
 	EndTime       time.Time
@@ -82,23 +79,23 @@ type ScheduleLessonInput struct {
 
 // Service реализует бизнес-логику расписания, аудиторий и проведения уроков.
 type Service struct {
-	classroomRepo      ClassroomRepository
-	teacherStudentRepo TeacherStudentRepository
-	lessonRepo         LessonRepository
-	userRepo           UserRepository
+	classroomRepo ClassroomRepository
+	lessonRepo    LessonRepository
+	clientRepo    ClientRepository
+	subRepo       SubscriptionRepository
 }
 
 func NewService(
 	classroomRepo ClassroomRepository,
-	teacherStudentRepo TeacherStudentRepository,
 	lessonRepo LessonRepository,
-	userRepo UserRepository,
+	clientRepo ClientRepository,
+	subRepo SubscriptionRepository,
 ) *Service {
 	return &Service{
-		classroomRepo:      classroomRepo,
-		teacherStudentRepo: teacherStudentRepo,
-		lessonRepo:         lessonRepo,
-		userRepo:           userRepo,
+		classroomRepo: classroomRepo,
+		lessonRepo:    lessonRepo,
+		clientRepo:    clientRepo,
+		subRepo:       subRepo,
 	}
 }
 
@@ -171,55 +168,6 @@ func (s *Service) DeleteClassroom(ctx context.Context, id uuid.UUID) error {
 	return s.classroomRepo.Delete(ctx, id)
 }
 
-// --- Привязка учеников к преподавателям (Teacher-Student) ---
-
-func (s *Service) AssignStudent(ctx context.Context, teacherID, studentID uuid.UUID) (*domain.TeacherStudent, error) {
-	if teacherID == studentID {
-		return nil, domain.ErrCannotAssignSelf
-	}
-
-	teacher, err := s.userRepo.GetByID(ctx, teacherID)
-	if err != nil {
-		return nil, err
-	}
-	if teacher.Role != domain.RoleTeacher && teacher.Role != domain.RoleOwner {
-		return nil, domain.ErrInvalidTeacherRole
-	}
-
-	student, err := s.userRepo.GetByID(ctx, studentID)
-	if err != nil {
-		return nil, err
-	}
-	if student.Role != domain.RoleStudent {
-		return nil, domain.ErrInvalidStudentRole
-	}
-
-	ts := &domain.TeacherStudent{
-		ID:        uuid.New(),
-		TeacherID: teacherID,
-		StudentID: studentID,
-		CreatedAt: time.Now().UTC(),
-	}
-
-	if err := s.teacherStudentRepo.Create(ctx, ts); err != nil {
-		return nil, err
-	}
-
-	return ts, nil
-}
-
-func (s *Service) UnassignStudent(ctx context.Context, teacherID, studentID uuid.UUID) error {
-	return s.teacherStudentRepo.Delete(ctx, teacherID, studentID)
-}
-
-func (s *Service) ListTeacherStudents(ctx context.Context, teacherID uuid.UUID) ([]*domain.User, error) {
-	return s.teacherStudentRepo.ListStudentsByTeacher(ctx, teacherID)
-}
-
-func (s *Service) ListStudentTeachers(ctx context.Context, studentID uuid.UUID) ([]*domain.User, error) {
-	return s.teacherStudentRepo.ListTeachersByStudent(ctx, studentID)
-}
-
 // --- Уроки (Lessons) ---
 
 func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput) (*domain.Lesson, error) {
@@ -231,13 +179,15 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 		return nil, err
 	}
 
-	// Проверяем, закреплен ли ученик за преподавателем
-	assigned, err := s.teacherStudentRepo.IsAssigned(ctx, input.TeacherID, input.StudentID)
+	// Проверяем, существует ли клиент
+	client, err := s.clientRepo.GetByID(ctx, input.ClientID)
 	if err != nil {
-		return nil, fmt.Errorf("check assignment: %w", err)
+		return nil, fmt.Errorf("get client: %w", err)
 	}
-	if !assigned {
-		return nil, domain.ErrStudentNotAssignedToTeacher
+
+	// Проверяем, что клиент принадлежит учителю
+	if client.TeacherID != input.TeacherID {
+		return nil, domain.ErrUnauthorizedLessonAction // TODO: better error
 	}
 
 	var classroomID *uuid.UUID
@@ -273,13 +223,13 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 	lesson := &domain.Lesson{
 		ID:            uuid.New(),
 		TeacherID:     input.TeacherID,
-		StudentID:     input.StudentID,
+		ClientID:      input.ClientID,
 		ClassroomID:   classroomID,
 		StartTime:     input.StartTime,
 		EndTime:       input.EndTime,
 		Format:        input.Format,
 		LocationOrURL: strings.TrimSpace(input.LocationOrURL),
-		Status:        domain.StatusPendingConfirmation,
+		Status:        domain.StatusScheduled,
 		Notes:         strings.TrimSpace(input.Notes),
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -292,63 +242,46 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 	return lesson, nil
 }
 
-func (s *Service) AcceptLesson(ctx context.Context, lessonID, callerID uuid.UUID) (*domain.Lesson, error) {
-	lesson, err := s.lessonRepo.GetByID(ctx, lessonID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Только ученик, которому назначен урок, может подтвердить его
-	if lesson.StudentID != callerID {
-		return nil, domain.ErrUnauthorizedLessonAction
-	}
-
-	if err := lesson.Accept(); err != nil {
-		return nil, err
-	}
-
-	if err := s.lessonRepo.Update(ctx, lesson); err != nil {
-		return nil, fmt.Errorf("update accepted lesson: %w", err)
-	}
-
-	return lesson, nil
-}
-
-func (s *Service) DeclineLesson(ctx context.Context, lessonID, callerID uuid.UUID, reason string) (*domain.Lesson, error) {
-	lesson, err := s.lessonRepo.GetByID(ctx, lessonID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Только ученик может отклонить предложенный урок
-	if lesson.StudentID != callerID {
-		return nil, domain.ErrUnauthorizedLessonAction
-	}
-
-	if err := lesson.Decline(reason); err != nil {
-		return nil, err
-	}
-
-	if err := s.lessonRepo.Update(ctx, lesson); err != nil {
-		return nil, fmt.Errorf("update declined lesson: %w", err)
-	}
-
-	return lesson, nil
-}
-
 func (s *Service) CompleteLesson(ctx context.Context, lessonID, callerID uuid.UUID, callerRole domain.Role) (*domain.Lesson, error) {
 	lesson, err := s.lessonRepo.GetByID(ctx, lessonID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Завершить урок может преподаватель этого урока или администратор школы
 	if callerRole != domain.RoleOwner && lesson.TeacherID != callerID {
 		return nil, domain.ErrUnauthorizedLessonAction
 	}
 
 	if err := lesson.Complete(); err != nil {
 		return nil, err
+	}
+
+	// Списываем с абонемента, если есть
+	if s.subRepo != nil {
+		subs, err := s.subRepo.GetByClientID(ctx, lesson.ClientID)
+		if err == nil {
+			// Спишем с первого абонемента с балансом > 0
+			durationHours := lesson.EndTime.Sub(lesson.StartTime).Hours()
+			for _, sub := range subs {
+				if sub.Balance > 0 {
+					if sub.Type == domain.SubscriptionTypeLessons {
+						sub.Balance -= 1
+						if sub.Balance < 0 {
+							sub.Balance = 0
+						}
+						_ = s.subRepo.Update(ctx, sub)
+						break
+					} else if sub.Type == domain.SubscriptionTypeHours {
+						sub.Balance -= durationHours
+						if sub.Balance < 0 {
+							sub.Balance = 0
+						}
+						_ = s.subRepo.Update(ctx, sub)
+						break
+					}
+				}
+			}
+		}
 	}
 
 	if err := s.lessonRepo.Update(ctx, lesson); err != nil {
@@ -364,21 +297,11 @@ func (s *Service) CancelLesson(ctx context.Context, lessonID, callerID uuid.UUID
 		return nil, err
 	}
 
-	// Отменить урок может ученик, преподаватель урока или владелец
-	if callerRole != domain.RoleOwner && lesson.TeacherID != callerID && lesson.StudentID != callerID {
+	if callerRole != domain.RoleOwner && lesson.TeacherID != callerID {
 		return nil, domain.ErrUnauthorizedLessonAction
 	}
 
-	cancelRole := callerRole
-	if callerRole != domain.RoleStudent && callerRole != domain.RoleTeacher {
-		if callerID == lesson.StudentID {
-			cancelRole = domain.RoleStudent
-		} else {
-			cancelRole = domain.RoleTeacher
-		}
-	}
-
-	if err := lesson.Cancel(cancelRole, reason); err != nil {
+	if err := lesson.Cancel(reason); err != nil {
 		return nil, err
 	}
 

@@ -47,38 +47,34 @@ func (m *MockClassroomRepository) Delete(ctx context.Context, id uuid.UUID) erro
 	return m.Called(ctx, id).Error(0)
 }
 
-// MockTeacherStudentRepository
-type MockTeacherStudentRepository struct {
+// MockClientRepository
+type MockClientRepository struct {
 	mock.Mock
 }
 
-func (m *MockTeacherStudentRepository) Create(ctx context.Context, ts *domain.TeacherStudent) error {
-	return m.Called(ctx, ts).Error(0)
-}
-
-func (m *MockTeacherStudentRepository) Delete(ctx context.Context, teacherID, studentID uuid.UUID) error {
-	return m.Called(ctx, teacherID, studentID).Error(0)
-}
-
-func (m *MockTeacherStudentRepository) IsAssigned(ctx context.Context, teacherID, studentID uuid.UUID) (bool, error) {
-	args := m.Called(ctx, teacherID, studentID)
-	return args.Bool(0), args.Error(1)
-}
-
-func (m *MockTeacherStudentRepository) ListStudentsByTeacher(ctx context.Context, teacherID uuid.UUID) ([]*domain.User, error) {
-	args := m.Called(ctx, teacherID)
-	if list := args.Get(0); list != nil {
-		return list.([]*domain.User), args.Error(1)
+func (m *MockClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Client, error) {
+	args := m.Called(ctx, id)
+	if c := args.Get(0); c != nil {
+		return c.(*domain.Client), args.Error(1)
 	}
 	return nil, args.Error(1)
 }
 
-func (m *MockTeacherStudentRepository) ListTeachersByStudent(ctx context.Context, studentID uuid.UUID) ([]*domain.User, error) {
-	args := m.Called(ctx, studentID)
-	if list := args.Get(0); list != nil {
-		return list.([]*domain.User), args.Error(1)
+// MockSubscriptionRepository
+type MockSubscriptionRepository struct {
+	mock.Mock
+}
+
+func (m *MockSubscriptionRepository) GetByClientID(ctx context.Context, clientID uuid.UUID) ([]*domain.ClientSubscription, error) {
+	args := m.Called(ctx, clientID)
+	if subs := args.Get(0); subs != nil {
+		return subs.([]*domain.ClientSubscription), args.Error(1)
 	}
 	return nil, args.Error(1)
+}
+
+func (m *MockSubscriptionRepository) Update(ctx context.Context, sub *domain.ClientSubscription) error {
+	return m.Called(ctx, sub).Error(0)
 }
 
 // MockLessonRepository
@@ -115,33 +111,17 @@ func (m *MockLessonRepository) List(ctx context.Context, filter schedule.LessonF
 	return nil, args.Error(1)
 }
 
-// MockUserRepository
-type MockUserRepository struct {
-	mock.Mock
-}
-
-func (m *MockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	args := m.Called(ctx, id)
-	if u := args.Get(0); u != nil {
-		return u.(*domain.User), args.Error(1)
-	}
-	return nil, args.Error(1)
-}
-
 func TestScheduleService_Classrooms(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Create classroom success", func(t *testing.T) {
 		cRepo := new(MockClassroomRepository)
-		tsRepo := new(MockTeacherStudentRepository)
-		lRepo := new(MockLessonRepository)
-		uRepo := new(MockUserRepository)
 
 		cRepo.On("Create", ctx, mock.MatchedBy(func(c *domain.Classroom) bool {
 			return c.Name == "Кабинет 101" && c.Capacity == 5 && c.Color == "#3B82F6"
 		})).Return(nil)
 
-		svc := schedule.NewService(cRepo, tsRepo, lRepo, uRepo)
+		svc := schedule.NewService(cRepo, nil, nil, nil)
 		c, err := svc.CreateClassroom(ctx, schedule.CreateClassroomInput{
 			Name:     "Кабинет 101",
 			Capacity: 5,
@@ -205,92 +185,10 @@ func TestScheduleService_Classrooms(t *testing.T) {
 	})
 }
 
-func TestScheduleService_Assignments(t *testing.T) {
-	ctx := context.Background()
-	teacherID := uuid.New()
-	studentID := uuid.New()
-
-	t.Run("Assign student success", func(t *testing.T) {
-		tsRepo := new(MockTeacherStudentRepository)
-		uRepo := new(MockUserRepository)
-
-		uRepo.On("GetByID", ctx, teacherID).Return(&domain.User{ID: teacherID, Role: domain.RoleTeacher}, nil)
-		uRepo.On("GetByID", ctx, studentID).Return(&domain.User{ID: studentID, Role: domain.RoleStudent}, nil)
-		tsRepo.On("Create", ctx, mock.MatchedBy(func(ts *domain.TeacherStudent) bool {
-			return ts.TeacherID == teacherID && ts.StudentID == studentID
-		})).Return(nil)
-
-		svc := schedule.NewService(nil, tsRepo, nil, uRepo)
-		ts, err := svc.AssignStudent(ctx, teacherID, studentID)
-		require.NoError(t, err)
-		assert.Equal(t, teacherID, ts.TeacherID)
-		assert.Equal(t, studentID, ts.StudentID)
-		tsRepo.AssertExpectations(t)
-		uRepo.AssertExpectations(t)
-	})
-
-	t.Run("Cannot assign self", func(t *testing.T) {
-		svc := schedule.NewService(nil, nil, nil, nil)
-		_, err := svc.AssignStudent(ctx, teacherID, teacherID)
-		assert.ErrorIs(t, err, domain.ErrCannotAssignSelf)
-	})
-
-	t.Run("Invalid teacher role", func(t *testing.T) {
-		uRepo := new(MockUserRepository)
-		uRepo.On("GetByID", ctx, teacherID).Return(&domain.User{ID: teacherID, Role: domain.RoleStudent}, nil)
-
-		svc := schedule.NewService(nil, nil, nil, uRepo)
-		_, err := svc.AssignStudent(ctx, teacherID, studentID)
-		assert.ErrorIs(t, err, domain.ErrInvalidTeacherRole)
-		uRepo.AssertExpectations(t)
-	})
-
-	t.Run("Invalid student role", func(t *testing.T) {
-		uRepo := new(MockUserRepository)
-		uRepo.On("GetByID", ctx, teacherID).Return(&domain.User{ID: teacherID, Role: domain.RoleTeacher}, nil)
-		uRepo.On("GetByID", ctx, studentID).Return(&domain.User{ID: studentID, Role: domain.RoleTeacher}, nil)
-
-		svc := schedule.NewService(nil, nil, nil, uRepo)
-		_, err := svc.AssignStudent(ctx, teacherID, studentID)
-		assert.ErrorIs(t, err, domain.ErrInvalidStudentRole)
-		uRepo.AssertExpectations(t)
-	})
-
-	t.Run("Already assigned", func(t *testing.T) {
-		tsRepo := new(MockTeacherStudentRepository)
-		uRepo := new(MockUserRepository)
-
-		uRepo.On("GetByID", ctx, teacherID).Return(&domain.User{ID: teacherID, Role: domain.RoleTeacher}, nil)
-		uRepo.On("GetByID", ctx, studentID).Return(&domain.User{ID: studentID, Role: domain.RoleStudent}, nil)
-		tsRepo.On("Create", ctx, mock.Anything).Return(domain.ErrTeacherStudentAlreadyExists)
-
-		svc := schedule.NewService(nil, tsRepo, nil, uRepo)
-		_, err := svc.AssignStudent(ctx, teacherID, studentID)
-		assert.ErrorIs(t, err, domain.ErrTeacherStudentAlreadyExists)
-	})
-
-	t.Run("Unassign and list students", func(t *testing.T) {
-		tsRepo := new(MockTeacherStudentRepository)
-		tsRepo.On("Delete", ctx, teacherID, studentID).Return(nil)
-		tsRepo.On("ListStudentsByTeacher", ctx, teacherID).Return([]*domain.User{
-			{ID: studentID, FullName: "Ученик"},
-		}, nil)
-
-		svc := schedule.NewService(nil, tsRepo, nil, nil)
-		err := svc.UnassignStudent(ctx, teacherID, studentID)
-		require.NoError(t, err)
-
-		students, err := svc.ListTeacherStudents(ctx, teacherID)
-		require.NoError(t, err)
-		assert.Len(t, students, 1)
-		tsRepo.AssertExpectations(t)
-	})
-}
-
 func TestScheduleService_Lessons(t *testing.T) {
 	ctx := context.Background()
 	teacherID := uuid.New()
-	studentID := uuid.New()
+	clientID := uuid.New()
 	classroomID := uuid.New()
 
 	now := time.Now().UTC()
@@ -298,18 +196,21 @@ func TestScheduleService_Lessons(t *testing.T) {
 	end := start.Add(time.Hour)
 
 	t.Run("Schedule online lesson success", func(t *testing.T) {
-		tsRepo := new(MockTeacherStudentRepository)
+		clientRepo := new(MockClientRepository)
 		lRepo := new(MockLessonRepository)
 
-		tsRepo.On("IsAssigned", ctx, teacherID, studentID).Return(true, nil)
+		clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil)
 		lRepo.On("Create", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
-			return l.TeacherID == teacherID && l.StudentID == studentID && l.ClassroomID == nil && l.Format == domain.FormatOnline
+			return l.TeacherID == teacherID && l.ClientID == clientID && l.ClassroomID == nil && l.Format == domain.FormatOnline
 		})).Return(nil)
 
-		svc := schedule.NewService(nil, tsRepo, lRepo, nil)
+		svc := schedule.NewService(nil, lRepo, clientRepo, nil)
 		lesson, err := svc.ScheduleLesson(ctx, schedule.ScheduleLessonInput{
 			TeacherID:     teacherID,
-			StudentID:     studentID,
+			ClientID:      clientID,
 			StartTime:     start,
 			EndTime:       end,
 			Format:        domain.FormatOnline,
@@ -318,28 +219,31 @@ func TestScheduleService_Lessons(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, domain.FormatOnline, lesson.Format)
-		assert.Equal(t, domain.StatusPendingConfirmation, lesson.Status)
+		assert.Equal(t, domain.StatusScheduled, lesson.Status)
 		assert.Nil(t, lesson.ClassroomID)
 		lRepo.AssertExpectations(t)
-		tsRepo.AssertExpectations(t)
+		clientRepo.AssertExpectations(t)
 	})
 
 	t.Run("Schedule offline lesson success without collision", func(t *testing.T) {
 		cRepo := new(MockClassroomRepository)
-		tsRepo := new(MockTeacherStudentRepository)
+		clientRepo := new(MockClientRepository)
 		lRepo := new(MockLessonRepository)
 
-		tsRepo.On("IsAssigned", ctx, teacherID, studentID).Return(true, nil)
+		clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil)
 		cRepo.On("GetByID", ctx, classroomID).Return(&domain.Classroom{ID: classroomID, Name: "Кабинет 1"}, nil)
 		lRepo.On("HasClassroomCollision", ctx, classroomID, teacherID, start, end, (*uuid.UUID)(nil)).Return(false, nil)
 		lRepo.On("Create", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
 			return l.ClassroomID != nil && *l.ClassroomID == classroomID && l.Format == domain.FormatOffline
 		})).Return(nil)
 
-		svc := schedule.NewService(cRepo, tsRepo, lRepo, nil)
+		svc := schedule.NewService(cRepo, lRepo, clientRepo, nil)
 		lesson, err := svc.ScheduleLesson(ctx, schedule.ScheduleLessonInput{
 			TeacherID:   teacherID,
-			StudentID:   studentID,
+			ClientID:    clientID,
 			ClassroomID: &classroomID,
 			StartTime:   start,
 			EndTime:     end,
@@ -351,22 +255,25 @@ func TestScheduleService_Lessons(t *testing.T) {
 		assert.Equal(t, &classroomID, lesson.ClassroomID)
 		cRepo.AssertExpectations(t)
 		lRepo.AssertExpectations(t)
-		tsRepo.AssertExpectations(t)
+		clientRepo.AssertExpectations(t)
 	})
 
 	t.Run("Schedule offline lesson blocked by collision with another teacher", func(t *testing.T) {
 		cRepo := new(MockClassroomRepository)
-		tsRepo := new(MockTeacherStudentRepository)
+		clientRepo := new(MockClientRepository)
 		lRepo := new(MockLessonRepository)
 
-		tsRepo.On("IsAssigned", ctx, teacherID, studentID).Return(true, nil)
+		clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil)
 		cRepo.On("GetByID", ctx, classroomID).Return(&domain.Classroom{ID: classroomID, Name: "Кабинет 1"}, nil)
 		lRepo.On("HasClassroomCollision", ctx, classroomID, teacherID, start, end, (*uuid.UUID)(nil)).Return(true, nil)
 
-		svc := schedule.NewService(cRepo, tsRepo, lRepo, nil)
+		svc := schedule.NewService(cRepo, lRepo, clientRepo, nil)
 		_, err := svc.ScheduleLesson(ctx, schedule.ScheduleLessonInput{
 			TeacherID:   teacherID,
-			StudentID:   studentID,
+			ClientID:    clientID,
 			ClassroomID: &classroomID,
 			StartTime:   start,
 			EndTime:     end,
@@ -377,121 +284,83 @@ func TestScheduleService_Lessons(t *testing.T) {
 		lRepo.AssertExpectations(t)
 	})
 
-	t.Run("Schedule lesson fails if student is not assigned to teacher", func(t *testing.T) {
-		tsRepo := new(MockTeacherStudentRepository)
-		tsRepo.On("IsAssigned", ctx, teacherID, studentID).Return(false, nil)
+	t.Run("Schedule lesson fails if client belongs to another teacher", func(t *testing.T) {
+		clientRepo := new(MockClientRepository)
+		otherTeacherID := uuid.New()
+		clientRepo.On("GetByID", ctx, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: otherTeacherID,
+		}, nil)
 
-		svc := schedule.NewService(nil, tsRepo, nil, nil)
+		svc := schedule.NewService(nil, nil, clientRepo, nil)
 		_, err := svc.ScheduleLesson(ctx, schedule.ScheduleLessonInput{
 			TeacherID: teacherID,
-			StudentID: studentID,
+			ClientID:  clientID,
 			StartTime: start,
 			EndTime:   end,
 			Format:    domain.FormatOnline,
 		})
 
-		assert.ErrorIs(t, err, domain.ErrStudentNotAssignedToTeacher)
-		tsRepo.AssertExpectations(t)
-	})
-
-	t.Run("Accept and Decline lesson", func(t *testing.T) {
-		lRepo := new(MockLessonRepository)
-		lessonID := uuid.New()
-		pendingLesson := &domain.Lesson{
-			ID:        lessonID,
-			TeacherID: teacherID,
-			StudentID: studentID,
-			Status:    domain.StatusPendingConfirmation,
-		}
-
-		// Accept by student
-		lRepo.On("GetByID", ctx, lessonID).Return(pendingLesson, nil).Once()
-		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
-			return l.Status == domain.StatusConfirmed
-		})).Return(nil).Once()
-
-		svc := schedule.NewService(nil, nil, lRepo, nil)
-		accepted, err := svc.AcceptLesson(ctx, lessonID, studentID)
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusConfirmed, accepted.Status)
-
-		// Decline by stranger fails
-		pendingLesson.Status = domain.StatusPendingConfirmation
-		lRepo.On("GetByID", ctx, lessonID).Return(pendingLesson, nil).Once()
-		strangerID := uuid.New()
-		_, err = svc.DeclineLesson(ctx, lessonID, strangerID, "Не могу")
 		assert.ErrorIs(t, err, domain.ErrUnauthorizedLessonAction)
-
-		// Decline by student succeeds
-		lRepo.On("GetByID", ctx, lessonID).Return(pendingLesson, nil).Once()
-		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
-			return l.Status == domain.StatusDeclined && l.CancelReason == "Заболел"
-		})).Return(nil).Once()
-
-		declined, err := svc.DeclineLesson(ctx, lessonID, studentID, "Заболел")
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusDeclined, declined.Status)
-		lRepo.AssertExpectations(t)
+		clientRepo.AssertExpectations(t)
 	})
 
-	t.Run("Complete lesson", func(t *testing.T) {
+	t.Run("Complete lesson and deduct subscription", func(t *testing.T) {
 		lRepo := new(MockLessonRepository)
+		subRepo := new(MockSubscriptionRepository)
 		lessonID := uuid.New()
-		confirmedLesson := &domain.Lesson{
+		scheduledLesson := &domain.Lesson{
 			ID:        lessonID,
 			TeacherID: teacherID,
-			StudentID: studentID,
-			Status:    domain.StatusConfirmed,
+			ClientID:  clientID,
+			StartTime: start,
+			EndTime:   end,
+			Status:    domain.StatusScheduled,
 		}
 
-		lRepo.On("GetByID", ctx, lessonID).Return(confirmedLesson, nil).Once()
+		sub := &domain.ClientSubscription{
+			ID:       uuid.New(),
+			ClientID: clientID,
+			Type:     domain.SubscriptionTypeLessons,
+			Balance:  5,
+		}
+
+		lRepo.On("GetByID", ctx, lessonID).Return(scheduledLesson, nil).Once()
+		subRepo.On("GetByClientID", ctx, clientID).Return([]*domain.ClientSubscription{sub}, nil).Once()
+		subRepo.On("Update", ctx, mock.MatchedBy(func(s *domain.ClientSubscription) bool {
+			return s.Balance == 4
+		})).Return(nil).Once()
 		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
 			return l.Status == domain.StatusCompleted
 		})).Return(nil).Once()
 
-		svc := schedule.NewService(nil, nil, lRepo, nil)
+		svc := schedule.NewService(nil, lRepo, nil, subRepo)
 		completed, err := svc.CompleteLesson(ctx, lessonID, teacherID, domain.RoleTeacher)
 		require.NoError(t, err)
 		assert.Equal(t, domain.StatusCompleted, completed.Status)
 		lRepo.AssertExpectations(t)
+		subRepo.AssertExpectations(t)
 	})
 
-	t.Run("Cancel lesson by student and teacher", func(t *testing.T) {
+	t.Run("Cancel lesson by teacher", func(t *testing.T) {
 		lRepo := new(MockLessonRepository)
 		lessonID := uuid.New()
 
-		// Cancel by teacher
 		l := &domain.Lesson{
 			ID:        lessonID,
 			TeacherID: teacherID,
-			StudentID: studentID,
-			Status:    domain.StatusConfirmed,
+			ClientID:  clientID,
+			Status:    domain.StatusScheduled,
 		}
 		lRepo.On("GetByID", ctx, lessonID).Return(l, nil).Once()
 		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
-			return l.Status == domain.StatusCancelledByTeacher
+			return l.Status == domain.StatusCancelled && l.CancelReason == "Преподаватель отменил"
 		})).Return(nil).Once()
 
-		svc := schedule.NewService(nil, nil, lRepo, nil)
+		svc := schedule.NewService(nil, lRepo, nil, nil)
 		res, err := svc.CancelLesson(ctx, lessonID, teacherID, domain.RoleTeacher, "Преподаватель отменил")
 		require.NoError(t, err)
-		assert.Equal(t, domain.StatusCancelledByTeacher, res.Status)
-
-		// Cancel by student
-		l2 := &domain.Lesson{
-			ID:        lessonID,
-			TeacherID: teacherID,
-			StudentID: studentID,
-			Status:    domain.StatusPendingConfirmation,
-		}
-		lRepo.On("GetByID", ctx, lessonID).Return(l2, nil).Once()
-		lRepo.On("Update", ctx, mock.MatchedBy(func(l *domain.Lesson) bool {
-			return l.Status == domain.StatusCancelledByStudent
-		})).Return(nil).Once()
-
-		res2, err := svc.CancelLesson(ctx, lessonID, studentID, domain.RoleStudent, "Ученик отменил")
-		require.NoError(t, err)
-		assert.Equal(t, domain.StatusCancelledByStudent, res2.Status)
+		assert.Equal(t, domain.StatusCancelled, res.Status)
 
 		lRepo.AssertExpectations(t)
 	})
@@ -504,7 +373,7 @@ func TestScheduleService_Lessons(t *testing.T) {
 		}
 		lRepo.On("List", ctx, filter).Return(expected, nil)
 
-		svc := schedule.NewService(nil, nil, lRepo, nil)
+		svc := schedule.NewService(nil, lRepo, nil, nil)
 		res, err := svc.ListLessons(ctx, filter)
 		require.NoError(t, err)
 		assert.Equal(t, expected, res)

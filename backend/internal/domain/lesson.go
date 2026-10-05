@@ -28,13 +28,9 @@ func (f LessonFormat) IsValid() bool {
 type LessonStatus string
 
 const (
-	StatusPendingConfirmation LessonStatus = "pending_confirmation"
-	StatusConfirmed           LessonStatus = "confirmed"
-	StatusCompleted           LessonStatus = "completed"
-	StatusCancelledByTeacher  LessonStatus = "cancelled_by_teacher"
-	StatusCancelledByStudent  LessonStatus = "cancelled_by_student"
-	StatusDeclined            LessonStatus = "declined"
-	StatusNoShow              LessonStatus = "no_show"
+	StatusScheduled LessonStatus = "scheduled"
+	StatusCompleted LessonStatus = "completed"
+	StatusCancelled LessonStatus = "cancelled"
 )
 
 func (s LessonStatus) String() string {
@@ -43,13 +39,9 @@ func (s LessonStatus) String() string {
 
 func (s LessonStatus) IsValid() bool {
 	switch s {
-	case StatusPendingConfirmation,
-		StatusConfirmed,
+	case StatusScheduled,
 		StatusCompleted,
-		StatusCancelledByTeacher,
-		StatusCancelledByStudent,
-		StatusDeclined,
-		StatusNoShow:
+		StatusCancelled:
 		return true
 	default:
 		return false
@@ -58,19 +50,19 @@ func (s LessonStatus) IsValid() bool {
 
 // Lesson представляет сущность урока в домене.
 type Lesson struct {
-	ID           uuid.UUID
-	TeacherID    uuid.UUID
-	StudentID    uuid.UUID
-	ClassroomID  *uuid.UUID
-	StartTime    time.Time
-	EndTime      time.Time
-	Format       LessonFormat
+	ID            uuid.UUID
+	TeacherID     uuid.UUID
+	ClientID      uuid.UUID
+	ClassroomID   *uuid.UUID
+	StartTime     time.Time
+	EndTime       time.Time
+	Format        LessonFormat
 	LocationOrURL string
-	Status       LessonStatus
-	Notes        string
-	CancelReason string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	Status        LessonStatus
+	Notes         string
+	CancelReason  string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // Ошибки работы с уроками.
@@ -83,7 +75,7 @@ var (
 	ErrUnauthorizedLessonAction    = errors.New("unauthorized action for this lesson")
 	ErrClassroomRequiredForOffline = errors.New("classroom is required for offline lesson")
 	ErrInvalidLessonFormat         = errors.New("invalid lesson format, must be online or offline")
-	ErrLessonAlreadyFinished       = errors.New("lesson is already completed, cancelled or declined")
+	ErrLessonAlreadyFinished       = errors.New("lesson is already completed or cancelled")
 )
 
 // ValidateLessonTimes проверяет корректность временных границ урока.
@@ -94,40 +86,9 @@ func ValidateLessonTimes(start, end time.Time) error {
 	return nil
 }
 
-// CanAccept проверяет, можно ли принять урок (только из pending_confirmation).
-func (l *Lesson) CanAccept() bool {
-	return l.Status == StatusPendingConfirmation
-}
-
-// Accept переводит урок в статус confirmed.
-func (l *Lesson) Accept() error {
-	if !l.CanAccept() {
-		return ErrInvalidLessonStatus
-	}
-	l.Status = StatusConfirmed
-	l.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-// CanDecline проверяет, можно ли отклонить урок (только из pending_confirmation).
-func (l *Lesson) CanDecline() bool {
-	return l.Status == StatusPendingConfirmation
-}
-
-// Decline переводит урок в статус declined с указанием причины.
-func (l *Lesson) Decline(reason string) error {
-	if !l.CanDecline() {
-		return ErrInvalidLessonStatus
-	}
-	l.Status = StatusDeclined
-	l.CancelReason = strings.TrimSpace(reason)
-	l.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-// CanComplete проверяет, можно ли завершить урок (только из confirmed).
+// CanComplete проверяет, можно ли завершить урок (только из scheduled).
 func (l *Lesson) CanComplete() bool {
-	return l.Status == StatusConfirmed
+	return l.Status == StatusScheduled
 }
 
 // Complete переводит подтвержденный урок в статус completed.
@@ -140,40 +101,18 @@ func (l *Lesson) Complete() error {
 	return nil
 }
 
-// CanCancel проверяет, можно ли отменить урок (из pending_confirmation или confirmed).
+// CanCancel проверяет, можно ли отменить урок (из scheduled).
 func (l *Lesson) CanCancel() bool {
-	return l.Status == StatusPendingConfirmation || l.Status == StatusConfirmed
+	return l.Status == StatusScheduled
 }
 
-// Cancel отменяет урок пользователем с определенной ролью (преподаватель/ученик/админ).
-func (l *Lesson) Cancel(role Role, reason string) error {
+// Cancel отменяет урок пользователем.
+func (l *Lesson) Cancel(reason string) error {
 	if !l.CanCancel() {
 		return ErrInvalidLessonStatus
 	}
 
-	if role == RoleStudent {
-		l.Status = StatusCancelledByStudent
-	} else {
-		// Преподаватель или владелец/администратор
-		l.Status = StatusCancelledByTeacher
-	}
-
-	l.CancelReason = strings.TrimSpace(reason)
-	l.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-// CanMarkNoShow проверяет, можно ли отметить неявку (только из confirmed).
-func (l *Lesson) CanMarkNoShow() bool {
-	return l.Status == StatusConfirmed
-}
-
-// MarkNoShow отмечает неявку ученика на подтвержденный урок.
-func (l *Lesson) MarkNoShow(reason string) error {
-	if !l.CanMarkNoShow() {
-		return ErrInvalidLessonStatus
-	}
-	l.Status = StatusNoShow
+	l.Status = StatusCancelled
 	l.CancelReason = strings.TrimSpace(reason)
 	l.UpdatedAt = time.Now().UTC()
 	return nil

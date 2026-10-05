@@ -51,11 +51,7 @@ func (r *LessonRepository) HasClassroomCollision(
 		From("lessons").
 		Where(sq.Eq{"classroom_id": classroomID}).
 		Where(sq.NotEq{"teacher_id": teacherID}).
-		Where(sq.Expr("status NOT IN (?, ?, ?)",
-			string(domain.StatusCancelledByTeacher),
-			string(domain.StatusCancelledByStudent),
-			string(domain.StatusDeclined),
-		)).
+		Where(sq.NotEq{"status": string(domain.StatusCancelled)}).
 		Where("start_time < ?", endTime).
 		Where("end_time > ?", startTime)
 
@@ -86,7 +82,7 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 		Columns(
 			"id",
 			"teacher_id",
-			"student_id",
+			"client_id",
 			"classroom_id",
 			"start_time",
 			"end_time",
@@ -101,7 +97,7 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 		Values(
 			l.ID,
 			l.TeacherID,
-			l.StudentID,
+			l.ClientID,
 			l.ClassroomID,
 			l.StartTime,
 			l.EndTime,
@@ -131,7 +127,7 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 	query, args, err := r.sb.Select(
 		"id",
 		"teacher_id",
-		"student_id",
+		"client_id",
 		"classroom_id",
 		"start_time",
 		"end_time",
@@ -158,7 +154,7 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 	err = r.getDBTX(ctx).QueryRowContext(ctx, query, args...).Scan(
 		&l.ID,
 		&l.TeacherID,
-		&l.StudentID,
+		&l.ClientID,
 		&classroomID,
 		&l.StartTime,
 		&l.EndTime,
@@ -197,7 +193,7 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 func (r *LessonRepository) Update(ctx context.Context, l *domain.Lesson) error {
 	query, args, err := r.sb.Update("lessons").
 		Set("teacher_id", l.TeacherID).
-		Set("student_id", l.StudentID).
+		Set("client_id", l.ClientID).
 		Set("classroom_id", l.ClassroomID).
 		Set("start_time", l.StartTime).
 		Set("end_time", l.EndTime).
@@ -234,7 +230,7 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 	builder := r.sb.Select(
 		"id",
 		"teacher_id",
-		"student_id",
+		"client_id",
 		"classroom_id",
 		"start_time",
 		"end_time",
@@ -250,8 +246,8 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 	if filter.TeacherID != nil {
 		builder = builder.Where(sq.Eq{"teacher_id": *filter.TeacherID})
 	}
-	if filter.StudentID != nil {
-		builder = builder.Where(sq.Eq{"student_id": *filter.StudentID})
+	if filter.ClientID != nil {
+		builder = builder.Where(sq.Eq{"client_id": *filter.ClientID})
 	}
 	if filter.ClassroomID != nil {
 		builder = builder.Where(sq.Eq{"classroom_id": *filter.ClassroomID})
@@ -287,7 +283,7 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 		if err := rows.Scan(
 			&l.ID,
 			&l.TeacherID,
-			&l.StudentID,
+			&l.ClientID,
 			&classroomID,
 			&l.StartTime,
 			&l.EndTime,

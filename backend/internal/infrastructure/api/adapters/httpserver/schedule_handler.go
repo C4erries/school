@@ -100,85 +100,6 @@ func (h *APIHandler) CreateClassroom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ListTeacherStudents реализует GET /teachers/students.
-func (h *APIHandler) ListTeacherStudents(w http.ResponseWriter, r *http.Request, params generated.ListTeacherStudentsParams) {
-	claims, ok := h.authenticate(w, r)
-	if !ok {
-		return
-	}
-
-	teacherID := claims.UserID
-	if claims.Role == domain.RoleOwner && params.TeacherId != nil {
-		teacherID = *params.TeacherId
-	} else if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
-		writeError(w, http.StatusForbidden, "FORBIDDEN", "insufficient permissions")
-		return
-	}
-
-	students, err := h.scheduleService.ListTeacherStudents(r.Context(), teacherID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to list teacher students")
-		return
-	}
-
-	resp := make([]generated.UserResponse, 0, len(students))
-	for _, s := range students {
-		resp = append(resp, generated.UserResponse{
-			Id:        s.ID,
-			Email:     openapi_types.Email(s.Email),
-			FullName:  s.FullName,
-			Phone:     s.Phone,
-			Role:      generated.Role(s.Role),
-			CreatedAt: s.CreatedAt,
-		})
-	}
-
-	writeJSON(w, http.StatusOK, resp)
-}
-
-// AssignStudent реализует POST /teachers/students.
-func (h *APIHandler) AssignStudent(w http.ResponseWriter, r *http.Request) {
-	claims, ok := h.authenticate(w, r)
-	if !ok {
-		return
-	}
-
-	if claims.Role != domain.RoleOwner {
-		writeError(w, http.StatusForbidden, "FORBIDDEN", "only admin can assign students")
-		return
-	}
-
-	var req generated.AssignStudentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "invalid request body")
-		return
-	}
-
-	ts, err := h.scheduleService.AssignStudent(r.Context(), req.TeacherId, req.StudentId)
-	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrTeacherStudentAlreadyExists):
-			writeError(w, http.StatusConflict, "ALREADY_ASSIGNED", err.Error())
-		case errors.Is(err, domain.ErrCannotAssignSelf),
-			errors.Is(err, domain.ErrInvalidTeacherRole),
-			errors.Is(err, domain.ErrInvalidStudentRole):
-			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
-		case errors.Is(err, domain.ErrUserNotFound):
-			writeError(w, http.StatusBadRequest, "USER_NOT_FOUND", err.Error())
-		default:
-			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to assign student")
-		}
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, generated.TeacherStudentResponse{
-		Id:        ts.ID,
-		TeacherId: ts.TeacherID,
-		StudentId: ts.StudentID,
-		CreatedAt: ts.CreatedAt,
-	})
-}
-
 // ListLessons реализует GET /lessons.
 func (h *APIHandler) ListLessons(w http.ResponseWriter, r *http.Request, params generated.ListLessonsParams) {
 	claims, ok := h.authenticate(w, r)
@@ -198,21 +119,16 @@ func (h *APIHandler) ListLessons(w http.ResponseWriter, r *http.Request, params 
 	}
 
 	switch claims.Role {
-	case domain.RoleStudent:
-		// Ученик видит только свои уроки
-		filter.StudentID = &claims.UserID
 	case domain.RoleTeacher:
-		// Преподаватель по умолчанию видит свои уроки
 		filter.TeacherID = &claims.UserID
-		if params.StudentId != nil {
-			filter.StudentID = params.StudentId
+		if params.ClientId != nil {
+			filter.ClientID = params.ClientId
 		}
 	case domain.RoleOwner:
-		// Владелец/администратор может фильтровать по любому преподавателю и ученику
 		filter.TeacherID = params.TeacherId
-		filter.StudentID = params.StudentId
+		filter.ClientID = params.ClientId
 	default:
-		filter.StudentID = &claims.UserID
+		filter.TeacherID = &claims.UserID
 	}
 
 	lessons, err := h.scheduleService.ListLessons(r.Context(), filter)
@@ -259,7 +175,7 @@ func (h *APIHandler) CreateLesson(w http.ResponseWriter, r *http.Request) {
 
 	lesson, err := h.scheduleService.ScheduleLesson(r.Context(), schedule.ScheduleLessonInput{
 		TeacherID:     teacherID,
-		StudentID:     req.StudentId,
+		ClientID:      req.ClientId,
 		ClassroomID:   req.ClassroomId,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
@@ -271,13 +187,13 @@ func (h *APIHandler) CreateLesson(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case errors.Is(err, domain.ErrClassroomCollision):
 			writeError(w, http.StatusConflict, "CLASSROOM_COLLISION", err.Error())
-		case errors.Is(err, domain.ErrStudentNotAssignedToTeacher):
-			writeError(w, http.StatusBadRequest, "STUDENT_NOT_ASSIGNED", err.Error())
 		case errors.Is(err, domain.ErrInvalidTimeRange),
 			errors.Is(err, domain.ErrInvalidLessonFormat),
 			errors.Is(err, domain.ErrClassroomRequiredForOffline),
 			errors.Is(err, domain.ErrClassroomNotFound):
 			writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+		case errors.Is(err, domain.ErrUnauthorizedLessonAction):
+			writeError(w, http.StatusForbidden, "FORBIDDEN", err.Error())
 		default:
 			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create lesson")
 		}
@@ -285,62 +201,6 @@ func (h *APIHandler) CreateLesson(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, mapLessonToResponse(lesson))
-}
-
-// AcceptLesson реализует POST /lessons/{id}/accept.
-func (h *APIHandler) AcceptLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
-	claims, ok := h.authenticate(w, r)
-	if !ok {
-		return
-	}
-
-	lesson, err := h.scheduleService.AcceptLesson(r.Context(), id, claims.UserID)
-	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrLessonNotFound):
-			writeError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
-		case errors.Is(err, domain.ErrUnauthorizedLessonAction):
-			writeError(w, http.StatusForbidden, "FORBIDDEN", err.Error())
-		case errors.Is(err, domain.ErrInvalidLessonStatus):
-			writeError(w, http.StatusBadRequest, "INVALID_STATUS", err.Error())
-		default:
-			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to accept lesson")
-		}
-		return
-	}
-
-	writeJSON(w, http.StatusOK, mapLessonToResponse(lesson))
-}
-
-// DeclineLesson реализует POST /lessons/{id}/decline.
-func (h *APIHandler) DeclineLesson(w http.ResponseWriter, r *http.Request, id openapi_types.UUID) {
-	claims, ok := h.authenticate(w, r)
-	if !ok {
-		return
-	}
-
-	var reason string
-	var req generated.DeclineLessonRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err == nil && req.Reason != nil {
-		reason = *req.Reason
-	}
-
-	lesson, err := h.scheduleService.DeclineLesson(r.Context(), id, claims.UserID, reason)
-	if err != nil {
-		switch {
-		case errors.Is(err, domain.ErrLessonNotFound):
-			writeError(w, http.StatusNotFound, "NOT_FOUND", err.Error())
-		case errors.Is(err, domain.ErrUnauthorizedLessonAction):
-			writeError(w, http.StatusForbidden, "FORBIDDEN", err.Error())
-		case errors.Is(err, domain.ErrInvalidLessonStatus):
-			writeError(w, http.StatusBadRequest, "INVALID_STATUS", err.Error())
-		default:
-			writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to decline lesson")
-		}
-		return
-	}
-
-	writeJSON(w, http.StatusOK, mapLessonToResponse(lesson))
 }
 
 // CompleteLesson реализует POST /lessons/{id}/complete.
@@ -414,7 +274,7 @@ func mapLessonToResponse(l *domain.Lesson) generated.LessonResponse {
 	return generated.LessonResponse{
 		Id:            l.ID,
 		TeacherId:     l.TeacherID,
-		StudentId:     l.StudentID,
+		ClientId:      l.ClientID,
 		ClassroomId:   l.ClassroomID,
 		StartTime:     l.StartTime,
 		EndTime:       l.EndTime,

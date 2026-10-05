@@ -16,7 +16,7 @@ import (
 
 func TestBuildMux_HealthEndpoints(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	handler := httpserver.NewAPIHandler(nil, nil, nil, "v1")
+	handler := httpserver.NewAPIHandler(nil, nil, nil, nil, nil, "v1")
 	mux := httpserver.BuildMux(handler, logger)
 
 	tests := []struct {
