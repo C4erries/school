@@ -3,11 +3,14 @@
 > Этот файл читают AI-агенты перед началом работы.
 > Если ты AI — **прочитай это первым**.
 
-## Обязательное чтение
+## Обязательное чтение (в строгом порядке)
 
-1. **[docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md)** — что мы делаем прямо сейчас
-2. **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — как мы пишем код
-3. **[docs/ROADMAP.md](docs/ROADMAP.md)** — общий план (для контекста)
+1. **[docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)** — **главный контекст проекта**, пивот Tutor Assistant, архитектура, стек и правила
+2. **[docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md)** — **что мы делаем прямо сейчас** (актуальный спринт, задачи, микро-ТЗ, DoD)
+3. **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — **как мы пишем код** (Go backend, React frontend, стиль Apple Liquid Glass)
+4. **[docs/decisions/](docs/decisions/)** — ключевые архитектурные решения (ADR-005, ADR-006, ADR-007)
+5. **[docs/sprints/](docs/sprints/)** — архив завершенных спринтов (для понимания предыстории)
+6. **[docs/ROADMAP.md](docs/ROADMAP.md)** — глобальный план развития проекта
 
 ## Правила работы
 
