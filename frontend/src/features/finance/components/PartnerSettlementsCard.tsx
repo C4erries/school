@@ -67,8 +67,11 @@ export const PartnerSettlementsCard: React.FC<PartnerSettlementsCardProps> = ({
     }
   };
 
-  const totalCommissions = settlements.reduce((acc, s) => acc + (s.commission_amount || 0), 0);
-  const totalPaid = settlements
+  // Согласно ADR-009 и ТЗ спринта 2.2.3: исключаем теги с комиссией <= 0 (чисто информационные)
+  const activeSettlements = settlements.filter((s) => (s.school_percent || 0) > 0);
+
+  const totalCommissions = activeSettlements.reduce((acc, s) => acc + (s.commission_amount || 0), 0);
+  const totalPaid = activeSettlements
     .filter((s) => s.is_paid)
     .reduce((acc, s) => acc + (s.commission_amount || 0), 0);
   const totalUnpaid = totalCommissions - totalPaid;
@@ -112,7 +115,7 @@ export const PartnerSettlementsCard: React.FC<PartnerSettlementsCardProps> = ({
           <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <span>Загрузка взаиморасчетов...</span>
         </GlassCard>
-      ) : settlements.length === 0 ? (
+      ) : activeSettlements.length === 0 ? (
         <GlassCard className="p-10 text-center text-slate-500 space-y-2">
           <PieChart className="w-8 h-8 text-slate-300 mx-auto" />
           <p className="font-semibold text-sm">Нет данных по партнерским школам</p>
@@ -122,7 +125,7 @@ export const PartnerSettlementsCard: React.FC<PartnerSettlementsCardProps> = ({
         </GlassCard>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {settlements.map((s) => {
+          {activeSettlements.map((s) => {
             const netIncome = (s.gross_amount || 0) - (s.commission_amount || 0);
 
             return (

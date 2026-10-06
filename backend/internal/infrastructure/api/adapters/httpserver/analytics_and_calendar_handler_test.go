@@ -273,4 +273,38 @@ func TestAnalyticsAndCalendarHandler(t *testing.T) {
 		assert.Contains(t, rr.Body.String(), "BEGIN:VCALENDAR\r\n")
 		assert.Contains(t, rr.Body.String(), "END:VCALENDAR\r\n")
 	})
+
+	t.Run("GET /api/v1/analytics/forecast - success", func(t *testing.T) {
+		lessonRepo.On("List", mock.Anything, mock.Anything).Return([]*domain.Lesson{}, nil).Once()
+		clientRepo.On("ListByTeacherID", mock.Anything, teacherID).Return([]*domain.Client{}, nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/forecast", nil)
+		req.Header.Set("Authorization", "Bearer teacher_token")
+		rr := httptest.NewRecorder()
+
+		mux.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		var resp generated.AnalyticsForecastResponse
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.Equal(t, 0, resp.ScheduledLessons)
+		assert.Equal(t, float32(0), resp.GrossPotentialRevenue)
+		assert.Len(t, resp.ByFormat, 3)
+	})
+
+	t.Run("GET /api/v1/analytics/tags - success", func(t *testing.T) {
+		lessonRepo.On("List", mock.Anything, mock.Anything).Return([]*domain.Lesson{}, nil).Once()
+		clientRepo.On("ListByTeacherID", mock.Anything, teacherID).Return([]*domain.Client{}, nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/tags", nil)
+		req.Header.Set("Authorization", "Bearer teacher_token")
+		rr := httptest.NewRecorder()
+
+		mux.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		var resp []generated.TagStatResponse
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.Empty(t, resp)
+	})
 }

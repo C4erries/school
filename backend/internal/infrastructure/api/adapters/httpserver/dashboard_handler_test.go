@@ -82,3 +82,49 @@ func TestDashboardHandler_Metrics(t *testing.T) {
 	assert.Equal(t, float32(1350), resp.NetIncome) // 1500 - 10% (150) = 1350
 	assert.Equal(t, float32(1500), resp.AverageRate)
 }
+
+func TestDashboardHandler_Summary(t *testing.T) {
+	clientRepo := new(MockCRMClientRepo)
+	lessonRepo := new(MockLessonRepo)
+	dashboardSvc := dashboard.NewService(lessonRepo, clientRepo)
+	tokenMgr := new(MockTokenManager)
+
+	teacherID := uuid.New()
+	teacherClaims := &security.UserClaims{
+		UserID: teacherID,
+		Role:   domain.RoleTeacher,
+	}
+	tokenMgr.On("ValidateAccessToken", "teacher_token").Return(teacherClaims, nil)
+
+	handler := httpserver.NewAPIHandler(nil, nil, nil, dashboardSvc, tokenMgr, "v1")
+
+	clientID := uuid.New()
+	client := &domain.Client{
+		ID:             clientID,
+		TeacherID:      teacherID,
+		Name:           "Тестовый Ученик",
+		RateIndividual: 2000,
+		BaseRate:       2000,
+		Balances: domain.ClientBalances{
+			IndividualHours: -1, // долг 2000
+		},
+	}
+
+	clientRepo.On("ListByTeacherID", mock.Anything, teacherID).Return([]*domain.Client{client}, nil).Once()
+	lessonRepo.On("List", mock.Anything, mock.Anything).Return([]*domain.Lesson{}, nil).Times(3)
+
+	req := httptest.NewRequest(http.MethodGet, "/dashboard/summary", nil)
+	req.Header.Set("Authorization", "Bearer teacher_token")
+	rec := httptest.NewRecorder()
+
+	handler.GetDashboardSummary(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp generated.DashboardSummaryResponse
+	err := json.Unmarshal(rec.Body.Bytes(), &resp)
+	require.NoError(t, err)
+	assert.Empty(t, resp.TodayLessons)
+	assert.Equal(t, float32(2000), resp.FinancialSnapshot.TotalDebts)
+	assert.Equal(t, 1, resp.FinancialSnapshot.ActiveClientsCount)
+}
+

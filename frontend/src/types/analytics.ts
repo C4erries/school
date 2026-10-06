@@ -44,6 +44,37 @@ export interface AnalyticsClientStat {
   attendance_rate: number;
 }
 
+export interface FormatForecast {
+  format: LessonFormat | string;
+  hours: number;
+  revenue: number;
+}
+
+export interface AnalyticsForecast {
+  from: string;
+  to: string;
+  scheduled_lessons: number;
+  scheduled_hours: number;
+  gross_potential_revenue: number;
+  partner_commission_expected: number;
+  net_potential_income: number;
+  by_format: FormatForecast[];
+}
+
+export type AnalyticsForecastResponse = AnalyticsForecast;
+
+export interface TagStat {
+  tag_id: string;
+  tag_name: string;
+  tag_color?: string | null;
+  students_count: number;
+  completed_hours: number;
+  gross_revenue: number;
+  net_income: number;
+}
+
+export type TagStatResponse = TagStat;
+
 export interface AnalyticsOverviewParams {
   from?: string;
   to?: string;
@@ -65,4 +96,14 @@ export interface AnalyticsClientsParams {
   to?: string;
   sort?: 'hours' | 'revenue' | 'cancellations';
   limit?: number;
+}
+
+export interface AnalyticsForecastParams {
+  from?: string;
+  to?: string;
+}
+
+export interface AnalyticsTagsParams {
+  from?: string;
+  to?: string;
 }

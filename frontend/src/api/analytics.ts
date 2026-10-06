@@ -101,3 +101,43 @@ export async function getAnalyticsClients(
 
   return await res.json();
 }
+
+export async function getForecast(
+  params?: { from?: string; to?: string }
+): Promise<import('../types/analytics').AnalyticsForecast> {
+  const query = new URLSearchParams();
+  if (params?.from) query.append('from', params.from);
+  if (params?.to) query.append('to', params.to);
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${BASE_URL}/analytics/forecast${qs}`, {
+    headers: getHeaders(),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось загрузить прогноз аналитики');
+  }
+
+  return await res.json();
+}
+
+export async function getTagStats(
+  params?: { from?: string; to?: string }
+): Promise<import('../types/analytics').TagStat[]> {
+  const query = new URLSearchParams();
+  if (params?.from) query.append('from', params.from);
+  if (params?.to) query.append('to', params.to);
+
+  const qs = query.toString() ? `?${query.toString()}` : '';
+  const res = await fetch(`${BASE_URL}/analytics/tags${qs}`, {
+    headers: getHeaders(),
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось загрузить статистику по тегам');
+  }
+
+  return await res.json();
+}

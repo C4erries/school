@@ -45,6 +45,15 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
   const dragStateRef = useRef<DragState | null>(null);
   dragStateRef.current = dragState;
 
+  // Динамический индикатор текущего времени (обновление каждую минуту)
+  const [now, setNow] = useState<Date>(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const handleMouseUp = () => {
       const current = dragStateRef.current;
@@ -195,12 +204,30 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
             const positionedItems = positionLessons(dayItems);
             const SLOT_HEIGHT = HOUR_HEIGHT / 2;
 
+            const isToday = day.toDateString() === now.toDateString();
+            const nowMinutes = now.getHours() * 60 + now.getMinutes();
+            const totalCalendarMinutes = hours.length * 60;
+            const currentOffsetMinutes = nowMinutes - START_HOUR * 60;
+            const isWithinDayRange = currentOffsetMinutes >= 0 && currentOffsetMinutes <= totalCalendarMinutes;
+            const currentTimeTop = (currentOffsetMinutes / 60) * HOUR_HEIGHT;
+
             return (
               <div
                 key={day.toISOString()}
                 className="relative border-l border-slate-200/60"
                 style={{ height: `${hours.length * HOUR_HEIGHT}px` }}
               >
+                {/* Динамический индикатор текущего времени (красная/акцентная линия с точкой) */}
+                {isToday && isWithinDayRange && (
+                  <div
+                    className="absolute left-0 right-0 z-30 pointer-events-none flex items-center"
+                    style={{ top: `${currentTimeTop}px` }}
+                  >
+                    <div className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50 -ml-1.5 ring-2 ring-white" />
+                    <div className="flex-1 h-[2px] bg-rose-500/80 shadow-sm" />
+                  </div>
+                )}
+
                 {/* Фоновые горизонтальные линии и кликабельные слоты с шагом 30 минут */}
                 {hours.map((hour) => (
                   <div key={hour} className="border-b border-slate-200/60" style={{ height: `${HOUR_HEIGHT}px` }}>

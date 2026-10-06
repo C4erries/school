@@ -92,7 +92,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
 	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
 	crmService := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
-	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
+	dashboardService := dashboard.NewService(lessonRepo, clientRepo, classroomRepo)
 	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)
 	analyticsService := analytics.NewService(lessonRepo, clientRepo)
 	calendarService := calendar.NewService(userRepo, lessonRepo, clientRepo)

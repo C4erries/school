@@ -176,3 +176,89 @@ func (h *APIHandler) GetAnalyticsClients(w http.ResponseWriter, r *http.Request,
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+// GetAnalyticsForecast реализует GET /analytics/forecast.
+func (h *APIHandler) GetAnalyticsForecast(w http.ResponseWriter, r *http.Request, params generated.GetAnalyticsForecastParams) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can view analytics forecast")
+		return
+	}
+
+	if h.analyticsService == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "analytics service not configured")
+		return
+	}
+
+	forecast, err := h.analyticsService.GetForecast(r.Context(), claims.UserID, params.From, params.To)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to calculate analytics forecast")
+		return
+	}
+
+	byFormat := make([]generated.FormatForecast, len(forecast.ByFormat))
+	for i, f := range forecast.ByFormat {
+		byFormat[i] = generated.FormatForecast{
+			Format:  generated.LessonFormat(f.Format),
+			Hours:   f.Hours,
+			Revenue: f.Revenue,
+		}
+	}
+
+	resp := generated.AnalyticsForecastResponse{
+		From:                      forecast.From,
+		To:                        forecast.To,
+		ScheduledLessons:          forecast.ScheduledLessons,
+		ScheduledHours:            forecast.ScheduledHours,
+		GrossPotentialRevenue:     forecast.GrossPotentialRevenue,
+		PartnerCommissionExpected: forecast.PartnerCommissionExpected,
+		NetPotentialIncome:        forecast.NetPotentialIncome,
+		ByFormat:                  byFormat,
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// GetAnalyticsTags реализует GET /analytics/tags.
+func (h *APIHandler) GetAnalyticsTags(w http.ResponseWriter, r *http.Request, params generated.GetAnalyticsTagsParams) {
+	claims, ok := h.authenticate(w, r)
+	if !ok {
+		return
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		writeError(w, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can view analytics tags")
+		return
+	}
+
+	if h.analyticsService == nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "analytics service not configured")
+		return
+	}
+
+	tags, err := h.analyticsService.GetTagStats(r.Context(), claims.UserID, params.From, params.To)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to calculate analytics tags")
+		return
+	}
+
+	resp := make([]generated.TagStatResponse, len(tags))
+	for i, t := range tags {
+		resp[i] = generated.TagStatResponse{
+			TagId:          t.TagID,
+			TagName:        t.TagName,
+			TagColor:       t.TagColor,
+			StudentsCount:  t.StudentsCount,
+			CompletedHours: t.CompletedHours,
+			GrossRevenue:   t.GrossRevenue,
+			NetIncome:      t.NetIncome,
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+

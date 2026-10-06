@@ -330,6 +330,28 @@ type AnalyticsDynamicsPoint struct {
 	To        time.Time `json:"to"`
 }
 
+// AnalyticsForecastResponse defines model for AnalyticsForecastResponse.
+type AnalyticsForecastResponse struct {
+	ByFormat []FormatForecast `json:"by_format"`
+	From     time.Time        `json:"from"`
+
+	// GrossPotentialRevenue Example: 28500
+	GrossPotentialRevenue float32 `json:"gross_potential_revenue"`
+
+	// NetPotentialIncome Example: 24225
+	NetPotentialIncome float32 `json:"net_potential_income"`
+
+	// PartnerCommissionExpected Example: 4275
+	PartnerCommissionExpected float32 `json:"partner_commission_expected"`
+
+	// ScheduledHours Example: 18.5
+	ScheduledHours float32 `json:"scheduled_hours"`
+
+	// ScheduledLessons Example: 15
+	ScheduledLessons int       `json:"scheduled_lessons"`
+	To               time.Time `json:"to"`
+}
+
 // AnalyticsFormatStat defines model for AnalyticsFormatStat.
 type AnalyticsFormatStat struct {
 	// CompletedHours Example: 35
@@ -601,6 +623,12 @@ type DashboardMetricsResponse struct {
 	NetIncome             float32 `json:"net_income"`
 }
 
+// DashboardSummaryResponse defines model for DashboardSummaryResponse.
+type DashboardSummaryResponse struct {
+	FinancialSnapshot FinancialSnapshot `json:"financial_snapshot"`
+	TodayLessons      []TodayLesson     `json:"today_lessons"`
+}
+
 // ErrorDetail defines model for ErrorDetail.
 type ErrorDetail struct {
 	// Code Example: VALIDATION_ERROR
@@ -638,6 +666,36 @@ type FinanceSummaryResponse struct {
 
 	// TotalPayments Example: 45000
 	TotalPayments float32 `json:"total_payments"`
+}
+
+// FinancialSnapshot defines model for FinancialSnapshot.
+type FinancialSnapshot struct {
+	// ActiveClientsCount Example: 12
+	ActiveClientsCount int `json:"active_clients_count"`
+
+	// MonthEarned Example: 45000
+	MonthEarned float32 `json:"month_earned"`
+
+	// MonthForecast Example: 32000
+	MonthForecast float32 `json:"month_forecast"`
+
+	// TotalDebts Example: 4800
+	TotalDebts float32 `json:"total_debts"`
+
+	// WeeklyHours Example: 18.5
+	WeeklyHours float32 `json:"weekly_hours"`
+}
+
+// FormatForecast defines model for FormatForecast.
+type FormatForecast struct {
+	// Format Example: individual
+	Format LessonFormat `json:"format"`
+
+	// Hours Example: 12
+	Hours float32 `json:"hours"`
+
+	// Revenue Example: 18000
+	Revenue float32 `json:"revenue"`
 }
 
 // HealthResponse defines model for HealthResponse.
@@ -850,6 +908,56 @@ type TagResponse struct {
 	TeacherId     openapi_types.UUID `json:"teacher_id"`
 }
 
+// TagStatResponse defines model for TagStatResponse.
+type TagStatResponse struct {
+	// CompletedHours Example: 24
+	CompletedHours float32 `json:"completed_hours"`
+
+	// GrossRevenue Example: 36000
+	GrossRevenue float32 `json:"gross_revenue"`
+
+	// NetIncome Example: 36000
+	NetIncome float32 `json:"net_income"`
+
+	// StudentsCount Example: 6
+	StudentsCount int `json:"students_count"`
+
+	// TagColor Example: #3B82F6
+	TagColor *string            `json:"tag_color,omitempty"`
+	TagId    openapi_types.UUID `json:"tag_id"`
+
+	// TagName Example: ЕГЭ
+	TagName string `json:"tag_name"`
+}
+
+// TodayLesson defines model for TodayLesson.
+type TodayLesson struct {
+	// ClassroomColor Example: #6366F1
+	ClassroomColor *string `json:"classroom_color,omitempty"`
+
+	// ClassroomName Example: Кабинет №1
+	ClassroomName *string            `json:"classroom_name,omitempty"`
+	ClientId      openapi_types.UUID `json:"client_id"`
+
+	// ClientName Example: Иван Иванов
+	ClientName string    `json:"client_name"`
+	EndAt      time.Time `json:"end_at"`
+
+	// Format Example: individual
+	Format LessonFormat       `json:"format"`
+	Id     openapi_types.UUID `json:"id"`
+
+	// LocationType Example: online
+	LocationType *string `json:"location_type,omitempty"`
+
+	// OnlineLink Example: https://telemost.yandex.ru/j/123456
+	OnlineLink *string   `json:"online_link,omitempty"`
+	StartAt    time.Time `json:"start_at"`
+
+	// Status Example: scheduled
+	Status LessonStatus `json:"status"`
+}
+
 // TokenPair defines model for TokenPair.
 type TokenPair struct {
 	// AccessToken Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -958,6 +1066,12 @@ type GetAnalyticsDynamicsParams struct {
 // GetAnalyticsDynamicsParamsInterval defines parameters for GetAnalyticsDynamics.
 type GetAnalyticsDynamicsParamsInterval string
 
+// GetAnalyticsForecastParams defines parameters for GetAnalyticsForecast.
+type GetAnalyticsForecastParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
 // GetAnalyticsFormatsParams defines parameters for GetAnalyticsFormats.
 type GetAnalyticsFormatsParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
@@ -966,6 +1080,12 @@ type GetAnalyticsFormatsParams struct {
 
 // GetAnalyticsOverviewParams defines parameters for GetAnalyticsOverview.
 type GetAnalyticsOverviewParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetAnalyticsTagsParams defines parameters for GetAnalyticsTags.
+type GetAnalyticsTagsParams struct {
 	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
 	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
 }
@@ -1096,12 +1216,18 @@ type ServerInterface interface {
 	// GetAnalyticsDynamics Временной ряд динамики нагрузки и доходов
 	// (GET /analytics/dynamics)
 	GetAnalyticsDynamics(w http.ResponseWriter, r *http.Request, params GetAnalyticsDynamicsParams)
+	// GetAnalyticsForecast Прогноз расписания и потенциального дохода
+	// (GET /analytics/forecast)
+	GetAnalyticsForecast(w http.ResponseWriter, r *http.Request, params GetAnalyticsForecastParams)
 	// GetAnalyticsFormats Распределение часов и доходов по форматам занятий
 	// (GET /analytics/formats)
 	GetAnalyticsFormats(w http.ResponseWriter, r *http.Request, params GetAnalyticsFormatsParams)
 	// GetAnalyticsOverview Сводные ключевые показатели эффективности за период
 	// (GET /analytics/overview)
 	GetAnalyticsOverview(w http.ResponseWriter, r *http.Request, params GetAnalyticsOverviewParams)
+	// GetAnalyticsTags Статистика учеников и доходности по тегам
+	// (GET /analytics/tags)
+	GetAnalyticsTags(w http.ResponseWriter, r *http.Request, params GetAnalyticsTagsParams)
 	// Login Аутентификация по email и паролю
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -1159,6 +1285,9 @@ type ServerInterface interface {
 	// GetDashboardMetrics Метрики дашборда
 	// (GET /dashboard/metrics)
 	GetDashboardMetrics(w http.ResponseWriter, r *http.Request, params GetDashboardMetricsParams)
+	// GetDashboardSummary Сводка дашборда репетитора
+	// (GET /dashboard/summary)
+	GetDashboardSummary(w http.ResponseWriter, r *http.Request)
 	// ExportClients Экспорт базы учеников в CSV (UTF-8 BOM)
 	// (GET /export/clients)
 	ExportClients(w http.ResponseWriter, r *http.Request)
@@ -1370,6 +1499,52 @@ func (siw *ServerInterfaceWrapper) GetAnalyticsDynamics(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// GetAnalyticsForecast operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsForecast(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsForecastParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsForecast(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAnalyticsFormats operation middleware
 func (siw *ServerInterfaceWrapper) GetAnalyticsFormats(w http.ResponseWriter, r *http.Request) {
 
@@ -1453,6 +1628,52 @@ func (siw *ServerInterfaceWrapper) GetAnalyticsOverview(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAnalyticsOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnalyticsTags operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsTags(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsTagsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsTags(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1912,6 +2133,20 @@ func (siw *ServerInterfaceWrapper) GetDashboardMetrics(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetDashboardMetrics(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetDashboardSummary operation middleware
+func (siw *ServerInterfaceWrapper) GetDashboardSummary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetDashboardSummary(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2744,6 +2979,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/tags", wrapper.CreateTag)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/tags/{id}", wrapper.DeleteTag)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dashboard/metrics", wrapper.GetDashboardMetrics)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/dashboard/summary", wrapper.GetDashboardSummary)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/lessons", wrapper.ListLessons)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/lessons", wrapper.CreateLesson)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/lessons/{id}", wrapper.UpdateLesson)
@@ -2761,6 +2997,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/dynamics", wrapper.GetAnalyticsDynamics)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/formats", wrapper.GetAnalyticsFormats)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/clients", wrapper.GetAnalyticsClients)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/forecast", wrapper.GetAnalyticsForecast)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/tags", wrapper.GetAnalyticsTags)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/calendar/settings", wrapper.GetCalendarSettings)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/integrations/calendar/rotate-token", wrapper.RotateCalendarToken)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/calendar/export", wrapper.ExportCalendarFile)

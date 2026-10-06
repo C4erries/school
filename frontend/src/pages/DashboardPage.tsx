@@ -1,49 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/useAuth';
 import { GlassCard } from '../shared/components/GlassCard';
 import { Badge } from '../shared/components/Badge';
-import { checkBackendHealth } from '../api/health';
-import { getFinancialDashboard } from '../api/schedule';
-import { HealthResponse } from '../types/health';
-import { FinancialDashboardStats } from '../types/schedule';
-import {
-  Calendar,
-  Users,
-  Wallet,
-  Sparkles,
-  Building2,
-  ArrowRight,
-} from 'lucide-react';
+import { getDashboardSummary } from '../api/dashboard';
+import { DashboardSummary } from '../types/dashboard';
+import { TodayLessonsWidget } from '../features/dashboard/components/TodayLessonsWidget';
+import { FinanceSnapshotWidget } from '../features/dashboard/components/FinanceSnapshotWidget';
+import { DashboardQuickActions } from '../features/dashboard/components/DashboardQuickActions';
+import { Clock, Users } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [health, setHealth] = useState<HealthResponse | null>(null);
-  const [finStats, setFinStats] = useState<FinancialDashboardStats | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchSummary = useCallback(async () => {
+    try {
+      const data = await getDashboardSummary();
+      setSummary(data);
+    } catch (err) {
+      console.error('Failed to load dashboard summary:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchHealth = async () => {
-      try {
-        const result = await checkBackendHealth();
-        setHealth(result.data);
-      } catch (err) {
-        console.error('Health check error:', err);
-      }
-    };
-    
-    const fetchStats = async () => {
-      if (user?.role === 'teacher') {
-        const stats = await getFinancialDashboard();
-        setFinStats(stats);
-      }
-    };
+    fetchSummary();
+  }, [fetchSummary]);
 
-    fetchHealth();
-    fetchStats();
-    const interval = setInterval(fetchHealth, 15000);
-    return () => clearInterval(interval);
-  }, [user?.role]);
+  const formatHours = (val?: number) => {
+    const num = val ?? 0;
+    return Number.isInteger(num) ? String(num) : num.toFixed(1);
+  };
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
@@ -71,171 +62,112 @@ export const DashboardPage: React.FC = () => {
     }
   };
 
+  const fin = summary?.financial_snapshot;
+  const todayLessons = summary?.today_lessons || [];
+
   return (
     <div className="space-y-6">
-
-        {/* Приветственный блок с профилем */}
-        <GlassCard className="relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                  Привет, {user?.full_name}!
-                </h1>
-                {user && (
-                  <Badge variant={getRoleBadgeVariant(user.role)}>
-                    {getRoleLabel(user.role)}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-slate-500">
-                {user?.email} {user?.phone ? `• ${user.phone}` : ''}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {health && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-800 text-xs font-medium border border-emerald-500/20 backdrop-blur-md">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Система подключена
-                </div>
+      {/* Приветственный блок с профилем */}
+      <GlassCard className="relative overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+                Привет, {user?.full_name}!
+              </h1>
+              {user && (
+                <Badge variant={getRoleBadgeVariant(user.role)}>
+                  {getRoleLabel(user.role)}
+                </Badge>
               )}
             </div>
+            <p className="text-sm text-slate-500">
+              Командный центр репетитора •{' '}
+              {new Date().toLocaleDateString('ru-RU', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+              })}
+            </p>
           </div>
-        </GlassCard>
 
-        {/* Разделы для Администратора / Владельца */}
-        {(user?.role === 'owner' || user?.role === 'assistant') && (
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              Управление платформой
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <GlassCard
-                interactive
-                onClick={() => navigate('/admin')}
-                className="space-y-3 group"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Building2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Кабинеты и привязка учеников</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Настройка школьных аудиторий, вместимость, цветовые метки и распределение учеников
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-indigo-600 flex items-center gap-1">
-                  Перейти в панель администратора <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </GlassCard>
-
-              <GlassCard
-                interactive
-                onClick={() => navigate('/teacher/schedule')}
-                className="space-y-3 group"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Сетка расписания</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Просмотр расписания внахлёст, онлайн и оффлайн слоты
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                  Смотреть расписание <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </GlassCard>
-            </div>
-          </div>
-        )}
-
-        {/* Разделы для Преподавателя */}
-        {user?.role === 'teacher' && (
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              Инструменты преподавателя
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <GlassCard
-                interactive
-                onClick={() => navigate('/teacher/schedule')}
-                className="space-y-3 group"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Расписание занятий</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Назначение уроков, сетка занятий, отметка «Проведён» и «Неявка»
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-indigo-600 flex items-center gap-1">
-                  Открыть расписание <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </GlassCard>
-
-              <GlassCard
-                interactive
-                onClick={() => navigate('/teacher/clients')}
-                className="space-y-3 group"
-              >
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">CRM Репетитора</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Управление учениками, абонементами и ставками
-                  </p>
-                </div>
-                <div className="pt-2 text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                  Список учеников <ArrowRight className="w-3.5 h-3.5" />
-                </div>
-              </GlassCard>
-
-              <GlassCard className="space-y-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 text-base">Финансы</h3>
-                  <div className="mt-2 space-y-1">
-                    <p className="text-xs text-slate-500 flex justify-between">
-                      Gross Revenue: <span className="font-bold text-slate-800">{finStats?.gross_revenue || 0} ₽</span>
-                    </p>
-                    <p className="text-xs text-slate-500 flex justify-between">
-                      Net Income: <span className="font-bold text-emerald-600">{finStats?.net_income || 0} ₽</span>
-                    </p>
-                    <p className="text-xs text-slate-500 flex justify-between">
-                      Avg Rate: <span className="font-bold text-indigo-600">{finStats?.average_hourly_rate || 0} ₽/ч</span>
-                    </p>
-                  </div>
-                </div>
-              </GlassCard>
-            </div>
-          </div>
-        )}
-
-
-
-        {/* Подвал */}
-        <footer className="pt-6 border-t border-slate-200/40 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-            <span>Система активна</span>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-800 text-xs font-medium border border-emerald-500/20 backdrop-blur-md">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Онлайн платформа активна
+            </div>
           </div>
-          <div>
-            Школьная платформа © 2026
+        </div>
+      </GlassCard>
+
+      {/* Быстрые действия (Quick Actions) */}
+      <DashboardQuickActions
+        onNavigateToSchedule={() => navigate('/teacher/schedule')}
+        onNavigateToFinance={() => navigate('/teacher/finance')}
+        onNavigateToAnalytics={() => navigate('/teacher/analytics')}
+      />
+
+      {/* Основная сетка дашборда: 2 колонки (Уроки на сегодня + Финансовый статус) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Виджет 1: Ближайшие уроки на сегодня (Колонка 2/3) */}
+        <div className="lg:col-span-2 space-y-4">
+          <TodayLessonsWidget
+            lessons={todayLessons}
+            isLoading={isLoading}
+            onNavigateToSchedule={() => navigate('/teacher/schedule')}
+          />
+
+          {/* Быстрые оперативные метрики */}
+          <div className="grid grid-cols-2 gap-4">
+            <GlassCard className="p-4 sm:p-5 flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-400/20">
+                <Clock className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 uppercase font-semibold">
+                  Нагрузка этой недели
+                </div>
+                <div className="text-xl font-bold text-slate-900 mt-0.5">
+                  {formatHours(fin?.weekly_hours)} ч
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard className="p-4 sm:p-5 flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-400/20">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs text-slate-500 uppercase font-semibold">
+                  Активных учеников
+                </div>
+                <div className="text-xl font-bold text-slate-900 mt-0.5">
+                  {fin?.active_clients_count ?? 0}
+                </div>
+              </div>
+            </GlassCard>
           </div>
-        </footer>
+        </div>
+
+        {/* Виджет 2: Финансовый статус месяца (Колонка 1/3) */}
+        <div className="space-y-4">
+          <FinanceSnapshotWidget
+            financialSnapshot={fin}
+            onNavigateToFinance={() => navigate('/teacher/finance')}
+          />
+        </div>
+      </div>
+
+      {/* Подвал */}
+      <footer className="pt-6 border-t border-slate-200/40 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-2">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+          <span>Система активна • Tutor Assistant SaaS 2026</span>
+        </div>
+        <div>Школьная платформа © 2026</div>
+      </footer>
     </div>
   );
 };
+
+export default DashboardPage;

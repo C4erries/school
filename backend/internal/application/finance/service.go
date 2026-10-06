@@ -513,6 +513,10 @@ func (s *Service) ListPartnerSettlements(ctx context.Context, teacherID uuid.UUI
 
 	items := make([]*PartnerSettlementItem, 0, len(tags))
 	for _, tag := range tags {
+		if tag.SchoolPercent <= 0 {
+			continue
+		}
+
 		stat := stats[tag.ID]
 		if stat == nil {
 			stat = &tagStat{}

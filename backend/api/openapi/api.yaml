@@ -963,6 +963,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/DashboardMetricsResponse'
 
+  /dashboard/summary:
+    get:
+      summary: Сводка дашборда репетитора
+      operationId: getDashboardSummary
+      tags:
+        - Dashboard
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Сводка дашборда репетитора
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummaryResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /lessons:
     get:
       summary: Список уроков с фильтрацией
@@ -1780,6 +1814,102 @@ paths:
                   $ref: '#/components/schemas/AnalyticsClientStat'
         '401':
           description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/forecast:
+    get:
+      summary: Прогноз расписания и потенциального дохода
+      operationId: getAnalyticsForecast
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Прогноз нагрузки и дохода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsForecastResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/tags:
+    get:
+      summary: Статистика учеников и доходности по тегам
+      operationId: getAnalyticsTags
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Статистика учеников и доходности по всем тегам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TagStatResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Доступ запрещен
           content:
             application/json:
               schema:
@@ -3027,5 +3157,178 @@ components:
         webcal_url:
           type: string
           example: "webcal://school.domain/api/v1/integrations/calendar/feed.ics?token=123e4567-e89b-12d3-a456-426614174000"
+
+    TodayLesson:
+      type: object
+      required:
+        - id
+        - client_id
+        - client_name
+        - start_at
+        - end_at
+        - format
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        client_name:
+          type: string
+          example: "Иван Иванов"
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        status:
+          $ref: '#/components/schemas/LessonStatus'
+        location_type:
+          type: string
+          nullable: true
+          example: "online"
+        online_link:
+          type: string
+          nullable: true
+          example: "https://telemost.yandex.ru/j/123456"
+        classroom_name:
+          type: string
+          nullable: true
+          example: "Кабинет №1"
+        classroom_color:
+          type: string
+          nullable: true
+          example: "#6366F1"
+
+    FinancialSnapshot:
+      type: object
+      required:
+        - month_earned
+        - month_forecast
+        - total_debts
+        - active_clients_count
+        - weekly_hours
+      properties:
+        month_earned:
+          type: number
+          example: 45000.0
+        month_forecast:
+          type: number
+          example: 32000.0
+        total_debts:
+          type: number
+          example: 4800.0
+        active_clients_count:
+          type: integer
+          example: 12
+        weekly_hours:
+          type: number
+          example: 18.5
+
+    DashboardSummaryResponse:
+      type: object
+      required:
+        - today_lessons
+        - financial_snapshot
+      properties:
+        today_lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/TodayLesson'
+        financial_snapshot:
+          $ref: '#/components/schemas/FinancialSnapshot'
+
+    FormatForecast:
+      type: object
+      required:
+        - format
+        - hours
+        - revenue
+      properties:
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        hours:
+          type: number
+          example: 12.0
+        revenue:
+          type: number
+          example: 18000.0
+
+    AnalyticsForecastResponse:
+      type: object
+      required:
+        - from
+        - to
+        - scheduled_lessons
+        - scheduled_hours
+        - gross_potential_revenue
+        - partner_commission_expected
+        - net_potential_income
+        - by_format
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        scheduled_lessons:
+          type: integer
+          example: 15
+        scheduled_hours:
+          type: number
+          example: 18.5
+        gross_potential_revenue:
+          type: number
+          example: 28500.0
+        partner_commission_expected:
+          type: number
+          example: 4275.0
+        net_potential_income:
+          type: number
+          example: 24225.0
+        by_format:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormatForecast'
+
+    TagStatResponse:
+      type: object
+      required:
+        - tag_id
+        - tag_name
+        - students_count
+        - completed_hours
+        - gross_revenue
+        - net_income
+      properties:
+        tag_id:
+          type: string
+          format: uuid
+        tag_name:
+          type: string
+          example: "ЕГЭ"
+        tag_color:
+          type: string
+          nullable: true
+          example: "#3B82F6"
+        students_count:
+          type: integer
+          example: 6
+        completed_hours:
+          type: number
+          example: 24.0
+        gross_revenue:
+          type: number
+          example: 36000.0
+        net_income:
+          type: number
+          example: 36000.0
+
 
 

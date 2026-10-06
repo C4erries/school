@@ -86,6 +86,36 @@ type ClientStat struct {
 	AttendanceRate float32
 }
 
+// FormatForecast прогноз нагрузки и дохода по формату.
+type FormatForecast struct {
+	Format  domain.LessonFormat
+	Hours   float32
+	Revenue float32
+}
+
+// ForecastResult прогнозные показатели расписания за период.
+type ForecastResult struct {
+	From                      time.Time
+	To                        time.Time
+	ScheduledLessons          int
+	ScheduledHours            float32
+	GrossPotentialRevenue     float32
+	PartnerCommissionExpected float32
+	NetPotentialIncome        float32
+	ByFormat                  []FormatForecast
+}
+
+// TagStat статистика по тегу за период.
+type TagStat struct {
+	TagID          uuid.UUID
+	TagName        string
+	TagColor       *string
+	StudentsCount  int
+	CompletedHours float32
+	GrossRevenue   float32
+	NetIncome      float32
+}
+
 // resolveDateRange определяет границы интервала по умолчанию (текущий календарный месяц).
 func resolveDateRange(from, to *time.Time) (time.Time, time.Time) {
 	now := time.Now().UTC()
@@ -555,6 +585,215 @@ func (s *Service) GetClients(ctx context.Context, teacherID uuid.UUID, sortField
 	}
 
 	return stats, nil
+}
+
+// GetForecast рассчитывает прогнозную нагрузку и доход по урокам в статусе scheduled.
+func (s *Service) GetForecast(ctx context.Context, teacherID uuid.UUID, from, to *time.Time) (*ForecastResult, error) {
+	startRange, endRange := resolveDateRange(from, to)
+
+	statusScheduled := domain.StatusScheduled
+	lessons, err := s.lessonRepo.List(ctx, schedule.LessonFilter{
+		TeacherID: &teacherID,
+		Status:    &statusScheduled,
+		From:      &startRange,
+		To:        &endRange,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list scheduled lessons for forecast: %w", err)
+	}
+
+	clients, err := s.clientRepo.ListByTeacherID(ctx, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("list clients for forecast: %w", err)
+	}
+	clientMap := make(map[uuid.UUID]*domain.Client, len(clients))
+	for _, c := range clients {
+		clientMap[c.ID] = c
+	}
+
+	var scheduledLessons int
+	var scheduledHours float64
+	var grossPotentialRevenue float64
+	var partnerCommissionExpected float64
+
+	type formatData struct {
+		hours   float64
+		revenue float64
+	}
+	formatsMap := map[domain.LessonFormat]*formatData{
+		domain.FormatIndividual: {},
+		domain.FormatPair:       {},
+		domain.FormatGroup:      {},
+	}
+
+	for _, l := range lessons {
+		if l.StartTime.Before(startRange) || l.StartTime.After(endRange) {
+			continue
+		}
+		if l.Status != domain.StatusScheduled {
+			continue
+		}
+
+		scheduledLessons++
+		client := clientMap[l.ClientID]
+		rev, comm, dur := calculateLessonRevenueAndCommission(l, client)
+		scheduledHours += dur
+		grossPotentialRevenue += rev
+		partnerCommissionExpected += comm
+
+		fd, ok := formatsMap[l.Format]
+		if !ok {
+			fd = &formatData{}
+			formatsMap[l.Format] = fd
+		}
+		fd.hours += dur
+		fd.revenue += rev
+	}
+
+	netPotentialIncome := grossPotentialRevenue - partnerCommissionExpected
+
+	// Формируем by_format в фиксированном порядке individual, pair, group
+	order := []domain.LessonFormat{domain.FormatIndividual, domain.FormatPair, domain.FormatGroup}
+	byFormat := make([]FormatForecast, 0, len(order))
+	for _, f := range order {
+		fd := formatsMap[f]
+		byFormat = append(byFormat, FormatForecast{
+			Format:  f,
+			Hours:   roundFloat32(float32(fd.hours), 2),
+			Revenue: roundFloat32(float32(fd.revenue), 2),
+		})
+	}
+
+	return &ForecastResult{
+		From:                      startRange,
+		To:                        endRange,
+		ScheduledLessons:          scheduledLessons,
+		ScheduledHours:            roundFloat32(float32(scheduledHours), 2),
+		GrossPotentialRevenue:     roundFloat32(float32(grossPotentialRevenue), 2),
+		PartnerCommissionExpected: roundFloat32(float32(partnerCommissionExpected), 2),
+		NetPotentialIncome:        roundFloat32(float32(netPotentialIncome), 2),
+		ByFormat:                  byFormat,
+	}, nil
+}
+
+// GetTagStats группирует проведенные уроки (completed) по всем тегам клиентов (включая непартнерские с 0%).
+func (s *Service) GetTagStats(ctx context.Context, teacherID uuid.UUID, from, to *time.Time) ([]TagStat, error) {
+	startRange, endRange := resolveDateRange(from, to)
+
+	statusCompleted := domain.StatusCompleted
+	lessons, err := s.lessonRepo.List(ctx, schedule.LessonFilter{
+		TeacherID: &teacherID,
+		Status:    &statusCompleted,
+		From:      &startRange,
+		To:        &endRange,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list completed lessons for tag stats: %w", err)
+	}
+
+	clients, err := s.clientRepo.ListByTeacherID(ctx, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("list clients for tag stats: %w", err)
+	}
+	clientMap := make(map[uuid.UUID]*domain.Client, len(clients))
+	for _, c := range clients {
+		clientMap[c.ID] = c
+	}
+
+	type tagAccum struct {
+		tagID          uuid.UUID
+		tagName        string
+		tagColor       *string
+		clientIDs      map[uuid.UUID]bool
+		completedHours float64
+		grossRevenue   float64
+		netIncome      float64
+	}
+
+	tagMap := make(map[uuid.UUID]*tagAccum)
+
+	// Инициализируем теги по всем прикрепленным к клиентам тегам
+	for _, c := range clients {
+		for _, t := range c.Tags {
+			acc, exists := tagMap[t.ID]
+			if !exists {
+				var colorPtr *string
+				if t.Color != "" {
+					cCopy := t.Color
+					colorPtr = &cCopy
+				}
+				acc = &tagAccum{
+					tagID:     t.ID,
+					tagName:   t.Name,
+					tagColor:  colorPtr,
+					clientIDs: make(map[uuid.UUID]bool),
+				}
+				tagMap[t.ID] = acc
+			}
+			acc.clientIDs[c.ID] = true
+		}
+	}
+
+	for _, l := range lessons {
+		if l.StartTime.Before(startRange) || l.StartTime.After(endRange) {
+			continue
+		}
+		if l.Status != domain.StatusCompleted {
+			continue
+		}
+
+		client := clientMap[l.ClientID]
+		if client == nil {
+			continue
+		}
+
+		rev, comm, dur := calculateLessonRevenueAndCommission(l, client)
+		net := rev - comm
+
+		for _, t := range client.Tags {
+			acc, exists := tagMap[t.ID]
+			if !exists {
+				var colorPtr *string
+				if t.Color != "" {
+					cCopy := t.Color
+					colorPtr = &cCopy
+				}
+				acc = &tagAccum{
+					tagID:     t.ID,
+					tagName:   t.Name,
+					tagColor:  colorPtr,
+					clientIDs: make(map[uuid.UUID]bool),
+				}
+				tagMap[t.ID] = acc
+			}
+			acc.clientIDs[client.ID] = true
+			acc.completedHours += dur
+			acc.grossRevenue += rev
+			acc.netIncome += net
+		}
+	}
+
+	result := make([]TagStat, 0, len(tagMap))
+	for _, acc := range tagMap {
+		result = append(result, TagStat{
+			TagID:          acc.tagID,
+			TagName:        acc.tagName,
+			TagColor:       acc.tagColor,
+			StudentsCount:  len(acc.clientIDs),
+			CompletedHours: roundFloat32(float32(acc.completedHours), 2),
+			GrossRevenue:   roundFloat32(float32(acc.grossRevenue), 2),
+			NetIncome:      roundFloat32(float32(acc.netIncome), 2),
+		})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].GrossRevenue == result[j].GrossRevenue {
+			return result[i].TagName < result[j].TagName
+		}
+		return result[i].GrossRevenue > result[j].GrossRevenue
+	})
+
+	return result, nil
 }
 
 func roundFloat32(val float32, precision int) float32 {

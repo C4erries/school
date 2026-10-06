@@ -323,3 +323,156 @@ func TestAnalyticsService_GetClients(t *testing.T) {
 	// Attendance rate for client2: 1 / (1 + 2) = 33.3%
 	assert.InDelta(t, 33.3, statsCanc[0].AttendanceRate, 0.1)
 }
+
+func TestAnalyticsService_GetForecast(t *testing.T) {
+	svc, lessonRepo, clientRepo, teacherID, client1, client2 := setupTestServices()
+	ctx := context.Background()
+
+	from := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 10, 20, 23, 59, 59, 0, time.UTC)
+
+	// Scheduled lesson 1: client1 (individual), 2 hours * 2000 = 4000 gross, 20% commission = 800, net = 3200
+	l1 := &domain.Lesson{
+		ID:        uuid.New(),
+		TeacherID: teacherID,
+		ClientID:  client1.ID,
+		StartTime: from.Add(2 * time.Hour),
+		EndTime:   from.Add(4 * time.Hour),
+		Format:    domain.FormatIndividual,
+		Status:    domain.StatusScheduled,
+	}
+
+	// Scheduled lesson 2: client1 (pair), 1.5 hours * 1500 = 2250 gross, 20% commission = 450, net = 1800
+	l2 := &domain.Lesson{
+		ID:        uuid.New(),
+		TeacherID: teacherID,
+		ClientID:  client1.ID,
+		StartTime: from.Add(5 * time.Hour),
+		EndTime:   from.Add(6*time.Hour + 30*time.Minute),
+		Format:    domain.FormatPair,
+		Status:    domain.StatusScheduled,
+	}
+
+	// Scheduled lesson 3: client2 (group/default=1500), 1 hour * 1500 = 1500 gross, 0% commission, net = 1500
+	l3 := &domain.Lesson{
+		ID:        uuid.New(),
+		TeacherID: teacherID,
+		ClientID:  client2.ID,
+		StartTime: from.Add(7 * time.Hour),
+		EndTime:   from.Add(8 * time.Hour),
+		Format:    domain.FormatGroup,
+		Status:    domain.StatusScheduled,
+	}
+
+	statusScheduled := domain.StatusScheduled
+	lessonRepo.On("List", ctx, schedule.LessonFilter{
+		TeacherID: &teacherID,
+		Status:    &statusScheduled,
+		From:      &from,
+		To:        &to,
+	}).Return([]*domain.Lesson{l1, l2, l3}, nil)
+
+	clientRepo.On("ListByTeacherID", ctx, teacherID).Return([]*domain.Client{client1, client2}, nil)
+
+	forecast, err := svc.GetForecast(ctx, teacherID, &from, &to)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, forecast.ScheduledLessons)
+	assert.InDelta(t, 4.5, forecast.ScheduledHours, 0.01) // 2 + 1.5 + 1 = 4.5h
+	// Gross: 4000 + 2250 + 1500 = 7750
+	assert.InDelta(t, 7750.0, forecast.GrossPotentialRevenue, 0.01)
+	// Commission: 800 + 450 + 0 = 1250
+	assert.InDelta(t, 1250.0, forecast.PartnerCommissionExpected, 0.01)
+	// Net: 7750 - 1250 = 6500
+	assert.InDelta(t, 6500.0, forecast.NetPotentialIncome, 0.01)
+
+	require.Len(t, forecast.ByFormat, 3)
+	assert.Equal(t, domain.FormatIndividual, forecast.ByFormat[0].Format)
+	assert.InDelta(t, 2.0, forecast.ByFormat[0].Hours, 0.01)
+	assert.InDelta(t, 4000.0, forecast.ByFormat[0].Revenue, 0.01)
+
+	assert.Equal(t, domain.FormatPair, forecast.ByFormat[1].Format)
+	assert.InDelta(t, 1.5, forecast.ByFormat[1].Hours, 0.01)
+	assert.InDelta(t, 2250.0, forecast.ByFormat[1].Revenue, 0.01)
+
+	assert.Equal(t, domain.FormatGroup, forecast.ByFormat[2].Format)
+	assert.InDelta(t, 1.0, forecast.ByFormat[2].Hours, 0.01)
+	assert.InDelta(t, 1500.0, forecast.ByFormat[2].Revenue, 0.01)
+}
+
+func TestAnalyticsService_GetTagStats(t *testing.T) {
+	svc, lessonRepo, clientRepo, teacherID, client1, _ := setupTestServices()
+	ctx := context.Background()
+
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 10, 31, 23, 59, 59, 0, time.UTC)
+
+	// Добавим непартнерский тег (0%)
+	zeroPercentTag := domain.Tag{
+		ID:            uuid.New(),
+		TeacherID:     teacherID,
+		Name:          "Олимпиадники",
+		SchoolPercent: 0,
+		Color:         "blue",
+	}
+
+	client3ID := uuid.New()
+	client3 := &domain.Client{
+		ID:             client3ID,
+		TeacherID:      teacherID,
+		Name:           "Сергей Сидоров",
+		RateIndividual: 3000.0,
+		BaseRate:       3000.0,
+		Tags:           []domain.Tag{zeroPercentTag},
+	}
+
+	// Урок 1: client1 (Partner School A, 20%): 2h * 2000 = 4000 gross, 3200 net
+	l1 := &domain.Lesson{
+		ID:        uuid.New(),
+		TeacherID: teacherID,
+		ClientID:  client1.ID,
+		StartTime: from.Add(2 * time.Hour),
+		EndTime:   from.Add(4 * time.Hour),
+		Format:    domain.FormatIndividual,
+		Status:    domain.StatusCompleted,
+	}
+
+	// Урок 2: client3 (Олимпиадники, 0%): 1h * 3000 = 3000 gross, 3000 net
+	l2 := &domain.Lesson{
+		ID:        uuid.New(),
+		TeacherID: teacherID,
+		ClientID:  client3.ID,
+		StartTime: from.Add(5 * time.Hour),
+		EndTime:   from.Add(6 * time.Hour),
+		Format:    domain.FormatIndividual,
+		Status:    domain.StatusCompleted,
+	}
+
+	statusCompleted := domain.StatusCompleted
+	lessonRepo.On("List", ctx, schedule.LessonFilter{
+		TeacherID: &teacherID,
+		Status:    &statusCompleted,
+		From:      &from,
+		To:        &to,
+	}).Return([]*domain.Lesson{l1, l2}, nil)
+
+	clientRepo.On("ListByTeacherID", ctx, teacherID).Return([]*domain.Client{client1, client3}, nil)
+
+	tagStats, err := svc.GetTagStats(ctx, teacherID, &from, &to)
+	require.NoError(t, err)
+
+	require.Len(t, tagStats, 2)
+	// Должны быть отсортированы по валовой выручке убывающе: Partner School A (4000), Олимпиадники (3000)
+	assert.Equal(t, "Partner School A", tagStats[0].TagName)
+	assert.Equal(t, 1, tagStats[0].StudentsCount)
+	assert.InDelta(t, 2.0, tagStats[0].CompletedHours, 0.01)
+	assert.InDelta(t, 4000.0, tagStats[0].GrossRevenue, 0.01)
+	assert.InDelta(t, 3200.0, tagStats[0].NetIncome, 0.01)
+
+	assert.Equal(t, "Олимпиадники", tagStats[1].TagName)
+	assert.Equal(t, 1, tagStats[1].StudentsCount)
+	assert.InDelta(t, 1.0, tagStats[1].CompletedHours, 0.01)
+	assert.InDelta(t, 3000.0, tagStats[1].GrossRevenue, 0.01)
+	assert.InDelta(t, 3000.0, tagStats[1].NetIncome, 0.01)
+}
+

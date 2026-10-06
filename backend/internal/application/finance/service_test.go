@@ -471,12 +471,20 @@ func TestFinanceService_ListPartnerSettlements(t *testing.T) {
 		Color:         "orange",
 	}
 
+	zeroPercentTag := &domain.Tag{
+		ID:            uuid.New(),
+		TeacherID:     teacherID,
+		Name:          "ЕГЭ Информатика",
+		SchoolPercent: 0,
+		Color:         "blue",
+	}
+
 	client := &domain.Client{
 		ID:             clientID,
 		TeacherID:      teacherID,
 		Name:           "Ученик школы",
 		RateIndividual: 2000,
-		Tags:           []domain.Tag{*tag},
+		Tags:           []domain.Tag{*tag, *zeroPercentTag},
 	}
 
 	statusCompleted := domain.StatusCompleted
@@ -502,7 +510,7 @@ func TestFinanceService_ListPartnerSettlements(t *testing.T) {
 		PaidAt:           paidAt,
 	}
 
-	tagRepo.On("ListByTeacherID", ctx, teacherID).Return([]*domain.Tag{tag}, nil)
+	tagRepo.On("ListByTeacherID", ctx, teacherID).Return([]*domain.Tag{tag, zeroPercentTag}, nil)
 	payoutRepo.On("ListByPeriod", ctx, teacherID, periodMonth).Return([]*domain.PartnerPayout{existingPayout}, nil)
 	lessonRepo.On("List", ctx, schedule.LessonFilter{
 		TeacherID: &teacherID,
@@ -514,7 +522,7 @@ func TestFinanceService_ListPartnerSettlements(t *testing.T) {
 
 	items, err := svc.ListPartnerSettlements(ctx, teacherID, periodMonth)
 	require.NoError(t, err)
-	require.Len(t, items, 1)
+	require.Len(t, items, 1, "Tags with SchoolPercent <= 0 must be filtered out")
 
 	item := items[0]
 	assert.Equal(t, tagID, item.TagID)
