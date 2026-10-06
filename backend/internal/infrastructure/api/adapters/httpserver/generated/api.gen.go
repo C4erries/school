@@ -234,6 +234,45 @@ func (e SubscriptionResponseFormat) Valid() bool {
 	}
 }
 
+// Defines values for GetAnalyticsClientsParamsSort.
+const (
+	Cancellations GetAnalyticsClientsParamsSort = "cancellations"
+	Hours         GetAnalyticsClientsParamsSort = "hours"
+	Revenue       GetAnalyticsClientsParamsSort = "revenue"
+)
+
+// Valid indicates whether the value is a known member of the GetAnalyticsClientsParamsSort enum.
+func (e GetAnalyticsClientsParamsSort) Valid() bool {
+	switch e {
+	case Cancellations:
+		return true
+	case Hours:
+		return true
+	case Revenue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAnalyticsDynamicsParamsInterval.
+const (
+	Month GetAnalyticsDynamicsParamsInterval = "month"
+	Week  GetAnalyticsDynamicsParamsInterval = "week"
+)
+
+// Valid indicates whether the value is a known member of the GetAnalyticsDynamicsParamsInterval enum.
+func (e GetAnalyticsDynamicsParamsInterval) Valid() bool {
+	switch e {
+	case Month:
+		return true
+	case Week:
+		return true
+	default:
+		return false
+	}
+}
+
 // AdjustBalanceRequest defines model for AdjustBalanceRequest.
 type AdjustBalanceRequest struct {
 	// DeltaHours Example: 1.5
@@ -249,6 +288,98 @@ type AdjustBalanceRequest struct {
 // AdjustBalanceRequestFormat Example: individual
 type AdjustBalanceRequestFormat string
 
+// AnalyticsClientStat defines model for AnalyticsClientStat.
+type AnalyticsClientStat struct {
+	// AttendanceRate Example: 88.9
+	AttendanceRate float32 `json:"attendance_rate"`
+
+	// CancelledCount Example: 1
+	CancelledCount int                `json:"cancelled_count"`
+	ClientId       openapi_types.UUID `json:"client_id"`
+
+	// ClientName Example: Иван Иванов
+	ClientName string `json:"client_name"`
+
+	// CompletedCount Example: 8
+	CompletedCount int `json:"completed_count"`
+
+	// CompletedHours Example: 12
+	CompletedHours float32 `json:"completed_hours"`
+
+	// NetIncome Example: 18000
+	NetIncome float32 `json:"net_income"`
+}
+
+// AnalyticsDynamicsPoint defines model for AnalyticsDynamicsPoint.
+type AnalyticsDynamicsPoint struct {
+	// CancelledCount Example: 1
+	CancelledCount int `json:"cancelled_count"`
+
+	// CompletedCount Example: 11
+	CompletedCount int `json:"completed_count"`
+
+	// CompletedHours Example: 14.5
+	CompletedHours float32   `json:"completed_hours"`
+	From           time.Time `json:"from"`
+
+	// Label Example: Неделя 41 (6 - 12 окт)
+	Label string `json:"label"`
+
+	// NetIncome Example: 21500
+	NetIncome float32   `json:"net_income"`
+	To        time.Time `json:"to"`
+}
+
+// AnalyticsFormatStat defines model for AnalyticsFormatStat.
+type AnalyticsFormatStat struct {
+	// CompletedHours Example: 35
+	CompletedHours float32 `json:"completed_hours"`
+
+	// Format Example: individual
+	Format LessonFormat `json:"format"`
+
+	// HoursSharePercent Example: 66.7
+	HoursSharePercent float32 `json:"hours_share_percent"`
+
+	// LessonsCount Example: 28
+	LessonsCount int `json:"lessons_count"`
+
+	// NetIncome Example: 52500
+	NetIncome float32 `json:"net_income"`
+
+	// RevenueSharePercent Example: 76.1
+	RevenueSharePercent float32 `json:"revenue_share_percent"`
+}
+
+// AnalyticsOverviewResponse defines model for AnalyticsOverviewResponse.
+type AnalyticsOverviewResponse struct {
+	// CancelledLessons Example: 5
+	CancelledLessons int `json:"cancelled_lessons"`
+
+	// CompletedHours Example: 52.5
+	CompletedHours float32 `json:"completed_hours"`
+
+	// CompletedLessons Example: 40
+	CompletedLessons int `json:"completed_lessons"`
+
+	// CompletionRate Example: 88.9
+	CompletionRate float32 `json:"completion_rate"`
+
+	// EffectiveHourlyRate Example: 1314.28
+	EffectiveHourlyRate float32   `json:"effective_hourly_rate"`
+	From                time.Time `json:"from"`
+
+	// GrossRevenue Example: 82000
+	GrossRevenue float32 `json:"gross_revenue"`
+
+	// NetIncome Example: 69000
+	NetIncome float32   `json:"net_income"`
+	To        time.Time `json:"to"`
+
+	// TotalLessons Example: 45
+	TotalLessons int `json:"total_lessons"`
+}
+
 // AssignTagRequest defines model for AssignTagRequest.
 type AssignTagRequest struct {
 	TagId openapi_types.UUID `json:"tag_id"`
@@ -258,6 +389,17 @@ type AssignTagRequest struct {
 type AuthResponse struct {
 	Tokens TokenPair    `json:"tokens"`
 	User   UserResponse `json:"user"`
+}
+
+// CalendarSettingsResponse defines model for CalendarSettingsResponse.
+type CalendarSettingsResponse struct {
+	CalendarToken openapi_types.UUID `json:"calendar_token"`
+
+	// FeedUrl Example: https://school.domain/api/v1/integrations/calendar/feed.ics?token=123e4567-e89b-12d3-a456-426614174000
+	FeedUrl string `json:"feed_url"`
+
+	// WebcalUrl Example: webcal://school.domain/api/v1/integrations/calendar/feed.ics?token=123e4567-e89b-12d3-a456-426614174000
+	WebcalUrl string `json:"webcal_url"`
 }
 
 // CancelLessonRequest defines model for CancelLessonRequest.
@@ -795,6 +937,39 @@ type UserResponse struct {
 	Role Role `json:"role"`
 }
 
+// GetAnalyticsClientsParams defines parameters for GetAnalyticsClients.
+type GetAnalyticsClientsParams struct {
+	From  *time.Time                     `form:"from,omitempty" json:"from,omitempty"`
+	To    *time.Time                     `form:"to,omitempty" json:"to,omitempty"`
+	Sort  *GetAnalyticsClientsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+	Limit *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetAnalyticsClientsParamsSort defines parameters for GetAnalyticsClients.
+type GetAnalyticsClientsParamsSort string
+
+// GetAnalyticsDynamicsParams defines parameters for GetAnalyticsDynamics.
+type GetAnalyticsDynamicsParams struct {
+	Interval *GetAnalyticsDynamicsParamsInterval `form:"interval,omitempty" json:"interval,omitempty"`
+	From     *time.Time                          `form:"from,omitempty" json:"from,omitempty"`
+	To       *time.Time                          `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetAnalyticsDynamicsParamsInterval defines parameters for GetAnalyticsDynamics.
+type GetAnalyticsDynamicsParamsInterval string
+
+// GetAnalyticsFormatsParams defines parameters for GetAnalyticsFormats.
+type GetAnalyticsFormatsParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetAnalyticsOverviewParams defines parameters for GetAnalyticsOverview.
+type GetAnalyticsOverviewParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
 // ListClientsParams defines parameters for ListClients.
 type ListClientsParams struct {
 	// IsArchived Фильтр по архивному статусу (null - все, false - только активные, true - только архивные)
@@ -841,6 +1016,18 @@ type ListPaymentsParams struct {
 type GetFinanceSummaryParams struct {
 	// Month Расчетный месяц в формате YYYY-MM (по умолчанию текущий)
 	Month *string `form:"month,omitempty" json:"month,omitempty"`
+}
+
+// ExportCalendarFileParams defines parameters for ExportCalendarFile.
+type ExportCalendarFileParams struct {
+	From *time.Time `form:"from,omitempty" json:"from,omitempty"`
+	To   *time.Time `form:"to,omitempty" json:"to,omitempty"`
+}
+
+// GetCalendarFeedParams defines parameters for GetCalendarFeed.
+type GetCalendarFeedParams struct {
+	// Token Персональный секретный UUID-токен преподавателя
+	Token openapi_types.UUID `form:"token" json:"token"`
 }
 
 // ListLessonsParams defines parameters for ListLessons.
@@ -903,6 +1090,18 @@ type UpdateUserDefaultRatesJSONRequestBody = UserDefaultRates
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// GetAnalyticsClients Показатели и рейтинг учеников
+	// (GET /analytics/clients)
+	GetAnalyticsClients(w http.ResponseWriter, r *http.Request, params GetAnalyticsClientsParams)
+	// GetAnalyticsDynamics Временной ряд динамики нагрузки и доходов
+	// (GET /analytics/dynamics)
+	GetAnalyticsDynamics(w http.ResponseWriter, r *http.Request, params GetAnalyticsDynamicsParams)
+	// GetAnalyticsFormats Распределение часов и доходов по форматам занятий
+	// (GET /analytics/formats)
+	GetAnalyticsFormats(w http.ResponseWriter, r *http.Request, params GetAnalyticsFormatsParams)
+	// GetAnalyticsOverview Сводные ключевые показатели эффективности за период
+	// (GET /analytics/overview)
+	GetAnalyticsOverview(w http.ResponseWriter, r *http.Request, params GetAnalyticsOverviewParams)
 	// Login Аутентификация по email и паролю
 	// (POST /auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -987,6 +1186,18 @@ type ServerInterface interface {
 	// GetHealth Проверка работоспособности сервиса
 	// (GET /health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// ExportCalendarFile Разовый экспорт расписания в файл iCalendar (.ics)
+	// (GET /integrations/calendar/export)
+	ExportCalendarFile(w http.ResponseWriter, r *http.Request, params ExportCalendarFileParams)
+	// GetCalendarFeed Публичный Live Feed расписания для Google/Apple Calendar подписки (RFC 5545)
+	// (GET /integrations/calendar/feed.ics)
+	GetCalendarFeed(w http.ResponseWriter, r *http.Request, params GetCalendarFeedParams)
+	// RotateCalendarToken Перевыпуск персонального токена синхронизации календаря
+	// (POST /integrations/calendar/rotate-token)
+	RotateCalendarToken(w http.ResponseWriter, r *http.Request)
+	// GetCalendarSettings Получение персональных настроек и ссылок синхронизации календаря
+	// (GET /integrations/calendar/settings)
+	GetCalendarSettings(w http.ResponseWriter, r *http.Request)
 	// ListLessons Список уроков с фильтрацией
 	// (GET /lessons)
 	ListLessons(w http.ResponseWriter, r *http.Request, params ListLessonsParams)
@@ -1027,6 +1238,229 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// GetAnalyticsClients operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsClients(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsClientsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsClients(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnalyticsDynamics operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsDynamics(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsDynamicsParams
+
+	// ------------- Optional query parameter "interval" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "interval", r.URL.Query(), &params.Interval, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "interval"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "interval", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsDynamics(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnalyticsFormats operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsFormats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsFormatsParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsFormats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAnalyticsOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAnalyticsOverviewParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAnalyticsOverview(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Login operation middleware
 func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
@@ -1786,6 +2220,113 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// ExportCalendarFile operation middleware
+func (siw *ServerInterfaceWrapper) ExportCalendarFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportCalendarFileParams
+
+	// ------------- Optional query parameter "from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "from", r.URL.Query(), &params.From, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "to", r.URL.Query(), &params.To, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportCalendarFile(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCalendarFeed operation middleware
+func (siw *ServerInterfaceWrapper) GetCalendarFeed(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCalendarFeedParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCalendarFeed(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateCalendarToken operation middleware
+func (siw *ServerInterfaceWrapper) RotateCalendarToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateCalendarToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCalendarSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetCalendarSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCalendarSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListLessons operation middleware
 func (siw *ServerInterfaceWrapper) ListLessons(w http.ResponseWriter, r *http.Request) {
 
@@ -2216,6 +2757,14 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/clients", wrapper.ExportClients)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/lessons", wrapper.ExportLessons)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/export/payments", wrapper.ExportPayments)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/overview", wrapper.GetAnalyticsOverview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/dynamics", wrapper.GetAnalyticsDynamics)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/formats", wrapper.GetAnalyticsFormats)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/analytics/clients", wrapper.GetAnalyticsClients)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/calendar/settings", wrapper.GetCalendarSettings)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/integrations/calendar/rotate-token", wrapper.RotateCalendarToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/calendar/export", wrapper.ExportCalendarFile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/integrations/calendar/feed.ics", wrapper.GetCalendarFeed)
 
 	return m
 }

@@ -9,7 +9,8 @@ import { ScheduleDayView } from '../../features/schedule/components/ScheduleDayV
 import { ScheduleListView } from '../../features/schedule/components/ScheduleListView';
 import { CreateLessonModal } from '../../features/schedule/components/CreateLessonModal';
 import { EditLessonModal } from '../../features/schedule/components/EditLessonModal';
-import { Plus, RefreshCw, AlertCircle } from 'lucide-react';
+import { CalendarSyncModal } from '../../features/calendar/components/CalendarSyncModal';
+import { Plus, RefreshCw, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 
 export const TeacherSchedulePage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -30,6 +31,7 @@ export const TeacherSchedulePage: React.FC = () => {
   }>({});
 
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const { hours, positionLessons } = useSchedulePositioning();
 
   const loadData = useCallback(async () => {
@@ -132,21 +134,30 @@ export const TeacherSchedulePage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">Расписание уроков</h1>
           <p className="text-sm text-slate-500 mt-1">Календарь занятий, нахлёсты, быстрое создание в 1 клик</p>
         </div>
-        <GlassButton
-          variant="primary"
-          onClick={() => {
-            setCreateInitial({
-              date: new Date().toISOString().split('T')[0],
-              startTime: '14:00',
-              title: '',
-              clientId: '',
-            });
-            setIsCreateOpen(true);
-          }}
-          icon={<Plus className="w-4 h-4" />}
-        >
-          Назначить урок
-        </GlassButton>
+        <div className="flex items-center gap-2.5 self-stretch sm:self-auto">
+          <GlassButton
+            variant="secondary"
+            onClick={() => setIsSyncModalOpen(true)}
+            icon={<CalendarIcon className="w-4 h-4 text-indigo-600" />}
+          >
+            Синхронизация
+          </GlassButton>
+          <GlassButton
+            variant="primary"
+            onClick={() => {
+              setCreateInitial({
+                date: new Date().toISOString().split('T')[0],
+                startTime: '14:00',
+                title: '',
+                clientId: '',
+              });
+              setIsCreateOpen(true);
+            }}
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Назначить урок
+          </GlassButton>
+        </div>
       </div>
 
       {errorMessage && (
@@ -234,6 +245,11 @@ export const TeacherSchedulePage: React.FC = () => {
         classrooms={classrooms}
         clientDisplayName={editingLesson ? getClientDisplayName(editingLesson) : ''}
         onUpdated={loadData}
+      />
+
+      <CalendarSyncModal
+        isOpen={isSyncModalOpen}
+        onClose={() => setIsSyncModalOpen(false)}
       />
     </div>
   );

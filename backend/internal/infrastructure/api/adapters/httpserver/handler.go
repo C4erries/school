@@ -8,7 +8,9 @@ import (
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	"github.com/C4erries/school/backend/internal/application/analytics"
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/calendar"
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/finance"
@@ -25,6 +27,8 @@ type APIHandler struct {
 	crmService       *crm.Service
 	dashboardService *dashboard.Service
 	financeService   *finance.Service
+	analyticsService *analytics.Service
+	calendarService  *calendar.Service
 	tokenValidator   TokenValidator
 	version          string
 }
@@ -49,6 +53,12 @@ func NewAPIHandler(
 	for _, ext := range extra {
 		if f, ok := ext.(*finance.Service); ok {
 			h.financeService = f
+		}
+		if a, ok := ext.(*analytics.Service); ok {
+			h.analyticsService = a
+		}
+		if c, ok := ext.(*calendar.Service); ok {
+			h.calendarService = c
 		}
 	}
 	return h

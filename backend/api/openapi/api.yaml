@@ -1601,6 +1601,329 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /analytics/overview:
+    get:
+      summary: Сводные ключевые показатели эффективности за период
+      operationId: getAnalyticsOverview
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Сводные показатели за период
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsOverviewResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/dynamics:
+    get:
+      summary: Временной ряд динамики нагрузки и доходов
+      operationId: getAnalyticsDynamics
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: interval
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [week, month]
+            default: month
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Массив точек динамики
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AnalyticsDynamicsPoint'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/formats:
+    get:
+      summary: Распределение часов и доходов по форматам занятий
+      operationId: getAnalyticsFormats
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Статистика по форматам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AnalyticsFormatStat'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /analytics/clients:
+    get:
+      summary: Показатели и рейтинг учеников
+      operationId: getAnalyticsClients
+      tags:
+        - Analytics
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: sort
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [hours, revenue, cancellations]
+            default: hours
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Список показателей учеников
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AnalyticsClientStat'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /integrations/calendar/settings:
+    get:
+      summary: Получение персональных настроек и ссылок синхронизации календаря
+      operationId: getCalendarSettings
+      tags:
+        - Integrations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Персональные настройки и ссылки на календарь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarSettingsResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /integrations/calendar/rotate-token:
+    post:
+      summary: Перевыпуск персонального токена синхронизации календаря
+      operationId: rotateCalendarToken
+      tags:
+        - Integrations
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Обновленные настройки с новым токеном
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarSettingsResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /integrations/calendar/export:
+    get:
+      summary: Разовый экспорт расписания в файл iCalendar (.ics)
+      operationId: exportCalendarFile
+      tags:
+        - Integrations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Файл iCalendar (.ics)
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /integrations/calendar/feed.ics:
+    get:
+      summary: Публичный Live Feed расписания для Google/Apple Calendar подписки (RFC 5545)
+      operationId: getCalendarFeed
+      tags:
+        - Integrations
+      parameters:
+        - name: token
+          in: query
+          required: true
+          description: Персональный секретный UUID-токен преподавателя
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: iCalendar поток событий расписания
+          content:
+            text/calendar:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Недействительный или отозванный токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -2548,5 +2871,161 @@ components:
         created_at:
           type: string
           format: date-time
+
+    AnalyticsOverviewResponse:
+      type: object
+      required:
+        - from
+        - to
+        - total_lessons
+        - completed_lessons
+        - cancelled_lessons
+        - completion_rate
+        - completed_hours
+        - gross_revenue
+        - net_income
+        - effective_hourly_rate
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        total_lessons:
+          type: integer
+          example: 45
+        completed_lessons:
+          type: integer
+          example: 40
+        cancelled_lessons:
+          type: integer
+          example: 5
+        completion_rate:
+          type: number
+          example: 88.9
+        completed_hours:
+          type: number
+          example: 52.5
+        gross_revenue:
+          type: number
+          example: 82000
+        net_income:
+          type: number
+          example: 69000
+        effective_hourly_rate:
+          type: number
+          example: 1314.28
+
+    AnalyticsDynamicsPoint:
+      type: object
+      required:
+        - label
+        - from
+        - to
+        - completed_hours
+        - net_income
+        - completed_count
+        - cancelled_count
+      properties:
+        label:
+          type: string
+          example: "Неделя 41 (6 - 12 окт)"
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        completed_hours:
+          type: number
+          example: 14.5
+        net_income:
+          type: number
+          example: 21500
+        completed_count:
+          type: integer
+          example: 11
+        cancelled_count:
+          type: integer
+          example: 1
+
+    AnalyticsFormatStat:
+      type: object
+      required:
+        - format
+        - completed_hours
+        - net_income
+        - lessons_count
+        - hours_share_percent
+        - revenue_share_percent
+      properties:
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        completed_hours:
+          type: number
+          example: 35.0
+        net_income:
+          type: number
+          example: 52500
+        lessons_count:
+          type: integer
+          example: 28
+        hours_share_percent:
+          type: number
+          example: 66.7
+        revenue_share_percent:
+          type: number
+          example: 76.1
+
+    AnalyticsClientStat:
+      type: object
+      required:
+        - client_id
+        - client_name
+        - completed_hours
+        - net_income
+        - completed_count
+        - cancelled_count
+        - attendance_rate
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        client_name:
+          type: string
+          example: "Иван Иванов"
+        completed_hours:
+          type: number
+          example: 12.0
+        net_income:
+          type: number
+          example: 18000
+        completed_count:
+          type: integer
+          example: 8
+        cancelled_count:
+          type: integer
+          example: 1
+        attendance_rate:
+          type: number
+          example: 88.9
+
+    CalendarSettingsResponse:
+      type: object
+      required:
+        - calendar_token
+        - feed_url
+        - webcal_url
+      properties:
+        calendar_token:
+          type: string
+          format: uuid
+        feed_url:
+          type: string
+          example: "https://school.domain/api/v1/integrations/calendar/feed.ics?token=123e4567-e89b-12d3-a456-426614174000"
+        webcal_url:
+          type: string
+          example: "webcal://school.domain/api/v1/integrations/calendar/feed.ics?token=123e4567-e89b-12d3-a456-426614174000"
 
 

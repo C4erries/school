@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -55,10 +56,13 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 	if u.DefaultRateGroup != nil {
 		defaultGroup = *u.DefaultRateGroup
 	}
+	if u.CalendarToken == uuid.Nil {
+		u.CalendarToken = uuid.New()
+	}
 
 	query, args, err := r.sb.Insert("users").
-		Columns("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
-		Values(u.ID, u.Email, u.PasswordHash, u.FullName, u.Phone, string(u.Role), defaultIndiv, defaultPair, defaultGroup, u.CreatedAt, u.UpdatedAt).
+		Columns("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "calendar_token", "created_at", "updated_at").
+		Values(u.ID, u.Email, u.PasswordHash, u.FullName, u.Phone, string(u.Role), defaultIndiv, defaultPair, defaultGroup, u.CalendarToken, u.CreatedAt, u.UpdatedAt).
 		ToSql()
 	if err != nil {
 		return fmt.Errorf("build insert user query: %w", err)
@@ -77,7 +81,7 @@ func (r *UserRepository) Create(ctx context.Context, u *domain.User) error {
 
 // GetByID находит пользователя по UUID.
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
-	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
+	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "calendar_token", "created_at", "updated_at").
 		From("users").
 		Where(sq.Eq{"id": id}).
 		ToSql()
@@ -98,6 +102,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 		&rateIndiv,
 		&ratePair,
 		&rateGroup,
+		&u.CalendarToken,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
@@ -133,7 +138,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 
 // GetByEmail находит пользователя по email (без учета регистра).
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
-	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "created_at", "updated_at").
+	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "calendar_token", "created_at", "updated_at").
 		From("users").
 		Where("LOWER(email) = LOWER(?)", email).
 		ToSql()
@@ -154,6 +159,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 		&rateIndiv,
 		&ratePair,
 		&rateGroup,
+		&u.CalendarToken,
 		&u.CreatedAt,
 		&u.UpdatedAt,
 	)
@@ -232,3 +238,89 @@ func (r *UserRepository) Update(ctx context.Context, u *domain.User) error {
 
 	return nil
 }
+
+// GetByCalendarToken находит пользователя по токену календаря.
+func (r *UserRepository) GetByCalendarToken(ctx context.Context, token uuid.UUID) (*domain.User, error) {
+	query, args, err := r.sb.Select("id", "email", "password_hash", "full_name", "phone", "role", "default_rate_individual", "default_rate_pair", "default_rate_group", "calendar_token", "created_at", "updated_at").
+		From("users").
+		Where(sq.Eq{"calendar_token": token}).
+		ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("build select user by calendar token query: %w", err)
+	}
+
+	var u domain.User
+	var role string
+	var rateIndiv, ratePair, rateGroup sql.NullFloat64
+	err = r.getDBTX(ctx).QueryRowContext(ctx, query, args...).Scan(
+		&u.ID,
+		&u.Email,
+		&u.PasswordHash,
+		&u.FullName,
+		&u.Phone,
+		&role,
+		&rateIndiv,
+		&ratePair,
+		&rateGroup,
+		&u.CalendarToken,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("query user by calendar token: %w", err)
+	}
+
+	u.Role = domain.Role(role)
+	if rateIndiv.Valid {
+		u.DefaultRateIndividual = &rateIndiv.Float64
+	} else {
+		def := 1500.0
+		u.DefaultRateIndividual = &def
+	}
+	if ratePair.Valid {
+		u.DefaultRatePair = &ratePair.Float64
+	} else {
+		def := 1000.0
+		u.DefaultRatePair = &def
+	}
+	if rateGroup.Valid {
+		u.DefaultRateGroup = &rateGroup.Float64
+	} else {
+		def := 700.0
+		u.DefaultRateGroup = &def
+	}
+
+	return &u, nil
+}
+
+// RotateCalendarToken генерирует и сохраняет новый токен календаря для пользователя.
+func (r *UserRepository) RotateCalendarToken(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
+	newToken := uuid.New()
+	query, args, err := r.sb.Update("users").
+		Set("calendar_token", newToken).
+		Set("updated_at", time.Now().UTC()).
+		Where(sq.Eq{"id": userID}).
+		ToSql()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("build rotate calendar token query: %w", err)
+	}
+
+	res, err := r.getDBTX(ctx).ExecContext(ctx, query, args...)
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("exec rotate calendar token: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("get affected rows: %w", err)
+	}
+	if rows == 0 {
+		return uuid.Nil, domain.ErrUserNotFound
+	}
+
+	return newToken, nil
+}
+

@@ -4,7 +4,7 @@
 > Обновляется перед началом каждого спринта и после завершения задач.
 > Завершенные спринты архивируются в каталоге `docs/sprints/`.
 
-## Текущая фаза: 2.2.2 — Аналитика и Статистика репетитора + Календарная интеграция (Google Calendar & iCal / Webcal) 🔵 (В РАБОТЕ)
+## Текущая фаза: 2.2.2 — Аналитика и Статистика репетитора + Календарная интеграция (Google Calendar & iCal / Webcal) 🟢 (ЗАВЕРШЕН)
 
 ---
 
@@ -82,12 +82,12 @@
 
 | # | Задача | Статус | Приоритет | Ответственный / Субагент | Заметки |
 |---|--------|--------|-----------|---------------------------|---------|
-| 1 | Миграция 000009: `calendar_token` для пользователей | 🔲 Planned | Критический | `backend-dev` | Добавление `calendar_token UUID UNIQUE DEFAULT gen_random_uuid()` в таблицу `users`. |
-| 2 | Backend API: Эндпоинты аналитики и статистики (`/analytics/*`) | 🔲 Planned | Высокий | `backend-dev` | OpenAPI `api.yaml`, агрегации SQL, сервис `AnalyticsService`: overview, dynamics, formats, clients. |
-| 3 | Backend API: Календарная интеграция iCal/Webcal (`.ics`) | 🔲 Planned | Высокий | `backend-dev` | Генерация RFC 5545 VEVENT, feed.ics по токену, export.ics, ротация токена. |
-| 4 | Frontend: Страница «Статистика» (`/teacher/analytics`) | 🔲 Planned | Высокий | `frontend-dev` | Вкладка в `AppNavbar`, селектор периодов, KPI карточки, SVG-графики динамики, форматные доли, таблица учеников. |
-| 5 | Frontend: Модалка синхронизации календаря (`CalendarSyncModal`) | 🔲 Planned | Высокий | `frontend-dev` | Интеграция в расписание, быстрые кнопки Google/Apple Calendar, копирование webcal://, ротация токена. |
-| 6 | E2E автотесты и верификация полного цикла | 🔲 Planned | Высокий | `qa-e2e` | Тесты аналитики (расчет метрик, фильтры дат), валидация синтаксиса iCal RFC 5545, проверка RBAC. |
+| 1 | Миграция 000009: `calendar_token` для пользователей | 🟢 Done | Критический | `backend-dev` | Добавление `calendar_token UUID UNIQUE DEFAULT gen_random_uuid()` в таблицу `users`. |
+| 2 | Backend API: Эндпоинты аналитики и статистики (`/analytics/*`) | 🟢 Done | Высокий | `backend-dev` | OpenAPI `api.yaml`, агрегации SQL, сервис `AnalyticsService`: overview, dynamics, formats, clients. |
+| 3 | Backend API: Календарная интеграция iCal/Webcal (`.ics`) | 🟢 Done | Высокий | `backend-dev` | Генерация RFC 5545 VEVENT, feed.ics по токену, export.ics, ротация токена (401 при невалидном токене). |
+| 4 | Frontend: Страница «Статистика» (`/teacher/analytics`) | 🟢 Done | Высокий | `frontend-dev` | Вкладка в `AppNavbar`, селектор периодов, KPI карточки, SVG-графики динамики, форматные доли, таблица учеников. |
+| 5 | Frontend: Модалка синхронизации календаря (`CalendarSyncModal`) | 🟢 Done | Высокий | `frontend-dev` | Интеграция в расписание, быстрые кнопки Google/Apple Calendar, копирование webcal://, ротация токена. |
+| 6 | E2E автотесты и верификация полного цикла | 🟢 Done | Высокий | `qa-e2e` | Тесты аналитики (расчет метрик, фильтры дат), валидация синтаксиса iCal RFC 5545, проверка RBAC (52/52 passed). |
 
 ---
 
@@ -188,15 +188,15 @@
 ---
 
 ## 🎯 Definition of Done (DoD) Спринта 2.2.2
-- [ ] Применена миграция БД `000009` (поле `calendar_token` в `users`).
-- [ ] Реализованы эндпоинты `/analytics/overview`, `/analytics/dynamics`, `/analytics/formats`, `/analytics/clients`.
-- [ ] Реализован live-эндпоинт подписки календаря `/integrations/calendar/feed.ics?token=...` по стандарту RFC 5545 iCalendar.
-- [ ] Реализован эндпоинт ротации токена календаря и разового экспорта `.ics`.
-- [ ] Создана страница «Статистика» (`/teacher/analytics`) в стиле Apple Liquid Glass с графиками динамики и метриками.
-- [ ] Реализовано модальное окно `CalendarSyncModal` с быстрыми кнопками Google Календарь и Apple Календарь.
-- [ ] Добавлена кнопка синхронизации календаря в расписание уроков.
-- [ ] Написаны и успешно пройдены E2E тесты в Docker (`make test-e2e`).
-- [ ] `npm run lint && npm run build` проходит без единой ошибки.
+- [x] Применена миграция БД `000009` (поле `calendar_token` в `users`).
+- [x] Реализованы эндпоинты `/analytics/overview`, `/analytics/dynamics`, `/analytics/formats`, `/analytics/clients`.
+- [x] Реализован live-эндпоинт подписки календаря `/integrations/calendar/feed.ics?token=...` по стандарту RFC 5545 iCalendar.
+- [x] Реализован эндпоинт ротации токена календаря и разового экспорта `.ics`.
+- [x] Создана страница «Статистика» (`/teacher/analytics`) в стиле Apple Liquid Glass с графиками динамики и метриками.
+- [x] Реализовано модальное окно `CalendarSyncModal` с быстрыми кнопками Google Календарь и Apple Календарь.
+- [x] Добавлена кнопка синхронизации календаря в расписание уроков.
+- [x] Написаны и успешно пройдены E2E тесты в Docker (`make test-e2e`, 52/52 passed).
+- [x] `npm run lint && npm run build` проходит без единой ошибки.
 
 ---
 
@@ -219,6 +219,7 @@
 
 | Дата | Что изменилось |
 |------|---------------|
+| 2026-10-06 | **Спринт 2.2.2 успешно завершен**: Добавлена миграция 000009 (`users.calendar_token`), реализован `AnalyticsService` (overview KPI, time-series dynamics, format distribution, clients ranking) и `CalendarService` (RFC 5545 iCalendar feed.ics с авторизацией по токену, export.ics, ротация токена); на фронтенде создана страница «Статистика» (`/teacher/analytics`) с Liquid Glass SVG-графиками динамики, модалка `CalendarSyncModal` с deep link в Google/Apple Calendar; 52/52 E2E тестов в Docker пройдены успешно, сборка чистая (0 ошибок). |
 | 2026-10-06 | **Сформирован Спринт 2.2.2**: Аналитика и Статистика репетитора (KPI, динамика, форматы, отмены, рейтинг учеников) + Календарная интеграция (Live iCal / Webcal подписка `.ics` для Google Calendar, Apple Calendar, Outlook). Telegram-уведомления исключены из бэклога. Спринт 2.2.1 заархивирован в `docs/sprints/sprint-2.2.1.md`. |
 | 2026-10-06 | **Спринт 2.2.1 успешно завершен**: Добавлены миграции 000008 (`payments`, `partner_payouts`), доменные модели и сервис бухгалтерии в Go; реализованы эндпоинты `/finance/summary`, `/finance/payments`, `/finance/partner-settlements`, `/finance/partner-payouts` (с защитой от повторных выплат 409 Conflict) и `/export/*` (CSV с UTF-8 BOM); на фронтенде создана вкладка «Бухгалтерия» (`/teacher/finance`), карточки метрик, реестр должников, журнал платежей, расчет школ и модалки внесения оплат и экспорта; 48/48 E2E тестов в Docker пройдены успешно, сборка фронтенда чистая без ошибок. |
 

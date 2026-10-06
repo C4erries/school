@@ -10,6 +10,7 @@ import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { TeacherSchedulePage } from '../pages/teacher/TeacherSchedulePage';
 import { TeacherClientsPage } from '../pages/teacher/TeacherClientsPage';
 import { TeacherFinancePage } from '../pages/teacher/TeacherFinancePage';
+import { TeacherAnalyticsPage } from '../pages/teacher/TeacherAnalyticsPage';
 
 export const App: React.FC = () => {
   return (
@@ -66,6 +67,16 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={['teacher', 'owner']}>
                   <TeacherFinancePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Статистика и аналитика: KPI, динамика во времени, форматы, рейтинг учеников */}
+            <Route
+              path="/teacher/analytics"
+              element={
+                <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                  <TeacherAnalyticsPage />
                 </ProtectedRoute>
               }
             />

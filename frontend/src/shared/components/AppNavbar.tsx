@@ -11,6 +11,7 @@ import {
   BookOpen,
   LayoutDashboard,
   Receipt,
+  TrendingUp,
 } from 'lucide-react';
 
 export const AppNavbar: React.FC = () => {
@@ -134,6 +135,20 @@ export const AppNavbar: React.FC = () => {
           >
             <Receipt className="w-3.5 h-3.5" />
             <span>Бухгалтерия</span>
+          </Link>
+        )}
+
+        {(user?.role === 'teacher' || user?.role === 'owner') && (
+          <Link
+            to="/teacher/analytics"
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              isActive('/teacher/analytics')
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>Статистика</span>
           </Link>
         )}
       </nav>

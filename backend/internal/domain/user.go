@@ -43,6 +43,7 @@ type User struct {
 	DefaultRateIndividual *float64
 	DefaultRatePair       *float64
 	DefaultRateGroup      *float64
+	CalendarToken         uuid.UUID
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }

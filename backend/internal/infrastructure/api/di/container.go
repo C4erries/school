@@ -8,7 +8,9 @@ import (
 
 	valkeylib "github.com/valkey-io/valkey-go"
 
+	"github.com/C4erries/school/backend/internal/application/analytics"
 	"github.com/C4erries/school/backend/internal/application/auth"
+	"github.com/C4erries/school/backend/internal/application/calendar"
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/finance"
@@ -32,6 +34,8 @@ type Container struct {
 	CRMService       *crm.Service
 	DashboardService *dashboard.Service
 	FinanceService   *finance.Service
+	AnalyticsService *analytics.Service
+	CalendarService  *calendar.Service
 }
 
 // NewContainer инициализирует все адаптеры и зависимости согласно конфигурации.
@@ -90,6 +94,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	crmService := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
 	dashboardService := dashboard.NewService(lessonRepo, clientRepo)
 	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)
+	analyticsService := analytics.NewService(lessonRepo, clientRepo)
+	calendarService := calendar.NewService(userRepo, lessonRepo, clientRepo)
 
 	// 6. HTTP API Handler и роутер
 	apiHandler := httpserver.NewAPIHandler(
@@ -100,6 +106,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		tokenManager,
 		cfg.App.Version,
 		financeService,
+		analyticsService,
+		calendarService,
 	)
 	mux := httpserver.BuildMux(apiHandler, logger)
 	handlerWithLogging := httpserver.LoggingMiddleware(logger)(mux)
@@ -118,6 +126,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		CRMService:       crmService,
 		DashboardService: dashboardService,
 		FinanceService:   financeService,
+		AnalyticsService: analyticsService,
+		CalendarService:  calendarService,
 	}, nil
 }
 
