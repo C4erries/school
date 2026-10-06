@@ -4,7 +4,7 @@
 > Обновляется перед началом каждого спринта и после завершения задач.
 > Завершенные спринты архивируются в каталоге `docs/sprints/`.
 
-## Текущая фаза: 2.2.4 — Архитектурный рефакторинг бэкенда, переход на веб-фреймворк Echo v4 и декомпозиция адаптеров 🔵 (В РАБОТЕ)
+## Текущая фаза: 2.2.4 — Архитектурный рефакторинг бэкенда, переход на веб-фреймворк Echo v4 и декомпозиция адаптеров 🟢 (ЗАВЕРШЕН)
 
 ---
 
@@ -99,12 +99,12 @@
 
 | # | Задача | Статус | Приоритет | Ответственный / Субагент | Заметки |
 |---|--------|--------|-----------|---------------------------|---------|
-| 1 | Добавление Echo v4 и переключение генератора `oapi-codegen` на `echo-server` | 🔲 To Do | Критический | `backend_developer` | Добавить `github.com/labstack/echo/v4`, обновить `oapi-codegen.yaml`, сгенерировать Echo `ServerInterface`. |
-| 2 | Декомпозиция `adapters/postgres` по предметным доменам | 🔲 To Do | Высокий | `backend_developer` | Создать пакеты `auth`, `crm`, `schedule`, `finance` внутри `adapters/postgres/`, декомпозировать `client_repo.go` < 400 строк. |
-| 3 | Модульная декомпозиция Application-сервисов (< 300–400 строк) | 🔲 To Do | Высокий | `backend_developer` | Разбить монолитные `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` на логические модули. |
-| 4 | Реализация HTTP-слоя на базе Echo v4 (`adapters/http/`) | 🔲 To Do | Высокий | `backend_developer` | Реализовать Echo middleware, response, доменные хэндлеры (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`) и root Echo Server. |
-| 5 | Обновление DI (`container.go`), `main.go`, перевод unit-тестов и удаление legacy `httpserver` | 🔲 To Do | Высокий | `backend_developer` | Подключение новых компонентов в DI, перевод юнит-тестов на Echo Context, удаление старого каталога `httpserver/`. |
-| 6 | Сквозная верификация: Unit-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) | 🔲 To Do | Критический | `qa_engineer` | Прогон `make test` (100% pass без race conditions), сборка Docker и прогон всех 56/56 E2E тестов (`make test-e2e`). |
+| 1 | Добавление Echo v4 и переключение генератора `oapi-codegen` на `echo-server` | 🟢 Done | Критический | `backend_developer` | Добавлен `github.com/labstack/echo/v4`, сгенерирован `ServerInterface` для Echo. |
+| 2 | Декомпозиция `adapters/postgres` по предметным доменам | 🟢 Done | Высокий | `backend_developer` | Репозитории вынесены в `auth`, `crm`, `schedule`, `finance` внутри `adapters/postgres/`, все файлы < 330 строк. |
+| 3 | Модульная декомпозиция Application-сервисов (< 300–400 строк) | 🟢 Done | Высокий | `backend_developer` | Монолитные `finance`, `analytics`, `crm`, `schedule` разделены на логические файлы < 400 строк. |
+| 4 | Реализация HTTP-слоя на базе Echo v4 (`adapters/http/`) | 🟢 Done | Высокий | `backend_developer` | Создан модульный транспорт `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами. |
+| 5 | Обновление DI (`container.go`), `main.go`, перевод unit-тестов и удаление legacy `httpserver` | 🟢 Done | Высокий | `backend_developer` | DI обновлен, unit-тесты переведены на Echo (`make test` PASS), legacy пакет `httpserver` удален. |
+| 6 | Сквозная верификация: Unit-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) | 🟢 Done | Критический | `qa_engineer` | `make test` 100% pass, Docker контейнер healthy, 56/56 E2E автотестов успешно пройдены (`make test-e2e`). |
 
 ---
 
@@ -198,15 +198,15 @@
 ---
 
 ## 🎯 Definition of Done (DoD) Спринта 2.2.4
-- [ ] Веб-фреймворк Echo v4 подключен и настроен в качестве основного HTTP-транспорта.
-- [ ] OpenAPI кодогенерация переведена на `echo-server`, генерируется `ServerInterface` для Echo.
-- [ ] Пакет `adapters/postgres` декомпозирован на изолированные доменные подпакеты (`auth`, `crm`, `schedule`, `finance`).
-- [ ] Монолитные файлы `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` и `client_repo.go` декомпозированы по стандарту < 300–400 строк.
-- [ ] Создан новый модульный пакет `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами.
-- [ ] Каталог устаревшего `adapters/httpserver` полностью удален.
-- [ ] DI контейнер и `cmd/api/main.go` переведены на Echo с сохранением graceful shutdown.
-- [ ] Unit-тесты бэкенда успешно адаптированы под Echo и проходят без ошибок (`make test`).
-- [ ] Контракт API полностью сохранен: 56/56 E2E автотестов в Docker проходят успешно (`make test-e2e`).
+- [x] Веб-фреймворк Echo v4 подключен и настроен в качестве основного HTTP-транспорта.
+- [x] OpenAPI кодогенерация переведена на `echo-server`, генерируется `ServerInterface` для Echo.
+- [x] Пакет `adapters/postgres` декомпозирован на изолированные доменные подпакеты (`auth`, `crm`, `schedule`, `finance`).
+- [x] Монолитные файлы `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` и `client_repo.go` декомпозированы по стандарту < 300–400 строк.
+- [x] Создан новый модульный пакет `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами.
+- [x] Каталог устаревшего `adapters/httpserver` полностью удален.
+- [x] DI контейнер и `cmd/api/main.go` переведены на Echo с сохранением graceful shutdown.
+- [x] Unit-тесты бэкенда успешно адаптированы под Echo и проходят без ошибок (`make test`).
+- [x] Контракт API полностью сохранен: 56/56 E2E автотестов в Docker проходят успешно (`make test-e2e`).
 
 ---
 
@@ -232,6 +232,7 @@
 
 | Дата | Что изменилось |
 |------|---------------|
+| 2026-10-06 | **Спринт 2.2.4 успешно завершен**: Архитектурный рефакторинг бэкенда полностью выполнен. Подключен Echo v4 (`github.com/labstack/echo/v4`), генератор `oapi-codegen` переведен на Echo `ServerInterface`. Адаптеры `postgres` и `http` декомпозированы по предметным доменам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`). Монолитные файлы бизнес-логики (`finance`, `analytics`, `crm`, `schedule`) разбиты на модули < 400 строк. Удален устаревший пакет `httpserver`. Все юнит-тесты `make test` и 56/56 E2E тестов в Docker (`make test-e2e`) пройдены со 100% успехом. Фундамент готов к Фазе 2.3 (Recurring Lessons). |
 | 2026-10-06 | **Сформирован Спринт 2.2.4 (Технический долг)**: Архитектурный рефакторинг бэкенда перед переходом к Фазе 2.3. Миграция на веб-фреймворк Echo v4, генерация Echo-сервера через `oapi-codegen`, декомпозиция плоских пакетов `adapters/postgres` и `adapters/http` по доменным контекстам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`), декомпозиция крупных сервисов на модули < 300–400 строк. Спринт 2.2.3 заархивирован в `docs/sprints/sprint-2.2.3.md`. Зафиксирован [ADR-011](decisions/0011-backend-refactoring-and-echo-migration.md). |
 | 2026-10-06 | **Спринт 2.2.3 успешно завершен**: Умная аналитика (Факт/Прогноз), статистика по тегам, редизайн Дашборда (виджеты расписания на сегодня, финансов месяца, быстрых действий), разделение тегов на бизнес-партнеров (`school_percent > 0`) и информационные, индикатор времени в календаре. 56/56 E2E тестов в Docker пройдены успешно. |
 

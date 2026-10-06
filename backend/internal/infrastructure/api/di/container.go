@@ -15,8 +15,12 @@ import (
 	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/finance"
 	"github.com/C4erries/school/backend/internal/application/schedule"
-	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/httpserver"
+	httpadapter "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/http"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres"
+	postgresauth "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres/auth"
+	postgrescrm "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres/crm"
+	postgresfinance "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres/finance"
+	postgresschedule "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres/schedule"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/security"
 	valkeyadapter "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/valkey"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/config"
@@ -28,7 +32,7 @@ type Container struct {
 	Logger           *slog.Logger
 	DB               *sql.DB
 	ValkeyClient     valkeylib.Client
-	HTTPServer       *httpserver.Server
+	HTTPServer       *httpadapter.Server
 	AuthService      *auth.Service
 	ScheduleService  *schedule.Service
 	CRMService       *crm.Service
@@ -75,15 +79,15 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 
 	// 4. Репозитории и адаптеры инфраструктуры
 	transactor := postgres.NewTransactor(db)
-	userRepo := postgres.NewUserRepository(db)
-	classroomRepo := postgres.NewClassroomRepository(db, valkeyClient)
-	clientRepo := postgres.NewClientRepository(db)
-	subRepo := postgres.NewSubscriptionRepository(db)
-	tagRepo := postgres.NewTagRepository(db, valkeyClient)
-	adjRepo := postgres.NewBalanceAdjustmentRepository(db)
-	lessonRepo := postgres.NewLessonRepository(db)
-	paymentRepo := postgres.NewPaymentRepository(db)
-	payoutRepo := postgres.NewPartnerPayoutRepository(db)
+	userRepo := postgresauth.NewUserRepository(db)
+	classroomRepo := postgresschedule.NewClassroomRepository(db, valkeyClient)
+	clientRepo := postgrescrm.NewClientRepository(db)
+	subRepo := postgrescrm.NewSubscriptionRepository(db)
+	tagRepo := postgrescrm.NewTagRepository(db, valkeyClient)
+	adjRepo := postgrescrm.NewBalanceAdjustmentRepository(db)
+	lessonRepo := postgresschedule.NewLessonRepository(db)
+	paymentRepo := postgresfinance.NewPaymentRepository(db)
+	payoutRepo := postgresfinance.NewPartnerPayoutRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
 	tokenManager := security.NewTokenManager(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL)
 	sessionStore := valkeyadapter.NewSessionStore(valkeyClient)
@@ -97,8 +101,10 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	analyticsService := analytics.NewService(lessonRepo, clientRepo)
 	calendarService := calendar.NewService(userRepo, lessonRepo, clientRepo)
 
-	// 6. HTTP API Handler и роутер
-	apiHandler := httpserver.NewAPIHandler(
+	// 6. Echo HTTP сервер
+	server := httpadapter.NewServer(
+		cfg,
+		logger,
 		authService,
 		scheduleService,
 		crmService,
@@ -109,11 +115,6 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		analyticsService,
 		calendarService,
 	)
-	mux := httpserver.BuildMux(apiHandler, logger)
-	handlerWithLogging := httpserver.LoggingMiddleware(logger)(mux)
-
-	// 7. Создание HTTP сервера
-	server := httpserver.NewServer(cfg, logger, handlerWithLogging)
 
 	return &Container{
 		Config:           cfg,

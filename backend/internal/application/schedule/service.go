@@ -51,22 +51,6 @@ type LessonRepository interface {
 	List(ctx context.Context, filter LessonFilter) ([]*domain.Lesson, error)
 }
 
-// DTO структуры входных данных для сервиса.
-type CreateClassroomInput struct {
-	Name        string
-	Capacity    int
-	Color       string
-	Description string
-}
-
-type UpdateClassroomInput struct {
-	ID          uuid.UUID
-	Name        string
-	Capacity    int
-	Color       string
-	Description string
-}
-
 type ScheduleLessonInput struct {
 	TeacherID     uuid.UUID
 	ClientID      uuid.UUID
@@ -120,75 +104,6 @@ func NewService(
 	}
 }
 
-// --- Кабинеты (Classrooms) ---
-
-func (s *Service) CreateClassroom(ctx context.Context, input CreateClassroomInput) (*domain.Classroom, error) {
-	name, err := domain.ValidateClassroomInput(input.Name, input.Capacity)
-	if err != nil {
-		return nil, err
-	}
-
-	color := strings.TrimSpace(input.Color)
-	if color == "" {
-		color = "#3B82F6"
-	}
-
-	classroom := &domain.Classroom{
-		ID:          uuid.New(),
-		Name:        name,
-		Capacity:    input.Capacity,
-		Color:       color,
-		Description: strings.TrimSpace(input.Description),
-		CreatedAt:   time.Now().UTC(),
-	}
-
-	if err := s.classroomRepo.Create(ctx, classroom); err != nil {
-		return nil, fmt.Errorf("create classroom: %w", err)
-	}
-
-	return classroom, nil
-}
-
-func (s *Service) GetClassroom(ctx context.Context, id uuid.UUID) (*domain.Classroom, error) {
-	return s.classroomRepo.GetByID(ctx, id)
-}
-
-func (s *Service) ListClassrooms(ctx context.Context) ([]*domain.Classroom, error) {
-	return s.classroomRepo.List(ctx)
-}
-
-func (s *Service) UpdateClassroom(ctx context.Context, input UpdateClassroomInput) (*domain.Classroom, error) {
-	name, err := domain.ValidateClassroomInput(input.Name, input.Capacity)
-	if err != nil {
-		return nil, err
-	}
-
-	existing, err := s.classroomRepo.GetByID(ctx, input.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	color := strings.TrimSpace(input.Color)
-	if color == "" {
-		color = existing.Color
-	}
-
-	existing.Name = name
-	existing.Capacity = input.Capacity
-	existing.Color = color
-	existing.Description = strings.TrimSpace(input.Description)
-
-	if err := s.classroomRepo.Update(ctx, existing); err != nil {
-		return nil, fmt.Errorf("update classroom: %w", err)
-	}
-
-	return existing, nil
-}
-
-func (s *Service) DeleteClassroom(ctx context.Context, id uuid.UUID) error {
-	return s.classroomRepo.Delete(ctx, id)
-}
-
 // --- Уроки (Lessons) ---
 
 func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput) (*domain.Lesson, error) {
@@ -200,25 +115,21 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 		return nil, err
 	}
 
-	// Проверяем, существует ли клиент
 	client, err := s.clientRepo.GetByID(ctx, input.ClientID)
 	if err != nil {
 		return nil, fmt.Errorf("get client: %w", err)
 	}
 
-	// Проверяем, что клиент принадлежит учителю
 	if client.TeacherID != input.TeacherID {
 		return nil, domain.ErrUnauthorizedLessonAction
 	}
 
 	var classroomID *uuid.UUID
 	if input.ClassroomID != nil && *input.ClassroomID != uuid.Nil {
-		// Проверяем существование кабинета
 		if _, err := s.classroomRepo.GetByID(ctx, *input.ClassroomID); err != nil {
 			return nil, err
 		}
 
-		// Проверяем коллизию кабинета: два РАЗНЫХ преподавателя не могут занять один кабинет одновременно.
 		collision, err := s.lessonRepo.HasClassroomCollision(
 			ctx,
 			*input.ClassroomID,
@@ -280,7 +191,6 @@ func (s *Service) CompleteLesson(ctx context.Context, lessonID, callerID uuid.UU
 		return nil, err
 	}
 
-	// Списываем точное количество часов с абонемента соответствующего формата
 	if s.subRepo != nil {
 		durationHours := lesson.EndTime.Sub(lesson.StartTime).Seconds() / 3600.0
 		targetFormat := domain.SubscriptionFormat(lesson.Format)
@@ -299,7 +209,6 @@ func (s *Service) CompleteLesson(ctx context.Context, lessonID, callerID uuid.UU
 				matchingSub.Balance -= durationHours
 				_ = s.subRepo.Update(ctx, matchingSub)
 			} else {
-				// Создаем запись абонемента с отрицательным балансом (задолженность в часах)
 				newSub := &domain.ClientSubscription{
 					ID:        uuid.New(),
 					ClientID:  lesson.ClientID,
@@ -396,7 +305,6 @@ func (s *Service) UpdateLesson(ctx context.Context, input UpdateLessonInput) (*d
 		}
 	}
 
-	// Если указан кабинет, проверяем коллизию с другими уроками
 	if lesson.ClassroomID != nil && *lesson.ClassroomID != uuid.Nil {
 		collision, err := s.lessonRepo.HasClassroomCollision(
 			ctx,
@@ -425,7 +333,6 @@ func (s *Service) UpdateLesson(ctx context.Context, input UpdateLessonInput) (*d
 	if input.LocationOrURL != nil {
 		lesson.LocationOrURL = strings.TrimSpace(*input.LocationOrURL)
 	}
-	// Если передан валидный classroom_id и LocationOrURL не передан или пустой, сбрасываем LocationOrURL
 	if lesson.ClassroomID != nil && *lesson.ClassroomID != uuid.Nil && (input.LocationOrURL == nil || strings.TrimSpace(*input.LocationOrURL) == "") {
 		lesson.LocationOrURL = ""
 	}

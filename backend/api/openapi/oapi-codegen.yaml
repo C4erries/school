@@ -1,5 +1,5 @@
 package: generated
 generate:
-  std-http-server: true
+  echo-server: true
   models: true
-output: internal/infrastructure/api/adapters/httpserver/generated/api.gen.go
+output: internal/infrastructure/api/adapters/http/generated/api.gen.go

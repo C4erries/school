@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -69,4 +70,16 @@ func (t *Transactor) WithinTransaction(ctx context.Context, fn func(txCtx contex
 	}
 
 	return nil
+}
+
+// IsUniqueViolation проверяет, является ли ошибка нарушением уникальности PostgreSQL (код 23505).
+func IsUniqueViolation(err error) bool {
+	type pgError interface {
+		SQLState() string
+	}
+	var pgErr pgError
+	if errors.As(err, &pgErr) && pgErr.SQLState() == "23505" {
+		return true
+	}
+	return false
 }
