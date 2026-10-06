@@ -8,7 +8,7 @@
 1. **[docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md)** — **главный контекст проекта**, пивот Tutor Assistant, архитектура, стек и правила
 2. **[docs/CURRENT_SPRINT.md](docs/CURRENT_SPRINT.md)** — **что мы делаем прямо сейчас** (актуальный спринт, задачи, микро-ТЗ, DoD)
 3. **[docs/CONVENTIONS.md](docs/CONVENTIONS.md)** — **как мы пишем код** (Go backend, React frontend, стиль Apple Liquid Glass)
-4. **[docs/decisions/](docs/decisions/)** — ключевые архитектурные решения (ADR-005 – ADR-010)
+4. **[docs/decisions/](docs/decisions/)** — ключевые архитектурные решения (ADR-005 – ADR-011)
 5. **[docs/SUBAGENTS_GUIDE.md](docs/SUBAGENTS_GUIDE.md)** — регламент оркестрации субагентов и передачи контекста
 6. **[docs/sprints/](docs/sprints/)** — архив завершенных спринтов (для понимания предыстории)
 7. **[docs/ROADMAP.md](docs/ROADMAP.md)** — глобальный план развития проекта

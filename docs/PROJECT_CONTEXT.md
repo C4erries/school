@@ -55,6 +55,7 @@
    - `0008-frontend-decomposition-and-valkey-csc.md`: декомпозиция фронтенда и CSC кэширование через Valkey.
    - `0009-analytics-forecast-and-tag-classification.md`: разделение аналитики на Факт/Прогноз, классификация тегов и агрегированный дашборд.
    - `0010-subagent-orchestration-and-prompting.md`: регламент оркестрации, изоляции контекста и онбординга субагентов.
+   - `0011-backend-refactoring-and-echo-migration.md`: архитектурный рефакторинг бэкенда, переход на Echo v4 и декомпозиция адаптеров.
 5. **[docs/SUBAGENTS_GUIDE.md](SUBAGENTS_GUIDE.md)** — полное руководство по постановке задач субагентам.
 6. **[docs/sprints/](sprints/)** — архив всех успешно завершенных спринтов (`sprint-0.md`, `sprint-1.md`, `sprint-2.md`, `sprint-2.1.md`, `sprint-2.1.2.md`, `sprint-2.1.3.md`, `sprint-2.2.1.md`, `sprint-2.2.2.md`).
 7. **[docs/ROADMAP.md](ROADMAP.md)** — глобальный план развития продукта по крупным фазам.
