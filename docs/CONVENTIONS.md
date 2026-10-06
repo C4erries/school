@@ -261,6 +261,7 @@ frontend/
 | `docs/ROADMAP.md` | Глобальный план по фазам |
 | `docs/CURRENT_SPRINT.md` | Что делаем прямо сейчас |
 | `docs/CONVENTIONS.md` | Как пишем код (этот файл) |
+| `docs/SUBAGENTS_GUIDE.md` | Оркестрация субагентов и правила онбординга |
 | `docs/decisions/` | ADR — Architecture Decision Records |
 
 ### Инструкция для AI-агентов
