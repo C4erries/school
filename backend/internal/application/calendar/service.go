@@ -175,7 +175,14 @@ func (s *Service) GenerateICS(lessons []*domain.Lesson, clients map[uuid.UUID]*d
 		client := clients[l.ClientID]
 
 		buf.WriteString("BEGIN:VEVENT\r\n")
-		buf.WriteString(fmt.Sprintf("UID:lesson-%s@school\r\n", l.ID.String()))
+		if l.SeriesID != nil {
+			buf.WriteString(fmt.Sprintf("UID:series-%s@school\r\n", l.SeriesID.String()))
+			if l.OriginalStartTime != nil {
+				buf.WriteString(fmt.Sprintf("RECURRENCE-ID:%s\r\n", formatICalTime(*l.OriginalStartTime)))
+			}
+		} else {
+			buf.WriteString(fmt.Sprintf("UID:lesson-%s@school\r\n", l.ID.String()))
+		}
 		buf.WriteString(fmt.Sprintf("DTSTAMP:%s\r\n", stampStr))
 		buf.WriteString(fmt.Sprintf("DTSTART:%s\r\n", formatICalTime(l.StartTime)))
 		buf.WriteString(fmt.Sprintf("DTEND:%s\r\n", formatICalTime(l.EndTime)))

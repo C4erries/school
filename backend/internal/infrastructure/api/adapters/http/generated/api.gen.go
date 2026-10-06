@@ -187,6 +187,27 @@ func (e PaymentResponsePaymentMethod) Valid() bool {
 	}
 }
 
+// Defines values for RecurrenceScope.
+const (
+	AllInSeries      RecurrenceScope = "all_in_series"
+	ThisAndFollowing RecurrenceScope = "this_and_following"
+	ThisOnly         RecurrenceScope = "this_only"
+)
+
+// Valid indicates whether the value is a known member of the RecurrenceScope enum.
+func (e RecurrenceScope) Valid() bool {
+	switch e {
+	case AllInSeries:
+		return true
+	case ThisAndFollowing:
+		return true
+	case ThisOnly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Assistant Role = "assistant"
@@ -411,6 +432,21 @@ type AuthResponse struct {
 	User   UserResponse `json:"user"`
 }
 
+// CalendarImportResponse defines model for CalendarImportResponse.
+type CalendarImportResponse struct {
+	// ImportedLessons Example: 12
+	ImportedLessons int `json:"imported_lessons"`
+
+	// ImportedSeries Example: 2
+	ImportedSeries int `json:"imported_series"`
+
+	// Message Example: Успешно импортировано
+	Message *string `json:"message,omitempty"`
+
+	// SkippedEvents Example: 1
+	SkippedEvents int `json:"skipped_events"`
+}
+
 // CalendarSettingsResponse defines model for CalendarSettingsResponse.
 type CalendarSettingsResponse struct {
 	CalendarToken openapi_types.UUID `json:"calendar_token"`
@@ -426,6 +462,9 @@ type CalendarSettingsResponse struct {
 type CancelLessonRequest struct {
 	// Reason Example: Форс-мажор
 	Reason *string `json:"reason,omitempty"`
+
+	// Scope Example: this_only
+	Scope *RecurrenceScope `json:"scope,omitempty"`
 }
 
 // ClassroomResponse defines model for ClassroomResponse.
@@ -546,6 +585,35 @@ type CreateLessonRequest struct {
 
 	// Title Example: Подготовка к ОГЭ
 	Title string `json:"title"`
+}
+
+// CreateLessonSeriesRequest defines model for CreateLessonSeriesRequest.
+type CreateLessonSeriesRequest struct {
+	ClassroomId *openapi_types.UUID `json:"classroom_id,omitempty"`
+	ClientId    openapi_types.UUID  `json:"client_id"`
+
+	// DurationMinutes Example: 60
+	DurationMinutes int `json:"duration_minutes"`
+
+	// Format Example: individual
+	Format        LessonFormat `json:"format"`
+	LocationOrUrl *string      `json:"location_or_url,omitempty"`
+	Notes         *string      `json:"notes,omitempty"`
+
+	// Rrule Example: FREQ=WEEKLY;BYDAY=TU,TH
+	Rrule string `json:"rrule"`
+
+	// StartDate Example: 2026-10-01
+	StartDate openapi_types.Date `json:"start_date"`
+
+	// StartTimeOfDay Example: 17:00
+	StartTimeOfDay string `json:"start_time_of_day"`
+
+	// Title Example: Регулярная математика
+	Title string `json:"title"`
+
+	// UntilDate Example: 2027-05-31
+	UntilDate *openapi_types.Date `json:"until_date,omitempty"`
 }
 
 // CreatePartnerPayoutRequest defines model for CreatePartnerPayoutRequest.
@@ -737,11 +805,17 @@ type LessonResponse struct {
 	// Id Example: 123e4567-e89b-12d3-a456-426614174000
 	Id openapi_types.UUID `json:"id"`
 
+	// IsRecurring Example: false
+	IsRecurring *bool `json:"is_recurring,omitempty"`
+
 	// LocationOrUrl Example: Кабинет №1
 	LocationOrUrl *string `json:"location_or_url,omitempty"`
 
 	// Notes Example: Подготовить ДЗ №3
 	Notes *string `json:"notes,omitempty"`
+
+	// SeriesId Example: 123e4567-e89b-12d3-a456-426614174009
+	SeriesId *openapi_types.UUID `json:"series_id,omitempty"`
 
 	// StartTime Example: 2026-10-05T10:00:00Z
 	StartTime time.Time `json:"start_time"`
@@ -757,6 +831,41 @@ type LessonResponse struct {
 
 	// UpdatedAt Example: 2026-10-04T12:00:00Z
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// LessonSeriesResponse defines model for LessonSeriesResponse.
+type LessonSeriesResponse struct {
+	ClassroomId *openapi_types.UUID `json:"classroom_id,omitempty"`
+	ClientId    openapi_types.UUID  `json:"client_id"`
+	CreatedAt   time.Time           `json:"created_at"`
+
+	// DurationMinutes Example: 60
+	DurationMinutes int `json:"duration_minutes"`
+
+	// Format Example: individual
+	Format LessonFormat `json:"format"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id            openapi_types.UUID `json:"id"`
+	LocationOrUrl *string            `json:"location_or_url,omitempty"`
+	Notes         *string            `json:"notes,omitempty"`
+
+	// Rrule Example: FREQ=WEEKLY;BYDAY=TU,TH
+	Rrule string `json:"rrule"`
+
+	// StartDate Example: 2026-10-01
+	StartDate openapi_types.Date `json:"start_date"`
+
+	// StartTimeOfDay Example: 17:00
+	StartTimeOfDay string             `json:"start_time_of_day"`
+	TeacherId      openapi_types.UUID `json:"teacher_id"`
+
+	// Title Example: Регулярная математика
+	Title string `json:"title"`
+
+	// UntilDate Example: 2027-05-31
+	UntilDate *openapi_types.Date `json:"until_date,omitempty"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
 
 // LessonStatus Example: scheduled
@@ -848,6 +957,9 @@ type PaymentResponseFormat string
 
 // PaymentResponsePaymentMethod Example: transfer
 type PaymentResponsePaymentMethod string
+
+// RecurrenceScope Example: this_only
+type RecurrenceScope string
 
 // RefreshRequest defines model for RefreshRequest.
 type RefreshRequest struct {
@@ -995,10 +1107,39 @@ type UpdateLessonRequest struct {
 	Format        *LessonFormat `json:"format,omitempty"`
 	LocationOrUrl *string       `json:"location_or_url,omitempty"`
 	Notes         *string       `json:"notes,omitempty"`
-	StartTime     *time.Time    `json:"start_time,omitempty"`
+
+	// Scope Example: this_only
+	Scope     *RecurrenceScope `json:"scope,omitempty"`
+	StartTime *time.Time       `json:"start_time,omitempty"`
 
 	// Title Example: Подготовка к ОГЭ
 	Title *string `json:"title,omitempty"`
+}
+
+// UpdateLessonSeriesRequest defines model for UpdateLessonSeriesRequest.
+type UpdateLessonSeriesRequest struct {
+	ClassroomId *openapi_types.UUID `json:"classroom_id,omitempty"`
+	ClientId    *openapi_types.UUID `json:"client_id,omitempty"`
+
+	// DurationMinutes Example: 60
+	DurationMinutes *int `json:"duration_minutes,omitempty"`
+
+	// Format Example: individual
+	Format        *LessonFormat `json:"format,omitempty"`
+	LocationOrUrl *string       `json:"location_or_url,omitempty"`
+	Notes         *string       `json:"notes,omitempty"`
+
+	// Rrule Example: FREQ=WEEKLY;BYDAY=TU,TH
+	Rrule *string `json:"rrule,omitempty"`
+
+	// StartTimeOfDay Example: 17:00
+	StartTimeOfDay *string `json:"start_time_of_day,omitempty"`
+
+	// Title Example: Регулярная математика
+	Title *string `json:"title,omitempty"`
+
+	// UntilDate Example: 2027-05-31
+	UntilDate *openapi_types.Date `json:"until_date,omitempty"`
 }
 
 // UserDefaultRates defines model for UserDefaultRates.
@@ -1148,6 +1289,12 @@ type GetCalendarFeedParams struct {
 	Token openapi_types.UUID `form:"token" json:"token"`
 }
 
+// ImportCalendarFileMultipartBody defines parameters for ImportCalendarFile.
+type ImportCalendarFileMultipartBody struct {
+	// File Файл календаря формата iCalendar (.ics)
+	File openapi_types.File `json:"file"`
+}
+
 // ListLessonsParams defines parameters for ListLessons.
 type ListLessonsParams struct {
 	TeacherId   *openapi_types.UUID `form:"teacher_id,omitempty" json:"teacher_id,omitempty"`
@@ -1191,6 +1338,9 @@ type CreatePartnerPayoutJSONRequestBody = CreatePartnerPayoutRequest
 // CreatePaymentJSONRequestBody defines body for CreatePayment for application/json ContentType.
 type CreatePaymentJSONRequestBody = CreatePaymentRequest
 
+// ImportCalendarFileMultipartRequestBody defines body for ImportCalendarFile for multipart/form-data ContentType.
+type ImportCalendarFileMultipartRequestBody ImportCalendarFileMultipartBody
+
 // CreateLessonJSONRequestBody defines body for CreateLesson for application/json ContentType.
 type CreateLessonJSONRequestBody = CreateLessonRequest
 
@@ -1199,6 +1349,12 @@ type UpdateLessonJSONRequestBody = UpdateLessonRequest
 
 // CancelLessonJSONRequestBody defines body for CancelLesson for application/json ContentType.
 type CancelLessonJSONRequestBody = CancelLessonRequest
+
+// CreateLessonSeriesJSONRequestBody defines body for CreateLessonSeries for application/json ContentType.
+type CreateLessonSeriesJSONRequestBody = CreateLessonSeriesRequest
+
+// UpdateLessonSeriesJSONRequestBody defines body for UpdateLessonSeries for application/json ContentType.
+type UpdateLessonSeriesJSONRequestBody = UpdateLessonSeriesRequest
 
 // CreateTagJSONRequestBody defines body for CreateTag for application/json ContentType.
 type CreateTagJSONRequestBody = CreateTagRequest
@@ -1319,6 +1475,9 @@ type ServerInterface interface {
 	// GetCalendarFeed Публичный Live Feed расписания для Google/Apple Calendar подписки (RFC 5545)
 	// (GET /integrations/calendar/feed.ics)
 	GetCalendarFeed(ctx echo.Context, params GetCalendarFeedParams) error
+	// ImportCalendarFile Импорт расписания из файла Google Календаря (.ics)
+	// (POST /integrations/calendar/import)
+	ImportCalendarFile(ctx echo.Context) error
 	// RotateCalendarToken Перевыпуск персонального токена синхронизации календаря
 	// (POST /integrations/calendar/rotate-token)
 	RotateCalendarToken(ctx echo.Context) error
@@ -1340,6 +1499,21 @@ type ServerInterface interface {
 	// CompleteLesson Завершение проведенного урока преподавателем
 	// (POST /lessons/{id}/complete)
 	CompleteLesson(ctx echo.Context, id openapi_types.UUID) error
+	// ListLessonSeries Список регулярных серий занятий преподавателя
+	// (GET /schedule/series)
+	ListLessonSeries(ctx echo.Context) error
+	// CreateLessonSeries Создание регулярной серии занятий
+	// (POST /schedule/series)
+	CreateLessonSeries(ctx echo.Context) error
+	// DeleteLessonSeries Удаление регулярной серии (всех будущих уроков)
+	// (DELETE /schedule/series/{id})
+	DeleteLessonSeries(ctx echo.Context, id openapi_types.UUID) error
+	// GetLessonSeries Получение регулярной серии по ID
+	// (GET /schedule/series/{id})
+	GetLessonSeries(ctx echo.Context, id openapi_types.UUID) error
+	// UpdateLessonSeries Обновление параметров регулярной серии
+	// (PUT /schedule/series/{id})
+	UpdateLessonSeries(ctx echo.Context, id openapi_types.UUID) error
 	// ListTags Список тегов преподавателя
 	// (GET /tags)
 	ListTags(ctx echo.Context) error
@@ -2034,6 +2208,15 @@ func (w *ServerInterfaceWrapper) GetCalendarFeed(ctx echo.Context) error {
 	return err
 }
 
+// ImportCalendarFile converts echo context to params.
+func (w *ServerInterfaceWrapper) ImportCalendarFile(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ImportCalendarFile(ctx)
+	return err
+}
+
 // RotateCalendarToken converts echo context to params.
 func (w *ServerInterfaceWrapper) RotateCalendarToken(ctx echo.Context) error {
 	var err error
@@ -2159,6 +2342,72 @@ func (w *ServerInterfaceWrapper) CompleteLesson(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CompleteLesson(ctx, id)
+	return err
+}
+
+// ListLessonSeries converts echo context to params.
+func (w *ServerInterfaceWrapper) ListLessonSeries(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListLessonSeries(ctx)
+	return err
+}
+
+// CreateLessonSeries converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateLessonSeries(ctx echo.Context) error {
+	var err error
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateLessonSeries(ctx)
+	return err
+}
+
+// DeleteLessonSeries converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteLessonSeries(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteLessonSeries(ctx, id)
+	return err
+}
+
+// GetLessonSeries converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLessonSeries(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLessonSeries(ctx, id)
+	return err
+}
+
+// UpdateLessonSeries converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateLessonSeries(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateLessonSeries(ctx, id)
 	return err
 }
 
@@ -2292,6 +2541,11 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.PATCH(options.BaseURL+"/lessons/:id", wrapper.UpdateLesson, options.OperationMiddlewares["updateLesson"]...)
 	router.POST(options.BaseURL+"/lessons/:id/complete", wrapper.CompleteLesson, options.OperationMiddlewares["completeLesson"]...)
 	router.POST(options.BaseURL+"/lessons/:id/cancel", wrapper.CancelLesson, options.OperationMiddlewares["cancelLesson"]...)
+	router.GET(options.BaseURL+"/schedule/series", wrapper.ListLessonSeries, options.OperationMiddlewares["listLessonSeries"]...)
+	router.POST(options.BaseURL+"/schedule/series", wrapper.CreateLessonSeries, options.OperationMiddlewares["createLessonSeries"]...)
+	router.DELETE(options.BaseURL+"/schedule/series/:id", wrapper.DeleteLessonSeries, options.OperationMiddlewares["deleteLessonSeries"]...)
+	router.GET(options.BaseURL+"/schedule/series/:id", wrapper.GetLessonSeries, options.OperationMiddlewares["getLessonSeries"]...)
+	router.PUT(options.BaseURL+"/schedule/series/:id", wrapper.UpdateLessonSeries, options.OperationMiddlewares["updateLessonSeries"]...)
 	router.GET(options.BaseURL+"/finance/summary", wrapper.GetFinanceSummary, options.OperationMiddlewares["getFinanceSummary"]...)
 	router.GET(options.BaseURL+"/finance/payments", wrapper.ListPayments, options.OperationMiddlewares["listPayments"]...)
 	router.POST(options.BaseURL+"/finance/payments", wrapper.CreatePayment, options.OperationMiddlewares["createPayment"]...)
@@ -2310,5 +2564,6 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.POST(options.BaseURL+"/integrations/calendar/rotate-token", wrapper.RotateCalendarToken, options.OperationMiddlewares["rotateCalendarToken"]...)
 	router.GET(options.BaseURL+"/integrations/calendar/export", wrapper.ExportCalendarFile, options.OperationMiddlewares["exportCalendarFile"]...)
 	router.GET(options.BaseURL+"/integrations/calendar/feed.ics", wrapper.GetCalendarFeed, options.OperationMiddlewares["getCalendarFeed"]...)
+	router.POST(options.BaseURL+"/integrations/calendar/import", wrapper.ImportCalendarFile, options.OperationMiddlewares["importCalendarFile"]...)
 
 }

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { GlassModal } from '../../../shared/components/GlassModal';
-import { GlassInput } from '../../../shared/components/GlassInput';
 import { GlassButton } from '../../../shared/components/GlassButton';
-import { Classroom, Lesson, SubscriptionFormat } from '../../../types/schedule';
+import { Classroom, Lesson, SubscriptionFormat, RecurrenceScope } from '../../../types/schedule';
 import { updateLesson, cancelLesson, markNoShow } from '../../../api/schedule';
 import { SCHEDULE_TIME_OPTIONS } from '../types';
-import { Trash2, AlertTriangle } from 'lucide-react';
+import { EditLessonFormFields } from './EditLessonFormFields';
+import { RecurrenceScopeModal } from './RecurrenceScopeModal';
 
 interface EditLessonModalProps {
   isOpen: boolean;
@@ -37,6 +37,9 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
   const [isCancelling, setIsCancelling] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
+  // Recurrence scope modal state
+  const [scopeModalAction, setScopeModalAction] = useState<'edit' | 'cancel' | null>(null);
+
   useEffect(() => {
     if (lesson && isOpen) {
       setEditTitle(lesson.title);
@@ -56,7 +59,6 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
         lesson.format === 'pair' || lesson.format === 'group' ? lesson.format : 'individual';
       setEditFormat(fmt);
 
-      // Определение онлайн урока
       const isOnline =
         Boolean(lesson.location_or_url && (lesson.location_or_url.startsWith('http') || lesson.location_or_url === 'online')) ||
         Boolean(lesson.online_link && lesson.online_link !== 'offline') ||
@@ -69,6 +71,7 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
       setEditComment(lesson.comment || '');
       setCancelReason('');
       setIsCancelling(false);
+      setScopeModalAction(null);
     }
   }, [lesson, isOpen]);
 
@@ -86,10 +89,8 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
     return SCHEDULE_TIME_OPTIONS;
   }, [editEndTime]);
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const executeSave = async (scope?: RecurrenceScope) => {
     if (!lesson) return;
-
     setIsSubmittingEdit(true);
     try {
       const [startH, startM] = editStartTime.split(':').map(Number);
@@ -107,8 +108,9 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
         end_time: end.toISOString(),
         format: editFormat,
         classroom_id: isOnline ? null : editClassroomId || null,
-        online_link: isOnline ? (editOnlineLink.trim() || 'online') : '', // 'online' если ссылки нет, '' если перевод в оффлайн
+        online_link: isOnline ? (editOnlineLink.trim() || 'online') : '',
         comment: editComment.trim(),
+        scope,
       });
 
       await onUpdated();
@@ -120,14 +122,35 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
     }
   };
 
-  const handleCancelLesson = async () => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lesson) return;
+
+    if (lesson.is_recurring || lesson.series_id) {
+      setScopeModalAction('edit');
+    } else {
+      await executeSave();
+    }
+  };
+
+  const executeCancel = async (scope?: RecurrenceScope) => {
     if (!lesson) return;
     try {
-      await cancelLesson(lesson.id, cancelReason.trim() || undefined);
+      await cancelLesson(lesson.id, cancelReason.trim() || undefined, scope);
       await onUpdated();
       onClose();
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Ошибка отмены занятия');
+    }
+  };
+
+  const handleCancelLesson = async () => {
+    if (!lesson) return;
+
+    if (lesson.is_recurring || lesson.series_id) {
+      setScopeModalAction('cancel');
+    } else {
+      await executeCancel();
     }
   };
 
@@ -145,269 +168,96 @@ export const EditLessonModal: React.FC<EditLessonModalProps> = ({
 
   if (!lesson) return null;
 
-  const isCancelled = lesson.status === 'cancelled' || lesson.status.startsWith('cancelled') || lesson.status === 'declined';
+  const isCancelled =
+    lesson.status === 'cancelled' ||
+    lesson.status.startsWith('cancelled') ||
+    lesson.status === 'declined';
 
   return (
-    <GlassModal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={`Урок: ${clientDisplayName}`}
-      description={isCancelled ? 'Занятие отменено' : 'Измените время, аудиторию или отмените занятие.'}
-      maxWidth="lg"
-    >
-      <form onSubmit={handleSaveEdit} className="space-y-4">
-        {isCancelled && (
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-400/40 text-rose-700 text-xs">
-            <strong>Занятие отменено</strong>{lesson.cancel_reason ? `: ${lesson.cancel_reason}` : ''}
-          </div>
-        )}
-
-        <GlassInput
-          label="Тема / Название занятия"
-          value={editTitle}
-          onChange={(e) => setEditTitle(e.target.value)}
-          required
-          disabled={isCancelled}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <GlassInput
-            label="Дата"
-            type="date"
-            value={editDate}
-            onChange={(e) => setEditDate(e.target.value)}
-            required
-            disabled={isCancelled}
-          />
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-              Начало *
-            </label>
-            <select
-              value={editStartTime}
-              onChange={(e) => setEditStartTime(e.target.value)}
-              disabled={isCancelled}
-              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-              required
-            >
-              {allStartTimeOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-              Конец *
-            </label>
-            <select
-              value={editEndTime}
-              onChange={(e) => setEditEndTime(e.target.value)}
-              disabled={isCancelled}
-              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-              required
-            >
-              {allEndTimeOptions.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Формат занятия */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-            Формат занятия
-          </label>
-          <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl bg-black/[0.04]">
-            <button
-              type="button"
-              disabled={isCancelled}
-              onClick={() => setEditFormat('individual')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                editFormat === 'individual'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Индивидуально
-            </button>
-            <button
-              type="button"
-              disabled={isCancelled}
-              onClick={() => setEditFormat('pair')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                editFormat === 'pair'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              В паре
-            </button>
-            <button
-              type="button"
-              disabled={isCancelled}
-              onClick={() => setEditFormat('group')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                editFormat === 'group'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              В группе
-            </button>
-          </div>
-        </div>
-
-        {/* Локация проведения */}
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-            Локация проведения
-          </label>
-          <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-black/[0.04]">
-            <button
-              type="button"
-              disabled={isCancelled}
-              onClick={() => setEditLocationType('offline')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                editLocationType === 'offline'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Оффлайн в кабинете
-            </button>
-            <button
-              type="button"
-              disabled={isCancelled}
-              onClick={() => setEditLocationType('online')}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold transition-all ${
-                editLocationType === 'online'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Онлайн урок
-            </button>
-          </div>
-        </div>
-
-        {editLocationType === 'offline' ? (
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1">
-              Кабинет
-            </label>
-            <select
-              disabled={isCancelled}
-              value={editClassroomId}
-              onChange={(e) => setEditClassroomId(e.target.value)}
-              className="w-full rounded-2xl px-4 py-3 text-sm text-slate-800 bg-white/70 border border-slate-200 focus:outline-none focus:border-indigo-500 disabled:opacity-50"
-            >
-              <option value="">Без закрепления кабинета</option>
-              {classrooms.map((room) => (
-                <option key={room.id} value={room.id}>
-                  {room.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <GlassInput
-            label="Ссылка на созвон"
-            placeholder="https://telemost.yandex.ru/j/..."
-            value={editOnlineLink}
-            onChange={(e) => setEditOnlineLink(e.target.value)}
-            disabled={isCancelled}
-          />
-        )}
-
-        <GlassInput
-          label="Заметка / ДЗ"
-          value={editComment}
-          onChange={(e) => setEditComment(e.target.value)}
-          disabled={isCancelled}
-        />
-
-        {/* Блок отмены урока */}
-        {!isCancelled && lesson.status === 'scheduled' && (
-          <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-rose-800 flex items-center gap-1.5">
-                <Trash2 className="w-3.5 h-3.5" /> Отмена занятия
-              </span>
-              {!isCancelling && (
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleNoShow}
-                    className="text-xs font-semibold text-amber-700 hover:text-amber-800 flex items-center gap-1"
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    Неявка
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsCancelling(true)}
-                    className="text-xs font-semibold text-rose-600 hover:text-rose-700 underline"
-                  >
-                    Отменить этот урок
-                  </button>
-                </div>
-              )}
+    <>
+      <GlassModal
+        isOpen={isOpen}
+        onClose={onClose}
+        title={`Урок: ${clientDisplayName}`}
+        description={isCancelled ? 'Занятие отменено' : 'Измените время, аудиторию или отмените занятие.'}
+        maxWidth="lg"
+      >
+        <form onSubmit={handleSaveEdit} className="space-y-4">
+          {isCancelled && (
+            <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-400/40 text-rose-700 text-xs">
+              <strong>Занятие отменено</strong>{lesson.cancel_reason ? `: ${lesson.cancel_reason}` : ''}
             </div>
+          )}
 
-            {isCancelling && (
-              <div className="space-y-2 pt-1 animate-in fade-in">
-                <input
-                  type="text"
-                  placeholder="Укажите причину отмены (необязательно)"
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  className="w-full rounded-xl px-3 py-2 text-xs text-slate-800 bg-white/80 border border-rose-200 focus:outline-none"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsCancelling(false)}
-                    className="px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:bg-black/5"
-                  >
-                    Назад
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelLesson}
-                    className="px-3 py-1 rounded-lg text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 shadow-sm"
-                  >
-                    Подтвердить отмену
-                  </button>
-                </div>
-              </div>
+          <EditLessonFormFields
+            editTitle={editTitle}
+            onChangeTitle={setEditTitle}
+            editDate={editDate}
+            onChangeDate={setEditDate}
+            editStartTime={editStartTime}
+            onChangeStartTime={setEditStartTime}
+            editEndTime={editEndTime}
+            onChangeEndTime={setEditEndTime}
+            allStartTimeOptions={allStartTimeOptions}
+            allEndTimeOptions={allEndTimeOptions}
+            editFormat={editFormat}
+            onChangeFormat={setEditFormat}
+            editLocationType={editLocationType}
+            onChangeLocationType={setEditLocationType}
+            editClassroomId={editClassroomId}
+            onChangeClassroomId={setEditClassroomId}
+            editOnlineLink={editOnlineLink}
+            onChangeOnlineLink={setEditOnlineLink}
+            editComment={editComment}
+            onChangeComment={setEditComment}
+            classrooms={classrooms}
+            isCancelled={isCancelled}
+            lessonStatus={lesson.status}
+            isCancelling={isCancelling}
+            onSetIsCancelling={setIsCancelling}
+            cancelReason={cancelReason}
+            onChangeCancelReason={setCancelReason}
+            onCancelClick={handleCancelLesson}
+            onNoShowClick={handleNoShow}
+          />
+
+          <div className="pt-3 flex justify-end gap-3 border-t border-black/[0.05]">
+            <GlassButton
+              type="button"
+              variant="secondary"
+              onClick={onClose}
+            >
+              Закрыть
+            </GlassButton>
+            {!isCancelled && (
+              <GlassButton
+                type="submit"
+                variant="primary"
+                isLoading={isSubmittingEdit}
+              >
+                Сохранить
+              </GlassButton>
             )}
           </div>
-        )}
+        </form>
+      </GlassModal>
 
-        <div className="pt-3 flex justify-end gap-3 border-t border-black/[0.05]">
-          <GlassButton
-            type="button"
-            variant="secondary"
-            onClick={onClose}
-          >
-            Закрыть
-          </GlassButton>
-          {!isCancelled && (
-            <GlassButton
-              type="submit"
-              variant="primary"
-              isLoading={isSubmittingEdit}
-            >
-              Сохранить
-            </GlassButton>
-          )}
-        </div>
-      </form>
-    </GlassModal>
+      {/* Recurrence Scope Confirmation Modal (Google Calendar Pattern) */}
+      {scopeModalAction && (
+        <RecurrenceScopeModal
+          isOpen={Boolean(scopeModalAction)}
+          onClose={() => setScopeModalAction(null)}
+          actionType={scopeModalAction}
+          lessonTitle={lesson.title}
+          onConfirm={(scope) => {
+            if (scopeModalAction === 'edit') {
+              executeSave(scope);
+            } else if (scopeModalAction === 'cancel') {
+              executeCancel(scope);
+            }
+          }}
+        />
+      )}
+    </>
   );
 };

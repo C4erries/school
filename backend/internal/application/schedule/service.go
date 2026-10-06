@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -51,6 +52,15 @@ type LessonRepository interface {
 	List(ctx context.Context, filter LessonFilter) ([]*domain.Lesson, error)
 }
 
+// LessonSeriesRepository определяет контракт хранилища регулярных серий занятий.
+type LessonSeriesRepository interface {
+	Create(ctx context.Context, s *domain.LessonSeries) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.LessonSeries, error)
+	Update(ctx context.Context, s *domain.LessonSeries) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	ListByTeacherID(ctx context.Context, teacherID uuid.UUID) ([]*domain.LessonSeries, error)
+}
+
 type ScheduleLessonInput struct {
 	TeacherID     uuid.UUID
 	ClientID      uuid.UUID
@@ -88,6 +98,7 @@ type Service struct {
 	lessonRepo    LessonRepository
 	clientRepo    ClientRepository
 	subRepo       SubscriptionRepository
+	seriesRepo    LessonSeriesRepository
 }
 
 func NewService(
@@ -95,12 +106,18 @@ func NewService(
 	lessonRepo LessonRepository,
 	clientRepo ClientRepository,
 	subRepo SubscriptionRepository,
+	seriesRepo ...LessonSeriesRepository,
 ) *Service {
+	var sRepo LessonSeriesRepository
+	if len(seriesRepo) > 0 {
+		sRepo = seriesRepo[0]
+	}
 	return &Service{
 		classroomRepo: classroomRepo,
 		lessonRepo:    lessonRepo,
 		clientRepo:    clientRepo,
 		subRepo:       subRepo,
+		seriesRepo:    sRepo,
 	}
 }
 
@@ -180,6 +197,12 @@ func (s *Service) ScheduleLesson(ctx context.Context, input ScheduleLessonInput)
 func (s *Service) CompleteLesson(ctx context.Context, lessonID, callerID uuid.UUID, callerRole domain.Role) (*domain.Lesson, error) {
 	lesson, err := s.lessonRepo.GetByID(ctx, lessonID)
 	if err != nil {
+		if errors.Is(err, domain.ErrLessonNotFound) {
+			series, slot, vErr := s.FindVirtualLesson(ctx, lessonID, &callerID)
+			if vErr == nil && series != nil && slot != nil {
+				return s.CompleteRecurringLesson(ctx, lessonID, &series.ID, &slot.OriginalStartTime, callerID, callerRole)
+			}
+		}
 		return nil, err
 	}
 
@@ -354,7 +377,7 @@ func (s *Service) UpdateLesson(ctx context.Context, input UpdateLessonInput) (*d
 }
 
 func (s *Service) ListLessons(ctx context.Context, filter LessonFilter) ([]*domain.Lesson, error) {
-	return s.lessonRepo.List(ctx, filter)
+	return s.ListLessonsWithRecurring(ctx, filter)
 }
 
 func (s *Service) GetLesson(ctx context.Context, lessonID uuid.UUID) (*domain.Lesson, error) {

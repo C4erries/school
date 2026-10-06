@@ -99,6 +99,53 @@ export interface ClientSubscription {
   created_at: string;
 }
 
+export type RecurrenceScope = 'this_only' | 'this_and_following' | 'all_in_series';
+
+export interface LessonSeries {
+  id: string;
+  teacher_id: string;
+  client_id: string;
+  classroom_id?: string | null;
+  title: string;
+  rrule: string;
+  start_time_of_day: string; // "17:00"
+  duration_minutes: number;
+  format: LessonFormat;
+  location_or_url?: string | null;
+  notes?: string | null;
+  start_date: string;        // "2026-10-01"
+  until_date?: string | null;// "2027-05-31" or null
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateLessonSeriesRequest {
+  client_id: string;
+  classroom_id?: string | null;
+  title: string;
+  rrule: string;
+  start_time_of_day: string;
+  duration_minutes: number;
+  format: LessonFormat;
+  location_or_url?: string | null;
+  notes?: string | null;
+  start_date: string;
+  until_date?: string | null;
+}
+
+export interface UpdateLessonSeriesRequest {
+  client_id?: string;
+  classroom_id?: string | null;
+  title?: string;
+  rrule?: string;
+  start_time_of_day?: string;
+  duration_minutes?: number;
+  format?: LessonFormat;
+  location_or_url?: string | null;
+  notes?: string | null;
+  until_date?: string | null;
+}
+
 export interface Lesson {
   id: string;
   teacher_id: string;
@@ -125,6 +172,9 @@ export interface Lesson {
   client_name?: string;
   classroom_name?: string | null;
   classroom_color?: string | null;
+  is_recurring?: boolean;
+  series_id?: string | null;
+  original_start_time?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -198,6 +248,7 @@ export interface UpdateLessonRequest {
   online_link?: string;
   comment?: string;
   cancel_reason?: string;
+  scope?: RecurrenceScope;
 }
 
 export interface DeclineLessonRequest {
@@ -206,6 +257,7 @@ export interface DeclineLessonRequest {
 
 export interface CancelLessonRequest {
   reason?: string;
+  scope?: RecurrenceScope;
 }
 
 export interface DashboardMetrics {

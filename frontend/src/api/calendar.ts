@@ -81,3 +81,22 @@ export async function downloadCalendarExport(
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
 }
+
+export async function importCalendar(file: File): Promise<import('../types/calendar').CalendarImportResponse> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${BASE_URL}/integrations/calendar/import`, {
+    method: 'POST',
+    headers: getHeaders(false), // let browser set multipart/form-data boundary
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось импортировать календарь');
+  }
+
+  return await res.json();
+}
+

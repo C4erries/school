@@ -143,3 +143,43 @@ func (h *CalendarHandler) GetCalendarFeed(c echo.Context, params generated.GetCa
 	return c.Blob(http.StatusOK, "text/calendar; charset=utf-8", data)
 }
 
+func (h *CalendarHandler) ImportCalendarFile(c echo.Context) error {
+	claims, ok := h.authHandler.Authenticate(c)
+	if !ok {
+		return nil
+	}
+
+	if claims.Role != domain.RoleTeacher && claims.Role != domain.RoleOwner {
+		return response.Error(c, http.StatusForbidden, "FORBIDDEN", "only teacher or admin can import calendar")
+	}
+
+	if h.calendarService == nil {
+		return response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "calendar service not configured")
+	}
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "file is required")
+	}
+
+	f, err := fileHeader.Open()
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "BAD_REQUEST", "failed to open uploaded file")
+	}
+	defer f.Close()
+
+	res, err := h.calendarService.ImportICS(c.Request().Context(), claims.UserID, f)
+	if err != nil {
+		return response.Error(c, http.StatusBadRequest, "INVALID_CALENDAR_FILE", err.Error())
+	}
+
+	msg := "Календарь успешно импортирован"
+	return c.JSON(http.StatusOK, generated.CalendarImportResponse{
+		ImportedLessons: res.ImportedLessons,
+		ImportedSeries:  res.ImportedSeries,
+		SkippedEvents:   res.SkippedEvents,
+		Message:         &msg,
+	})
+}
+
+

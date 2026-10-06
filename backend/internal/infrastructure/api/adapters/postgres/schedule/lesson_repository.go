@@ -93,6 +93,8 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 			"status",
 			"notes",
 			"cancel_reason",
+			"series_id",
+			"original_start_time",
 			"created_at",
 			"updated_at",
 		).
@@ -109,6 +111,8 @@ func (r *LessonRepository) Create(ctx context.Context, l *domain.Lesson) error {
 			string(l.Status),
 			l.Notes,
 			l.CancelReason,
+			l.SeriesID,
+			l.OriginalStartTime,
 			l.CreatedAt,
 			l.UpdatedAt,
 		).
@@ -140,6 +144,8 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 		"status",
 		"notes",
 		"cancel_reason",
+		"series_id",
+		"original_start_time",
 		"created_at",
 		"updated_at",
 	).
@@ -168,6 +174,8 @@ func (r *LessonRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.L
 		&statusStr,
 		&notes,
 		&cancelReason,
+		&l.SeriesID,
+		&l.OriginalStartTime,
 		&l.CreatedAt,
 		&l.UpdatedAt,
 	)
@@ -208,6 +216,8 @@ func (r *LessonRepository) Update(ctx context.Context, l *domain.Lesson) error {
 		Set("status", string(l.Status)).
 		Set("notes", l.Notes).
 		Set("cancel_reason", l.CancelReason).
+		Set("series_id", l.SeriesID).
+		Set("original_start_time", l.OriginalStartTime).
 		Set("updated_at", l.UpdatedAt).
 		Where(sq.Eq{"id": l.ID}).
 		ToSql()
@@ -246,6 +256,8 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 		"status",
 		"notes",
 		"cancel_reason",
+		"series_id",
+		"original_start_time",
 		"created_at",
 		"updated_at",
 	).From("lessons")
@@ -300,6 +312,8 @@ func (r *LessonRepository) List(ctx context.Context, filter LessonFilter) ([]*do
 			&statusStr,
 			&notes,
 			&cancelReason,
+			&l.SeriesID,
+			&l.OriginalStartTime,
 			&l.CreatedAt,
 			&l.UpdatedAt,
 		); err != nil {

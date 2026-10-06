@@ -3,7 +3,7 @@ import { GlassCard } from '../../../shared/components/GlassCard';
 import { GlassButton } from '../../../shared/components/GlassButton';
 import { Badge } from '../../../shared/components/Badge';
 import { Lesson, LessonFormat } from '../../../types/schedule';
-import { Calendar as CalendarIcon, Check, Edit2, Clock, MapPin, Video } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, Edit2, Clock, MapPin, Video, RotateCw } from 'lucide-react';
 
 interface ScheduleListViewProps {
   dayLessons: Lesson[];
@@ -100,6 +100,11 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className={`font-bold text-base ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900'}`}>{studentName}</h3>
+                  {(lesson.is_recurring || lesson.series_id) && (
+                    <span title="Регулярная серия занятий" className="text-indigo-600 shrink-0">
+                      <RotateCw className="w-4 h-4" />
+                    </span>
+                  )}
                   {getFormatBadge(lesson.format)}
                   {isCancelled ? (
                     <Badge variant="danger" className="text-[9px]">Отменено</Badge>

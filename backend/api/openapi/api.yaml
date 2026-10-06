@@ -1291,6 +1291,225 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /schedule/series:
+    get:
+      summary: Список регулярных серий занятий преподавателя
+      operationId: listLessonSeries
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Список регулярных серий
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LessonSeriesResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Создание регулярной серии занятий
+      operationId: createLessonSeries
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLessonSeriesRequest'
+      responses:
+        '201':
+          description: Серия успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSeriesResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /schedule/series/{id}:
+    get:
+      summary: Получение регулярной серии по ID
+      operationId: getLessonSeries
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Детали серии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSeriesResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Серия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Обновление параметров регулярной серии
+      operationId: updateLessonSeries
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonSeriesRequest'
+      responses:
+        '200':
+          description: Серия успешно обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonSeriesResponse'
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Серия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Удаление регулярной серии (всех будущих уроков)
+      operationId: deleteLessonSeries
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Серия успешно удалена
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Серия не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /finance/summary:
     get:
       summary: Сводка финансовой аналитики и дебиторской задолженности
@@ -2054,6 +2273,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /integrations/calendar/import:
+    post:
+      summary: Импорт расписания из файла Google Календаря (.ics)
+      operationId: importCalendarFile
+      tags:
+        - Integrations
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Файл календаря формата iCalendar (.ics)
+      responses:
+        '200':
+          description: Результат импорта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarImportResponse'
+        '400':
+          description: Некорректный или поврежденный файл iCalendar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -2398,6 +2664,14 @@ components:
           type: string
           format: date-time
           example: '2026-10-04T12:00:00Z'
+        is_recurring:
+          type: boolean
+          example: false
+        series_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: '123e4567-e89b-12d3-a456-426614174009'
 
     CreateLessonRequest:
       type: object
@@ -2439,6 +2713,14 @@ components:
           nullable: true
           example: 'Тема: Квадратные уравнения'
 
+    RecurrenceScope:
+      type: string
+      enum:
+        - this_only
+        - this_and_following
+        - all_in_series
+      example: this_only
+
     CancelLessonRequest:
       type: object
       properties:
@@ -2446,6 +2728,8 @@ components:
           type: string
           nullable: true
           example: 'Форс-мажор'
+        scope:
+          $ref: '#/components/schemas/RecurrenceScope'
 
     UpdateLessonRequest:
       type: object
@@ -2477,6 +2761,177 @@ components:
         cancel_reason:
           type: string
           nullable: true
+        scope:
+          $ref: '#/components/schemas/RecurrenceScope'
+
+    LessonSeriesResponse:
+      type: object
+      required:
+        - id
+        - teacher_id
+        - client_id
+        - title
+        - rrule
+        - start_time_of_day
+        - duration_minutes
+        - format
+        - start_date
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        teacher_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        classroom_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          example: 'Регулярная математика'
+        rrule:
+          type: string
+          example: 'FREQ=WEEKLY;BYDAY=TU,TH'
+        start_time_of_day:
+          type: string
+          example: '17:00'
+        duration_minutes:
+          type: integer
+          example: 60
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        location_or_url:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          example: '2026-10-01'
+        until_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2027-05-31'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateLessonSeriesRequest:
+      type: object
+      required:
+        - client_id
+        - title
+        - rrule
+        - start_time_of_day
+        - duration_minutes
+        - format
+        - start_date
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        classroom_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          example: 'Регулярная математика'
+        rrule:
+          type: string
+          example: 'FREQ=WEEKLY;BYDAY=TU,TH'
+        start_time_of_day:
+          type: string
+          example: '17:00'
+        duration_minutes:
+          type: integer
+          example: 60
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        location_or_url:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          example: '2026-10-01'
+        until_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2027-05-31'
+
+    UpdateLessonSeriesRequest:
+      type: object
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        classroom_id:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          example: 'Регулярная математика'
+        rrule:
+          type: string
+          example: 'FREQ=WEEKLY;BYDAY=TU,TH'
+        start_time_of_day:
+          type: string
+          example: '17:00'
+        duration_minutes:
+          type: integer
+          example: 60
+        format:
+          $ref: '#/components/schemas/LessonFormat'
+        location_or_url:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        until_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2027-05-31'
+
+    CalendarImportResponse:
+      type: object
+      required:
+        - imported_lessons
+        - imported_series
+        - skipped_events
+      properties:
+        imported_lessons:
+          type: integer
+          example: 12
+        imported_series:
+          type: integer
+          example: 2
+        skipped_events:
+          type: integer
+          example: 1
+        message:
+          type: string
+          example: 'Успешно импортировано'
 
     ClientBalances:
       type: object

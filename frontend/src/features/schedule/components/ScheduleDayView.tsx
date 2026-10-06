@@ -4,7 +4,7 @@ import { Badge } from '../../../shared/components/Badge';
 import { Lesson, LessonFormat } from '../../../types/schedule';
 import { PositionedLesson } from '../types';
 import { START_HOUR, HOUR_HEIGHT } from '../hooks/useSchedulePositioning';
-import { Check, MapPin, Video } from 'lucide-react';
+import { Check, MapPin, Video, RotateCw } from 'lucide-react';
 
 interface DayDragState {
   isDragging: boolean;
@@ -264,6 +264,11 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
                         <span className={`font-bold text-sm sm:text-base truncate ${isCancelled ? 'line-through text-slate-400' : 'text-slate-900'}`}>
                           {studentName}
                         </span>
+                        {(lesson.is_recurring || lesson.series_id) && (
+                          <span title="Регулярная серия занятий" className="text-indigo-600 shrink-0">
+                            <RotateCw className="w-3.5 h-3.5" />
+                          </span>
+                        )}
                         {getFormatBadge(lesson.format)}
                       </div>
                       <div className="flex items-center gap-1.5">

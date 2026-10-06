@@ -86,6 +86,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	tagRepo := postgrescrm.NewTagRepository(db, valkeyClient)
 	adjRepo := postgrescrm.NewBalanceAdjustmentRepository(db)
 	lessonRepo := postgresschedule.NewLessonRepository(db)
+	seriesRepo := postgresschedule.NewSeriesRepository(db)
 	paymentRepo := postgresfinance.NewPaymentRepository(db)
 	payoutRepo := postgresfinance.NewPartnerPayoutRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
@@ -94,7 +95,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 
 	// 5. Сервисы уровня Application
 	authService := auth.NewService(userRepo, passwordHasher, tokenManager, sessionStore)
-	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo)
+	scheduleService := schedule.NewService(classroomRepo, lessonRepo, clientRepo, subRepo, seriesRepo)
 	crmService := crm.NewService(clientRepo, subRepo, tagRepo, adjRepo)
 	dashboardService := dashboard.NewService(lessonRepo, clientRepo, classroomRepo)
 	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)

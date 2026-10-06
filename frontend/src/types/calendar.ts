@@ -10,3 +10,11 @@ export interface CalendarExportParams {
   from?: string;
   to?: string;
 }
+
+export interface CalendarImportResponse {
+  imported_lessons: number;
+  imported_series: number;
+  skipped_events: number;
+  message?: string;
+}
+

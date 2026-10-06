@@ -48,6 +48,13 @@ func MapLessonToResponse(l *domain.Lesson) generated.LessonResponse {
 		title = "Занятие"
 	}
 
+	isRecurring := l.SeriesID != nil
+	var seriesIDPtr *openapi_types.UUID
+	if l.SeriesID != nil {
+		sID := openapi_types.UUID(*l.SeriesID)
+		seriesIDPtr = &sID
+	}
+
 	return generated.LessonResponse{
 		Id:            l.ID,
 		TeacherId:     l.TeacherID,
@@ -61,6 +68,8 @@ func MapLessonToResponse(l *domain.Lesson) generated.LessonResponse {
 		Status:        generated.LessonStatus(l.Status),
 		Notes:         notesPtr,
 		CancelReason:  reasonPtr,
+		IsRecurring:   &isRecurring,
+		SeriesId:      seriesIDPtr,
 		CreatedAt:     l.CreatedAt,
 		UpdatedAt:     l.UpdatedAt,
 	}
@@ -204,7 +213,25 @@ func (h *LessonHandler) CancelLesson(c echo.Context, id openapi_types.UUID) erro
 		reason = *req.Reason
 	}
 
-	lesson, err := h.scheduleService.CancelLesson(c.Request().Context(), id, claims.UserID, claims.Role, reason)
+	if req.Scope == nil {
+		lesson, err := h.scheduleService.CancelLesson(c.Request().Context(), id, claims.UserID, claims.Role, reason)
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrLessonNotFound):
+				return response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+			case errors.Is(err, domain.ErrUnauthorizedLessonAction):
+				return response.Error(c, http.StatusForbidden, "FORBIDDEN", err.Error())
+			case errors.Is(err, domain.ErrInvalidLessonStatus):
+				return response.Error(c, http.StatusBadRequest, "INVALID_STATUS", err.Error())
+			default:
+				return response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to cancel lesson")
+			}
+		}
+		return c.JSON(http.StatusOK, MapLessonToResponse(lesson))
+	}
+
+	scope := domain.RecurrenceScope(*req.Scope)
+	err := h.scheduleService.CancelRecurringLesson(c.Request().Context(), id, nil, nil, scope, reason, claims.UserID, claims.Role)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrLessonNotFound):
@@ -218,7 +245,11 @@ func (h *LessonHandler) CancelLesson(c echo.Context, id openapi_types.UUID) erro
 		}
 	}
 
-	return c.JSON(http.StatusOK, MapLessonToResponse(lesson))
+	lesson, _ := h.scheduleService.GetLesson(c.Request().Context(), id)
+	if lesson != nil {
+		return c.JSON(http.StatusOK, MapLessonToResponse(lesson))
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *LessonHandler) UpdateLesson(c echo.Context, id openapi_types.UUID) error {
@@ -266,8 +297,45 @@ func (h *LessonHandler) UpdateLesson(c echo.Context, id openapi_types.UUID) erro
 		locOrURL = &emptyStr
 	}
 
-	lesson, err := h.scheduleService.UpdateLesson(c.Request().Context(), schedule.UpdateLessonInput{
+	if req.Scope == nil {
+		lesson, err := h.scheduleService.UpdateLesson(c.Request().Context(), schedule.UpdateLessonInput{
+			LessonID:       id,
+			CallerID:       claims.UserID,
+			CallerRole:     claims.Role,
+			Title:          req.Title,
+			ClientID:       req.ClientId,
+			ClassroomID:    req.ClassroomId,
+			ClearClassroom: clearClassroom,
+			StartTime:      req.StartTime,
+			EndTime:        req.EndTime,
+			Format:         format,
+			LocationOrURL:  locOrURL,
+			Notes:          req.Notes,
+			CancelReason:   req.CancelReason,
+		})
+		if err != nil {
+			switch {
+			case errors.Is(err, domain.ErrLessonNotFound):
+				return response.Error(c, http.StatusNotFound, "NOT_FOUND", err.Error())
+			case errors.Is(err, domain.ErrUnauthorizedLessonAction):
+				return response.Error(c, http.StatusForbidden, "FORBIDDEN", err.Error())
+			case errors.Is(err, domain.ErrClassroomCollision):
+				return response.Error(c, http.StatusConflict, "CLASSROOM_COLLISION", err.Error())
+			case errors.Is(err, domain.ErrInvalidTimeRange),
+				errors.Is(err, domain.ErrInvalidLessonFormat),
+				errors.Is(err, domain.ErrClassroomNotFound):
+				return response.Error(c, http.StatusBadRequest, "VALIDATION_ERROR", err.Error())
+			default:
+				return response.Error(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to update lesson")
+			}
+		}
+		return c.JSON(http.StatusOK, MapLessonToResponse(lesson))
+	}
+
+	scope := domain.RecurrenceScope(*req.Scope)
+	lesson, err := h.scheduleService.UpdateRecurringLesson(c.Request().Context(), schedule.UpdateRecurringLessonInput{
 		LessonID:       id,
+		Scope:          scope,
 		CallerID:       claims.UserID,
 		CallerRole:     claims.Role,
 		Title:          req.Title,

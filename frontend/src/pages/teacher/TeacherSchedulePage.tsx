@@ -250,6 +250,7 @@ export const TeacherSchedulePage: React.FC = () => {
       <CalendarSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
+        onImportSuccess={loadData}
       />
     </div>
   );

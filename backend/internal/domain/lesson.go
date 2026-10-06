@@ -64,11 +64,13 @@ type Lesson struct {
 	EndTime       time.Time
 	Format        LessonFormat
 	LocationOrURL string
-	Status        LessonStatus
-	Notes         string
-	CancelReason  string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	Status            LessonStatus
+	Notes             string
+	CancelReason      string
+	SeriesID          *uuid.UUID
+	OriginalStartTime *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 // Ошибки работы с уроками.

@@ -44,6 +44,7 @@ type Server struct {
 	lessonHandler       *httpschedule.LessonHandler
 	classroomHandler    *httpschedule.ClassroomHandler
 	calendarHandler     *httpschedule.CalendarHandler
+	seriesHandler       *httpschedule.SeriesHandler
 	financeHandler      *httpfinance.FinanceHandler
 	exportHandler       *httpfinance.ExportHandler
 	analyticsHandler    *httpanalytics.AnalyticsHandler
@@ -85,6 +86,7 @@ func NewServer(
 	lessonH := httpschedule.NewLessonHandler(scheduleService, authH)
 	classroomH := httpschedule.NewClassroomHandler(scheduleService, authH)
 	calendarH := httpschedule.NewCalendarHandler(calendarService, authH)
+	seriesH := httpschedule.NewSeriesHandler(scheduleService, authH)
 	financeH := httpfinance.NewFinanceHandler(financeService, authH)
 	exportH := httpfinance.NewExportHandler(financeService, authH)
 	analyticsH := httpanalytics.NewAnalyticsHandler(analyticsService, authH)
@@ -115,6 +117,7 @@ func NewServer(
 		lessonHandler:       lessonH,
 		classroomHandler:    classroomH,
 		calendarHandler:     calendarH,
+		seriesHandler:       seriesH,
 		financeHandler:      financeH,
 		exportHandler:       exportH,
 		analyticsHandler:    analyticsH,
@@ -251,6 +254,24 @@ func (s *Server) ExportCalendarFile(ctx echo.Context, params generated.ExportCal
 }
 func (s *Server) GetCalendarFeed(ctx echo.Context, params generated.GetCalendarFeedParams) error {
 	return s.calendarHandler.GetCalendarFeed(ctx, params)
+}
+func (s *Server) ListLessonSeries(ctx echo.Context) error {
+	return s.seriesHandler.ListLessonSeries(ctx)
+}
+func (s *Server) CreateLessonSeries(ctx echo.Context) error {
+	return s.seriesHandler.CreateLessonSeries(ctx)
+}
+func (s *Server) GetLessonSeries(ctx echo.Context, id openapi_types.UUID) error {
+	return s.seriesHandler.GetLessonSeries(ctx, id)
+}
+func (s *Server) UpdateLessonSeries(ctx echo.Context, id openapi_types.UUID) error {
+	return s.seriesHandler.UpdateLessonSeries(ctx, id)
+}
+func (s *Server) DeleteLessonSeries(ctx echo.Context, id openapi_types.UUID) error {
+	return s.seriesHandler.DeleteLessonSeries(ctx, id)
+}
+func (s *Server) ImportCalendarFile(ctx echo.Context) error {
+	return s.calendarHandler.ImportCalendarFile(ctx)
 }
 
 // Finance & Export delegates

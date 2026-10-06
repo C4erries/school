@@ -2,6 +2,10 @@ import {
   Classroom,
   Client,
   Lesson,
+  LessonSeries,
+  CreateLessonSeriesRequest,
+  UpdateLessonSeriesRequest,
+  RecurrenceScope,
   TeacherStudent,
   Tag,
   CreateClassroomRequest,
@@ -404,6 +408,8 @@ export async function updateLesson(lessonId: string, data: UpdateLessonRequest):
   if (data.format !== undefined) payload.format = data.format;
   if (data.online_link !== undefined) payload.location_or_url = data.online_link;
   if (data.comment !== undefined) payload.notes = data.comment;
+  if (data.cancel_reason !== undefined) payload.cancel_reason = data.cancel_reason;
+  if (data.scope !== undefined) payload.scope = data.scope;
 
   const res = await fetch(`${BASE_URL}/lessons/${lessonId}`, {
     method: 'PATCH',
@@ -468,11 +474,15 @@ export async function declineLesson(lessonId: string, reason: string): Promise<L
   return await res.json();
 }
 
-export async function cancelLesson(lessonId: string, reason?: string): Promise<Lesson> {
+export async function cancelLesson(lessonId: string, reason?: string, scope?: RecurrenceScope): Promise<Lesson> {
+  const payload: Record<string, unknown> = {};
+  if (reason !== undefined) payload.reason = reason;
+  if (scope !== undefined) payload.scope = scope;
+
   const res = await fetch(`${BASE_URL}/lessons/${lessonId}/cancel`, {
     method: 'POST',
     headers: getHeaders(),
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
@@ -480,6 +490,65 @@ export async function cancelLesson(lessonId: string, reason?: string): Promise<L
   }
   return await res.json();
 }
+
+// ---------------------------------------------------------------------------
+// 5.1. Регулярные серии занятий (Lesson Series - RFC 5545 RRULE)
+// ---------------------------------------------------------------------------
+
+export async function listSeries(): Promise<LessonSeries[]> {
+  const res = await fetch(`${BASE_URL}/schedule/series`, { headers: getHeaders() });
+  if (!res.ok) {
+    throw new Error('Не удалось загрузить список серий занятий');
+  }
+  return await res.json();
+}
+
+export async function getSeries(id: string): Promise<LessonSeries> {
+  const res = await fetch(`${BASE_URL}/schedule/series/${id}`, { headers: getHeaders() });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось загрузить серию занятий');
+  }
+  return await res.json();
+}
+
+export async function createSeries(data: CreateLessonSeriesRequest): Promise<LessonSeries> {
+  const res = await fetch(`${BASE_URL}/schedule/series`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось создать серию занятий');
+  }
+  return await res.json();
+}
+
+export async function updateSeries(id: string, data: UpdateLessonSeriesRequest): Promise<LessonSeries> {
+  const res = await fetch(`${BASE_URL}/schedule/series/${id}`, {
+    method: 'PUT',
+    headers: getHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось обновить серию занятий');
+  }
+  return await res.json();
+}
+
+export async function deleteSeries(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/schedule/series/${id}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось удалить серию занятий');
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // 6. Финансовый Дашборд (Dashboard Metrics)
