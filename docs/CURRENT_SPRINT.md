@@ -4,224 +4,226 @@
 > Обновляется перед началом каждого спринта и после завершения задач.
 > Завершенные спринты архивируются в каталоге `docs/sprints/`.
 
-## Текущая фаза: 2.2.3 — Умная аналитика (Факт/Прогноз), Статистика по тегам, Редизайн Дашборда и UX расписания 🟢 (ЗАВЕРШЕН)
+## Текущая фаза: 2.2.4 — Архитектурный рефакторинг бэкенда, переход на веб-фреймворк Echo v4 и декомпозиция адаптеров 🔵 (В РАБОТЕ)
 
 ---
 
-## 🧠 Аналитика задач спринта (Роль: Product & Systems Analyst)
+## 🧠 Аналитика задач спринта (Роль: Tech Lead & Software Architect)
 
-### Фича 1: Редизайн Главного экрана (Командный центр репетитора)
-* **Проблема**: Текущий главный экран (`DashboardPage`) содержит статичный блок финансов, не дает репетитору понимания текущей повестки дня и требует ручных переходов по боковому меню. Получение нужных данных фронтендом по 4–5 разрозненным эндпоинтам вызывало бы сетевой оверхед (N+1 waterfall).
-* **Решение**: Превратить главный экран в полноценный **Control Center** с единым агрегирующим эндпоинтом `GET /api/v1/dashboard/summary`:
-  1. **Уроки на сегодня**: Ближайшие запланированные занятия (время, ученик, формат, кабинет или ссылка на звонок, кнопка быстрого перехода к уроку).
-  2. **Финансовый срез текущего месяца**:
-     - *Заработано (Факт)*: сумма по проведенным урокам текущего месяца.
-     - *Ожидается (Прогноз)*: потенциальный доход до конца месяца при сохранении запланированных занятий.
-     - *Дебиторская задолженность*: сумма долгов учеников с отрицательным балансом.
-  3. **Оперативные метрики**: запланировано часов на эту неделю, количество активных учеников.
-  4. **Быстрые действия (Quick Actions)**: «+ Запланировать урок», «Внести оплату», «Смотреть аналитику».
-
----
-
-### Фича 2: Разделение Аналитики (Факт vs Прогноз) через Segmented Control
-* **Проблема**: Смешивание свершившегося факта (заработанные деньги, проведенные часы) и ожидаемого будущего расписания дезориентирует преподавателя.
-* **Решение ([ADR-009](decisions/0009-analytics-forecast-and-tag-classification.md))**:
-  Внутри раздела «Статистика» (`/teacher/analytics`) внедряется переключатель режимов в стиле Apple Liquid Glass:
-  `[ 📊 История (Факт) ]` `[ 🔮 Прогноз (План) ]`
-  - **Вкладка «История (Факт)»**: Сводные KPI за прошедший период (`status = completed`), графики динамики, доходимость, распределение форматов, рейтинг учеников.
-  - **Вкладка «Прогноз (План)»**:
-    - Выбор периода планирования: «Текущая неделя», «Следующая неделя», «Текущий месяц», «Следующий месяц».
-    - Расчет планируемой рабочей нагрузки (часы) и ожидаемого дохода ($\sum \text{hours} \times \text{client\_rate}$).
-    - Прогнозируемый вычет партнерских комиссий по тегам.
-    - Ожидаемый чистый заработок преподавателя.
-    - Структура планируемых часов по форматам (индивидуально, пара, группа).
-    - Эндпоинт `GET /api/v1/analytics/forecast?from=...&to=...`.
-
----
-
-### Фича 3: Статистика учеников и доходности по тегам
-* **Проблема**: Репетитор использует теги для группировки учеников («Олимпиадники», «ЕГЭ», «Младшие классы»), но не видит, какие категории наиболее маржинальны и трудозатратны.
-* **Решение**: Новый аналитический блок «Доходность по тегам» (`GET /api/v1/analytics/tags?from=...&to=...`):
-  - Группировка всех учеников по тегам (включая непартнерские).
-  - Для каждого тега: число учеников, проведенные часы, валовая выручка, чистый доход репетитора.
-
----
-
-### Фича 4: Очистка Бухгалтерии от информационных тегов
-* **Проблема**: Все теги отображались в разделе «Школы и партнеры» в Бухгалтерии, создавая пустые строки для тегов со ставкой 0%.
+### 1. Переход на веб-фреймворк Echo v4 ([ADR-011](decisions/0011-backend-refactoring-and-echo-migration.md))
+* **Проблема**:
+  Текущий HTTP-транспорт построен на стандартном `net/http.ServeMux`. Это приводит к избыточному бойлерплейту:
+  - Ручная обвязка контекстов запроса и извлечение параметров из путей URL;
+  - Ручной парсинг Bearer-токенов в хэндлерах и middleware;
+  - Ручная сериализация ошибок `writeError(w, status, code, msg)`;
+  - Сложности с добавлением стандартных кросс-функциональных middleware (CORS, Recover, RequestID).
 * **Решение**:
-  - В расчетах взаиморасчетов со школами (`GET /api/v1/finance/partner-settlements` и карточке на фронтенде) учитываются **только теги с `school_percent > 0`**.
-  - Теги с 0% или null расцениваются как чисто информационные маркеры учеников и не участвуют в формировании партнерских задолженностей.
+  - Подключение `github.com/labstack/echo/v4`.
+  - Переключение генератора `oapi-codegen` на генерацию Echo-сервера (`echo-server: true` вместо `std-http-server: true`).
+  - Все хэндлеры реализуют идиоматичный интерфейс Echo: `func(c echo.Context) error`.
+  - Использование встроенных и производительных Echo middleware: Recover, CORS, централизованный `HTTPErrorHandler`.
 
 ---
 
-### Фича 5: Индикатор текущего времени в расписании (Time Indicator)
-* **Проблема**: В недельном виде календаря трудно мгновенно сориентироваться, сколько времени прошло и какое сейчас занятие.
+### 2. Декомпозиция плоского пакета `adapters/postgres` по доменам
+* **Проблема**:
+  Каталог `backend/internal/infrastructure/api/adapters/postgres` содержит 12 файлов в одном общем пространстве имен (`client_repo.go`, `lesson_repository.go`, `user_repository.go`, `tag_repo.go`, `payment_repository.go` и др.). Отсутствуют доменные границы, что затрудняет навигацию и повышает связность кода.
 * **Решение**:
-  - В компоненте `ScheduleWeekView` добавить тонкую контрастную горизонтальную линию с кружком-маркером, показывающую текущее время дня.
-  - Положение рассчитывается динамически (`(минуты с 00:00 / 1440) * 100%`) и обновляется каждую минуту.
-  - Линия отображается только на колонке сегодняшнего дня при нахождении в текущей неделе.
+  - Структурирование `adapters/postgres/` по изолированным предметным пакетам:
+    - `adapters/postgres/` (базовые утилиты пула соединений `connection.go` и контекстных транзакций `transactor.go`).
+    - `adapters/postgres/auth/` (`user_repository.go`).
+    - `adapters/postgres/crm/` (`client_repo.go`, `subscription_repo.go`, `balance_adjustment_repo.go`, `tag_repo.go`).
+    - `adapters/postgres/schedule/` (`lesson_repository.go`, `classroom_repository.go`, `teacher_student_repository.go`).
+    - `adapters/postgres/finance/` (`payment_repository.go`, `partner_payout_repository.go`).
 
 ---
 
-## 📋 Таблица задач спринта 2.2.3
+### 3. Модульная декомпозиция Application-сервисов (< 300–400 строк)
+* **Проблема**:
+  Файлы бизнес-логики разрослись до критических объемов:
+  - `application/finance/service.go` — **878 строк**;
+  - `application/analytics/service.go` — **802 строки**;
+  - `application/crm/service.go` — **476 строк**;
+  - `application/schedule/service.go` — **455 строк**.
+  Это нарушает стандарт конвенций проекта (< 300–400 строк) и затрудняет чтение и модификацию кода AI-агентами.
+* **Решение**:
+  Разбиение логики внутри каждого пакета по нескольким файлам без изменения контракта структуры сервиса:
+  - `application/finance/`:
+    - `service.go`: интерфейсы зависимостей, конструктор `NewService`, метод `GetFinanceSummary` (< 200 строк);
+    - `payments.go`: проведение платежей `RecordPayment`, история оплат, расчет задолженностей (< 250 строк);
+    - `settlements.go`: расчет партнерских обязательств `GetPartnerSettlements`, фиксация выплат `RecordPartnerPayout` (< 250 строк);
+    - `export.go`: генерация CSV отчетов с UTF-8 BOM (`ExportClients`, `ExportSchedule`, `ExportPayments`) (< 200 строк).
+  - `application/analytics/`:
+    - `service.go`: интерфейсы, конструктор, сводные KPI `GetOverview` (< 200 строк);
+    - `forecast.go`: расчет прогнозируемой нагрузки и доходов `GetForecast` (< 250 строк);
+    - `tags.go`: агрегация учеников и маржинальности по тегам `GetTagStats` (< 200 строк);
+    - `dynamics.go`: временные ряды `GetDynamics`, доли форматов `GetFormatStats`, рейтинг учеников `GetClientStats` (< 250 строк).
+  - `application/crm/`:
+    - `service.go`: CRUD операции над клиентами (< 250 строк);
+    - `subscriptions.go`: покупка, балансы и списание абонементов (< 200 строк);
+    - `balance.go`: ручные корректировки баланса с аудитом (< 150 строк).
+  - `application/schedule/`:
+    - `service.go`: жизненный цикл уроков (создание, проведение, отмена) (< 250 строк);
+    - `classrooms.go`: управление кабинетами и валидация нахлёстов/коллизий (< 250 строк).
+
+---
+
+### 4. Создание нового HTTP-слоя на базе Echo v4 (`adapters/http/`)
+* **Проблема**:
+  Каталог `adapters/httpserver` содержал монолитную структуру `APIHandler` со свалкой хэндлеров всех подсистем (`client_handler.go` 573 строки, `schedule_handler.go` 392 строки, `finance_handler.go` 321 строка).
+* **Решение**:
+  - Создание нового чистого пакета `adapters/http/`:
+    - `adapters/http/middleware/`: Echo-совместимые middleware авторизации `AuthMiddleware` (извлечение Bearer, валидация JWT, сохранение в `echo.Context`), RBAC `RequireRoles`, структурированный `slog` логгер.
+    - `adapters/http/response/`: формат стандартных ошибок и маппинг.
+    - Предметные хэндлеры (`echo.Context`):
+      - `adapters/http/auth/`: регистрация, логин, refresh, получение текущего профиля `/auth/me`, дефолтные ставки.
+      - `adapters/http/crm/`: `client_handler.go`, `subscription_handler.go`, `tag_handler.go` (каждый < 250 строк).
+      - `adapters/http/schedule/`: `lesson_handler.go`, `classroom_handler.go`, `calendar_handler.go`.
+      - `adapters/http/finance/`: `finance_handler.go`, `export_handler.go`.
+      - `adapters/http/analytics/`: `analytics_handler.go`.
+      - `adapters/http/dashboard/`: `dashboard_handler.go`.
+    - `adapters/http/server.go`: композитный фасад `Server`, реализующий сгенерированный `generated.ServerInterface`, настройка Echo роутера, регистрация маршрутов `/health` и `/api/v1/*`, graceful shutdown.
+
+---
+
+### 5. Обновление DI контейнера и верификация
+* Обновление `backend/internal/infrastructure/api/di/container.go` под новые пакеты репозиториев и Echo сервер.
+* Обновление `backend/cmd/api/main.go` для запуска и graceful shutdown Echo сервера.
+* Адаптация unit-тестов хэндлеров под вызовы с `echo.Context`.
+* Полное удаление устаревшего каталога `backend/internal/infrastructure/api/adapters/httpserver/`.
+* Сквозная проверка: `make test` (Go юнит-тесты), `docker compose up -d --build` и `make test-e2e` (все 56 E2E тестов в Docker).
+
+---
+
+## 📋 Таблица задач спринта 2.2.4
 
 | # | Задача | Статус | Приоритет | Ответственный / Субагент | Заметки |
 |---|--------|--------|-----------|---------------------------|---------|
-| 1 | OpenAPI контракт: эндпоинты `/dashboard/summary`, `/analytics/forecast`, `/analytics/tags` | 🟢 Done | Критический | `backend-dev` | Добавлены схемы в `api.yaml`, генерация через `make oapi`. |
-| 2 | Backend API: Эндпоинт Дашборда `GET /api/v1/dashboard/summary` | 🟢 Done | Высокий | `backend-dev` | Агрегация уроков на сегодня, факт/прогноз месяца, долгов и рабочих часов. |
-| 3 | Backend API: Прогноз расписания `GET /api/v1/analytics/forecast` и статистика тегов `GET /api/v1/analytics/tags` | 🟢 Done | Высокий | `backend-dev` | Расчет потенциала по `scheduled` урокам и персональным тарифам клиентов; группировка по всем тегам. |
-| 4 | Backend API: Фильтрация партнерских выплат (`school_percent > 0`) | 🟢 Done | Средний | `backend-dev` | Исключение тегов с 0% из `/finance/partner-settlements`. |
-| 5 | Frontend: Редизайн Главного экрана (`DashboardPage`) | 🟢 Done | Высокий | `frontend-dev` | Виджеты "Уроки на сегодня", "Финансовый статус", "Быстрые действия", интеграция с `/dashboard/summary`. |
-| 6 | Frontend: Вкладки Аналитики (Факт vs Прогноз) и блок доходности по тегам | 🟢 Done | Высокий | `frontend-dev` | Segmented Control, карточки прогноза дохода, разбивка часов, таблица доходности по тегам. |
-| 7 | Frontend: Индикатор текущего времени (Time Indicator) в `ScheduleWeekView` | 🟢 Done | Средний | `frontend-dev` | Динамическая линия текущего времени с таймером 60с на колонке текущего дня. |
-| 8 | E2E автотесты и верификация полного цикла | 🟢 Done | Высокий | `qa-e2e` | 56/56 тестов в Docker пройдены успешно (`make test-e2e`), чистая сборка фронтенда (0 ошибок). |
+| 1 | Добавление Echo v4 и переключение генератора `oapi-codegen` на `echo-server` | 🔲 To Do | Критический | `backend_developer` | Добавить `github.com/labstack/echo/v4`, обновить `oapi-codegen.yaml`, сгенерировать Echo `ServerInterface`. |
+| 2 | Декомпозиция `adapters/postgres` по предметным доменам | 🔲 To Do | Высокий | `backend_developer` | Создать пакеты `auth`, `crm`, `schedule`, `finance` внутри `adapters/postgres/`, декомпозировать `client_repo.go` < 400 строк. |
+| 3 | Модульная декомпозиция Application-сервисов (< 300–400 строк) | 🔲 To Do | Высокий | `backend_developer` | Разбить монолитные `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` на логические модули. |
+| 4 | Реализация HTTP-слоя на базе Echo v4 (`adapters/http/`) | 🔲 To Do | Высокий | `backend_developer` | Реализовать Echo middleware, response, доменные хэндлеры (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`) и root Echo Server. |
+| 5 | Обновление DI (`container.go`), `main.go`, перевод unit-тестов и удаление legacy `httpserver` | 🔲 To Do | Высокий | `backend_developer` | Подключение новых компонентов в DI, перевод юнит-тестов на Echo Context, удаление старого каталога `httpserver/`. |
+| 6 | Сквозная верификация: Unit-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) | 🔲 To Do | Критический | `qa_engineer` | Прогон `make test` (100% pass без race conditions), сборка Docker и прогон всех 56/56 E2E тестов (`make test-e2e`). |
 
 ---
 
-## 📋 Детальное Микро-ТЗ спринта 2.2.3
+## 📋 Детальное Микро-ТЗ спринта 2.2.4
 
-### Задача 1: OpenAPI контракт (`backend/api/openapi/api.yaml`)
-* **Новые схемы и эндпоинты**:
-  1. `GET /api/v1/dashboard/summary`:
-     - Ответ:
-       ```json
-       {
-         "today_lessons": [
-           {
-             "id": "uuid",
-             "client_id": "uuid",
-             "client_name": "Иван Иванов",
-             "start_at": "2026-10-06T14:00:00Z",
-             "end_at": "2026-10-06T15:00:00Z",
-             "format": "individual",
-             "status": "scheduled",
-             "location_type": "online",
-             "online_link": "https://telemost.yandex.ru/..."
-           }
-         ],
-         "financial_snapshot": {
-           "month_earned": 45000.0,
-           "month_forecast": 32000.0,
-           "total_debts": 4800.0,
-           "active_clients_count": 12,
-           "weekly_hours": 18.5
-         }
-       }
-       ```
-  2. `GET /api/v1/analytics/forecast?from=...&to=...`:
-     - Ответ:
-       ```json
-       {
-         "from": "2026-10-06T00:00:00Z",
-         "to": "2026-10-13T00:00:00Z",
-         "scheduled_lessons": 15,
-         "scheduled_hours": 18.5,
-         "gross_potential_revenue": 28500.0,
-         "partner_commission_expected": 4275.0,
-         "net_potential_income": 24225.0,
-         "by_format": [
-           { "format": "individual", "hours": 12.0, "revenue": 18000.0 },
-           { "format": "pair", "hours": 4.5, "revenue": 6750.0 },
-           { "format": "group", "hours": 2.0, "revenue": 3750.0 }
-         ]
-       }
-       ```
-  3. `GET /api/v1/analytics/tags?from=...&to=...`:
-     - Ответ: массив объектов:
-       ```json
-       [
-         {
-           "tag_id": "uuid",
-           "tag_name": "ЕГЭ",
-           "tag_color": "#3B82F6",
-           "students_count": 6,
-           "completed_hours": 24.0,
-           "gross_revenue": 36000.0,
-           "net_income": 36000.0
-         }
-       ]
-       ```
-* Выполнить кодогенерацию: `make oapi`.
+### Задача 1: Зависимости и OpenAPI кодогенерация
+* **Действия**:
+  1. Выполнить `go get github.com/labstack/echo/v4` в каталоге `backend/`.
+  2. Обновить `backend/api/openapi/oapi-codegen.yaml`:
+     ```yaml
+     package: generated
+     generate:
+       echo-server: true
+       models: true
+     output: internal/infrastructure/api/adapters/http/generated/api.gen.go
+     ```
+  3. Запустить `make oapi`.
+  4. Проверить создание файла `backend/internal/infrastructure/api/adapters/http/generated/api.gen.go` и интерфейса `ServerInterface` с методами вида `(ctx echo.Context) error`.
 
 ---
 
-### Задача 2 & 3 & 4: Backend реализация (Go)
-1. **Сервис Дашборда `DashboardService`** (`backend/internal/application/dashboard/service.go`):
-   - Запрашивает уроки на текущие сутки репетитора.
-   - Считает фактическую выручку за текущий месяц (уроки `completed`).
-   - Считает прогноз до конца текущего месяца (уроки `scheduled`).
-   - Считает дебиторку клиентов (`balance < 0` $\times$ ставка формата).
-   - Подсчитывает запланированные часы на текущую календарную неделю.
-2. **Расширение `AnalyticsService`**:
-   - Метод `GetForecast(ctx, teacherID, from, to)`: агрегация будущих уроков в статусе `scheduled`, подсчет часов, расчет выручки по ставкам клиентов из CRM, расчет прогнозируемой партнерской комиссии.
-   - Метод `GetTagStats(ctx, teacherID, from, to)`: группировка проведенных уроков по тегам прикрепленных клиентов.
-3. **Фильтрация в `FinanceService`**:
-   - В методе `GetPartnerSettlements` добавить строгое условие `WHERE school_percent > 0` (теги с 0% не включаются в список расчетов с партнерами).
-4. **Хэндлеры и DI**:
-   - `backend/internal/infrastructure/api/adapters/httpserver/dashboard_handler.go`.
-   - Регистрация в `container.go` и `server.go`.
+### Задача 2: Декомпозиция `adapters/postgres`
+* **Действия**:
+  1. Оставить в `internal/infrastructure/api/adapters/postgres/`:
+     - `connection.go` (подключение к БД)
+     - `transactor.go` (транзакционный менеджер)
+  2. Создать подпакеты:
+     - `adapters/postgres/auth/`: `user_repository.go`
+     - `adapters/postgres/crm/`: `client_repo.go`, `client_repo_queries.go` (вынос фильтров и сборки SQL для сохранения лимита < 300 строк), `subscription_repo.go`, `balance_adjustment_repo.go`, `tag_repo.go`
+     - `adapters/postgres/schedule/`: `lesson_repository.go`, `classroom_repository.go`, `teacher_student_repository.go`
+     - `adapters/postgres/finance/`: `payment_repository.go`, `partner_payout_repository.go`
+  3. Проверить, что все экспортируемые конструкторы (`NewUserRepository`, `NewClientRepository` и т.д.) доступны в своих пакетах.
 
 ---
 
-### Задача 5 & 6 & 7: Frontend реализация (React + Tailwind Liquid Glass)
-1. **Главный экран (`DashboardPage.tsx`)**:
-   - Виджет «Ближайшие уроки на сегодня» со ссылками на онлайн-комнаты и статусом.
-   - Виджет «Финансовый статус месяца» (Факт, Ожидается до конца месяца, Задолженность учеников).
-   - Виджет «Быстрые действия» (кнопки перехода в Расписание, Бухгалтерию, Аналитику).
-2. **Вкладки Аналитики (`TeacherAnalyticsPage.tsx`)**:
-   - Segmented Control переключатель: «История» и «Прогноз».
-   - Во вкладке «Прогноз»: селектор периодов («Текущая неделя», «Следующая неделя», «До конца месяца»), карточки ожидаемых часов и дохода, диаграмма долей форматов.
-   - Блок «Доходность по тегам» (`AnalyticsTagsDistribution.tsx`): список тегов с количеством учеников, отработанными часами и выручкой.
-3. **Бухгалтерия (`PartnerSettlementsCard.tsx`)**:
-   - Отображение только тегов с `school_percent > 0`.
-4. **Индикатор времени (`ScheduleWeekView.tsx`)**:
-   - Контрастная линия с кружком текущего времени, автообновляемая по `setInterval` раз в минуту.
+### Задача 3: Модульная декомпозиция Application-сервисов
+* **Действия**:
+  1. `backend/internal/application/finance/`:
+     - `service.go`: структуры, конструктор `NewService`, метод `GetFinanceSummary`
+     - `payments.go`: `RecordPayment`, `ListPayments`, расчет задолженностей
+     - `settlements.go`: `GetPartnerSettlements`, `RecordPartnerPayout`, `ListPartnerPayouts`
+     - `export.go`: `ExportClientsCSV`, `ExportScheduleCSV`, `ExportPaymentsCSV`
+  2. `backend/internal/application/analytics/`:
+     - `service.go`: структуры, конструктор `NewService`, `GetOverview`
+     - `forecast.go`: `GetForecast`
+     - `tags.go`: `GetTagStats`
+     - `dynamics.go`: `GetDynamics`, `GetFormatStats`, `GetClientStats`
+  3. `backend/internal/application/crm/`:
+     - `service.go`: CRUD клиентов, поиск, архивация
+     - `subscriptions.go`: `AddSubscription`, списание
+     - `balance.go`: `AdjustBalance`
+  4. `backend/internal/application/schedule/`:
+     - `service.go`: создание, изменение, проведение, отмена уроков
+     - `classrooms.go`: управление кабинетами, проверка коллизий
+  5. Убедиться, что каждый файл строго < 300–400 строк кода.
 
 ---
 
-### Задача 8: E2E автотесты и верификация полного цикла
-* Файл автотестов `tests/api/phase2_schedule/test_dashboard_forecast_and_tags.py`:
-  - Проверка ответа `/dashboard/summary` (уроки на сегодня, агрегация финансов).
-  - Проверка `/analytics/forecast` (расчет прогнозируемой выручки по запланированным занятиям).
-  - Проверка `/analytics/tags` (агрегация часов и выручки по тегам).
-  - Проверка исключения тегов с 0% из `/finance/partner-settlements`.
-* Прогон `make test`, `make test-e2e` в Docker и `npm run lint && npm run build` (0 ошибок).
+### Задача 4: Реализация нового HTTP-транспорта на Echo v4 (`adapters/http/`)
+* **Действия**:
+  1. `adapters/http/middleware/`:
+     - `auth.go`: Echo middleware `AuthMiddleware(validator TokenValidator) echo.MiddlewareFunc`. Извлекает Bearer token, валидирует, помещает `UserClaims` в `c.Set("user_claims", claims)`. Хелпер `UserFromContext(c echo.Context) (*security.UserClaims, bool)`.
+     - `roles.go`: Echo middleware `RequireRoles(roles ...domain.Role) echo.MiddlewareFunc`.
+     - `logger.go`: интеграция `slog` через `middleware.RequestLoggerWithConfig`.
+  2. `adapters/http/response/`:
+     - Хелпер `Error(c echo.Context, status int, code, message string) error` возвращающий `generated.ErrorResponse`.
+  3. Доменные хэндлеры:
+     - `adapters/http/auth/`: регистрация, логин, refresh, me, rates.
+     - `adapters/http/crm/`: `client_handler.go`, `subscription_handler.go`, `tag_handler.go`.
+     - `adapters/http/schedule/`: `lesson_handler.go`, `classroom_handler.go`, `calendar_handler.go`.
+     - `adapters/http/finance/`: `finance_handler.go`, `export_handler.go`.
+     - `adapters/http/analytics/`: `analytics_handler.go`.
+     - `adapters/http/dashboard/`: `dashboard_handler.go`.
+  4. `adapters/http/server.go`:
+     - Root facade `Server` объединяет хэндлеры и реализует `generated.ServerInterface`.
+     - Регистрация эндпоинтов через `generated.RegisterHandlers(e, server)` и `generated.RegisterHandlersWithBaseURL(e, server, "/api/v1")`.
+     - Graceful stop через `e.Shutdown(ctx)`.
 
 ---
 
-## 🎯 Definition of Done (DoD) Спринта 2.2.3
-- [x] Контракт OpenAPI обновлен эндпоинтами `/dashboard/summary`, `/analytics/forecast`, `/analytics/tags`, код сгенерирован (`make oapi`).
-- [x] Реализован эндпоинт `GET /api/v1/dashboard/summary` с агрегацией расписания на сегодня и финансового среза.
-- [x] Реализован эндпоинт `GET /api/v1/analytics/forecast` с расчетом потенциального дохода по будущим урокам.
-- [x] Реализован эндпоинт `GET /api/v1/analytics/tags` со статистикой учеников и выручки по всем категориям тегов.
-- [x] В разделе «Бухгалтерия» исключены теги с комиссией 0%.
-- [x] Главный экран (`DashboardPage`) обновлен в стиле Apple Liquid Glass с функциональными виджетами.
-- [x] На странице Аналитики добавлены вкладки «История» / «Прогноз» и визуализация статистики по тегам.
-- [x] В недельном календаре отображается живая линия текущего времени (Time Indicator).
-- [x] Написаны и успешно пройдены E2E тесты в Docker (`make test-e2e`, 56/56 passed).
-- [x] `npm run lint && npm run build` проходит без единой ошибки (0 warnings/errors).
+### Задача 5 & 6: DI сборка, тесты и верификация полного цикла
+* **Действия**:
+  1. Обновить `di/container.go`: внедрение Echo Server, новых пакетов адаптеров postgres и http.
+  2. Обновить `cmd/api/main.go` под Echo Server.
+  3. Перевести unit-тесты хэндлеров на Echo context:
+     - `req := httptest.NewRequest(...)`, `rec := httptest.NewRecorder()`, `c := echo.New().NewContext(req, rec)`.
+  4. Удалить устаревший каталог `adapters/httpserver/`.
+  5. Прогон `make test` (все тесты Go зеленые, без гонок).
+  6. Прогон `docker compose up -d --build` и `make test-e2e` (все 56/56 тестов зеленые).
+
+---
+
+## 🎯 Definition of Done (DoD) Спринта 2.2.4
+- [ ] Веб-фреймворк Echo v4 подключен и настроен в качестве основного HTTP-транспорта.
+- [ ] OpenAPI кодогенерация переведена на `echo-server`, генерируется `ServerInterface` для Echo.
+- [ ] Пакет `adapters/postgres` декомпозирован на изолированные доменные подпакеты (`auth`, `crm`, `schedule`, `finance`).
+- [ ] Монолитные файлы `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` и `client_repo.go` декомпозированы по стандарту < 300–400 строк.
+- [ ] Создан новый модульный пакет `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами.
+- [ ] Каталог устаревшего `adapters/httpserver` полностью удален.
+- [ ] DI контейнер и `cmd/api/main.go` переведены на Echo с сохранением graceful shutdown.
+- [ ] Unit-тесты бэкенда успешно адаптированы под Echo и проходят без ошибок (`make test`).
+- [ ] Контракт API полностью сохранен: 56/56 E2E автотестов в Docker проходят успешно (`make test-e2e`).
 
 ---
 
 ## 🗄️ Оставшийся бэклог на следующие спринты
 
-1. **Спринт 2.2.4 (Технический долг): Архитектурный рефакторинг бэкенда (перед Фазой 2.3)**:
-   - **Переход на веб-фреймворк Echo (v4)**: замена базового `net/http` ServeMux на Echo v4, переход кодогенерации `oapi-codegen` на Echo-интерфейсы (`ServerInterface`), удобный контекст `echo.Context`, нативные middleware (CORS, Recover, Logger, Auth).
-   - **Декомпозиция плоских пакетов**: устранение свалки файлов в `adapters/httpserver` и `adapters/postgres`, разбивка на изолированные предметные подпакеты по доменам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`).
-   - **Устранение монолитных файлов**: рефакторинг крупных файлов на тысячи строк (все файлы исходного кода, кроме автогенерируемых `*.gen.go`, должны быть разбиты на модули < 300–400 строк).
-2. **Фаза 2.3: Регулярные занятия (Recurring Lessons & Series)**:
+1. **Фаза 2.3: Регулярные занятия (Recurring Lessons & Series)**:
    - Поддержка стандартов RFC 5545 RRULE (повторения еженедельно, с интервалами, по дням недели).
    - Генерация виртуальных вхождений без раздувания базы данных.
    - Гранулярное редактирование: «Только этот урок», «Этот и последующие», «Вся серия».
    - Интеграция с расчетом прогноза и абонементами.
-3. **Анализ оптимизации и ресурсоемкости фронтенда (GPU/CPU профилирование, Lightweight / Power Save Mode)**:
+2. **Анализ оптимизации и ресурсоемкости фронтенда (GPU/CPU профилирование, Lightweight / Power Save Mode)**:
    - Оптимизация `<LiquidBackground />` (canvas FPS limit, pause on blur / tab hidden).
    - Тумблер Lite Mode для отключения тяжелого `backdrop-blur` и канваса для максимальной разгрузки видеокарты на слабых устройствах.
-4. **Фаза 3: Двусторонняя интеграция с Google Calendar (OAuth 2.0)**:
+3. **Фаза 3: Двусторонняя интеграция с Google Calendar (OAuth 2.0)**:
    - Прямая запись событий в Google Calendar через Google API.
    - Двусторонняя блокировка слотов в расписании школы при занятости в личном календаре Google.
-5. **Фаза 4: Платформа "Школа" (Multi-player)**:
+4. **Фаза 4: Платформа "Школа" (Multi-player)**:
    - Личные кабинеты учеников и владельца школы.
 
 ---
@@ -230,9 +232,8 @@
 
 | Дата | Что изменилось |
 |------|---------------|
-| 2026-10-06 | **Сформирован Спринт 2.2.3**: Умная аналитика (вкладки Факт / Прогноз), Статистика по тегам, Редизайн Главного экрана (виджеты расписания на сегодня, финансов месяца, быстрых действий), разделение тегов на бизнес-партнеров (`school_percent > 0`) и информационные, индикатор времени в календаре. Регулярные занятия выделены в самостоятельную Фазу 2.3. Зафиксирован [ADR-009](decisions/0009-analytics-forecast-and-tag-classification.md). Спринт 2.2.2 заархивирован в `docs/sprints/sprint-2.2.2.md`. |
-| 2026-10-06 | **Спринт 2.2.2 успешно завершен**: Добавлена миграция 000009 (`users.calendar_token`), реализован `AnalyticsService` (overview KPI, time-series dynamics, format distribution, clients ranking) и `CalendarService` (RFC 5545 iCalendar feed.ics с авторизацией по токену, export.ics, ротация токена); на фронтенде создана страница «Статистика» (`/teacher/analytics`) с Liquid Glass SVG-графиками динамики, модалка `CalendarSyncModal` с deep link в Google/Apple Calendar; 52/52 E2E тестов в Docker пройдены успешно, сборка чистая (0 ошибок). |
-| 2026-10-06 | **Спринт 2.2.1 успешно завершен**: Добавлены миграции 000008 (`payments`, `partner_payouts`), доменные модели и сервис бухгалтерии в Go; реализованы эндпоинты `/finance/summary`, `/finance/payments`, `/finance/partner-settlements`, `/finance/partner-payouts` и `/export/*`; на фронтенде создана вкладка «Бухгалтерия» (`/teacher/finance`); 48/48 E2E тестов в Docker пройдены успешно. |
+| 2026-10-06 | **Сформирован Спринт 2.2.4 (Технический долг)**: Архитектурный рефакторинг бэкенда перед переходом к Фазе 2.3. Миграция на веб-фреймворк Echo v4, генерация Echo-сервера через `oapi-codegen`, декомпозиция плоских пакетов `adapters/postgres` и `adapters/http` по доменным контекстам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`), декомпозиция крупных сервисов на модули < 300–400 строк. Спринт 2.2.3 заархивирован в `docs/sprints/sprint-2.2.3.md`. Зафиксирован [ADR-011](decisions/0011-backend-refactoring-and-echo-migration.md). |
+| 2026-10-06 | **Спринт 2.2.3 успешно завершен**: Умная аналитика (Факт/Прогноз), статистика по тегам, редизайн Дашборда (виджеты расписания на сегодня, финансов месяца, быстрых действий), разделение тегов на бизнес-партнеров (`school_percent > 0`) и информационные, индикатор времени в календаре. 56/56 E2E тестов в Docker пройдены успешно. |
 
 ---
 
