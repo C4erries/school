@@ -4,227 +4,167 @@
 > Обновляется перед началом каждого спринта и после завершения задач.
 > Завершенные спринты архивируются в каталоге `docs/sprints/`.
 
-## Текущая фаза: 2.2.4 — Архитектурный рефакторинг бэкенда, переход на веб-фреймворк Echo v4 и декомпозиция адаптеров 🟢 (ЗАВЕРШЕН)
+## Текущая фаза: 2.3.1 — Регулярные занятия (Recurring Lessons & RRULE), Google Calendar Pattern и Двусторонняя совместимость с Google Календарем 🔵 (В РАБОТЕ)
 
 ---
 
-## 🧠 Аналитика задач спринта (Роль: Tech Lead & Software Architect)
+## 🧠 Аналитика задач спринта (Роль: CEO, PM & Lead Architect)
 
-### 1. Переход на веб-фреймворк Echo v4 ([ADR-011](decisions/0011-backend-refactoring-and-echo-migration.md))
-* **Проблема**:
-  Текущий HTTP-транспорт построен на стандартном `net/http.ServeMux`. Это приводит к избыточному бойлерплейту:
-  - Ручная обвязка контекстов запроса и извлечение параметров из путей URL;
-  - Ручной парсинг Bearer-токенов в хэндлерах и middleware;
-  - Ручная сериализация ошибок `writeError(w, status, code, msg)`;
-  - Сложности с добавлением стандартных кросс-функциональных middleware (CORS, Recover, RequestID).
+### 1. Бизнес-обоснование (CEO View)
+* **Проблема**: 90% расписания репетитора — это постоянная сетка на учебный год («Вторник и Четверг в 17:00»). Отсутствие серий заставляло преподавателя каждую неделю тратить время на рутинное прокликивание 30–40 одинаковых уроков.
+* **Решение**: Репетитор один раз настраивает циклический слот — система автономно держит расписание на весь учебный год.
+* **Бизнес-эффект**: Резкий рост удержания (Retention) преподавателей, максимальная автоматизация финансового прогноза (`/analytics/forecast`) и закрытие главного барьера перехода с Google Календаря.
+
+---
+
+### 2. Архитектура хранения: Подход Б (Виртуальные слоты + Материализация исключений, [ADR-012](decisions/0012-recurring-lessons-rrule-and-calendar-sync.md))
+* **Проблема**: Генерация сотен физических строк в таблице `lessons` раздувает базу данных, ломает бессрочные серии и делает массовые переносы ресурсоемкими и транзакционно уязвимыми.
 * **Решение**:
-  - Подключение `github.com/labstack/echo/v4`.
-  - Переключение генератора `oapi-codegen` на генерацию Echo-сервера (`echo-server: true` вместо `std-http-server: true`).
-  - Все хэндлеры реализуют идиоматичный интерфейс Echo: `func(c echo.Context) error`.
-  - Использование встроенных и производительных Echo middleware: Recover, CORS, централизованный `HTTPErrorHandler`.
+  - Таблица `lesson_series` хранит правило RFC 5545 RRULE (`FREQ=WEEKLY;BYDAY=TU,TH`), время дня, длительность, формат и горизонт дат.
+  - Таблица `lessons` хранит только разовые уроки, фактически проведенные занятия (`status = completed`) и точечные исключения (`series_id` + `original_start_time` / Recurrence-ID).
+  - При запросе расписания за неделю/месяц (`GET /schedule/lessons?from=...&to=...`) сервис динамически генерирует виртуальные слоты по RRULE и накладывает их на физические исключения из БД.
 
 ---
 
-### 2. Декомпозиция плоского пакета `adapters/postgres` по доменам
-* **Проблема**:
-  Каталог `backend/internal/infrastructure/api/adapters/postgres` содержит 12 файлов в одном общем пространстве имен (`client_repo.go`, `lesson_repository.go`, `user_repository.go`, `tag_repo.go`, `payment_repository.go` и др.). Отсутствуют доменные границы, что затрудняет навигацию и повышает связность кода.
-* **Решение**:
-  - Структурирование `adapters/postgres/` по изолированным предметным пакетам:
-    - `adapters/postgres/` (базовые утилиты пула соединений `connection.go` и контекстных транзакций `transactor.go`).
-    - `adapters/postgres/auth/` (`user_repository.go`).
-    - `adapters/postgres/crm/` (`client_repo.go`, `subscription_repo.go`, `balance_adjustment_repo.go`, `tag_repo.go`).
-    - `adapters/postgres/schedule/` (`lesson_repository.go`, `classroom_repository.go`, `teacher_student_repository.go`).
-    - `adapters/postgres/finance/` (`payment_repository.go`, `partner_payout_repository.go`).
+### 3. Полный паттерн управления изменениями (The Google Calendar Pattern)
+При редактировании или отмене занятия из серии преподаватель выбирает область действия:
+1. **«Только этот урок» (`scope: this_only`)**:
+   - Точечная отмена: создается запись в `lessons` со статусом `cancelled`, `series_id` и `original_start_time`. Виртуальный слот на эту дату подавляется.
+   - Точечный перенос/изменение: создается запись в `lessons` с новым временем/кабинетом, связкой с `series_id` и `original_start_time`.
+2. **«Этот и все последующие» (`scope: this_and_following`)**:
+   - Исходная серия обрезается: `until_date = occurrence_date - 1 день`.
+   - Начиная с даты выбранного урока создается новая `lesson_series` с обновленными параметрами (время, кабинет, формат).
+3. **«Все уроки серии» (`scope: all_in_series`)**:
+   - Обновляются глобальные поля исходной записи `lesson_series`.
 
 ---
 
-### 3. Модульная декомпозиция Application-сервисов (< 300–400 строк)
-* **Проблема**:
-  Файлы бизнес-логики разрослись до критических объемов:
-  - `application/finance/service.go` — **878 строк**;
-  - `application/analytics/service.go` — **802 строки**;
-  - `application/crm/service.go` — **476 строк**;
-  - `application/schedule/service.go` — **455 строк**.
-  Это нарушает стандарт конвенций проекта (< 300–400 строк) и затрудняет чтение и модификацию кода AI-агентами.
-* **Решение**:
-  Разбиение логики внутри каждого пакета по нескольким файлам без изменения контракта структуры сервиса:
-  - `application/finance/`:
-    - `service.go`: интерфейсы зависимостей, конструктор `NewService`, метод `GetFinanceSummary` (< 200 строк);
-    - `payments.go`: проведение платежей `RecordPayment`, история оплат, расчет задолженностей (< 250 строк);
-    - `settlements.go`: расчет партнерских обязательств `GetPartnerSettlements`, фиксация выплат `RecordPartnerPayout` (< 250 строк);
-    - `export.go`: генерация CSV отчетов с UTF-8 BOM (`ExportClients`, `ExportSchedule`, `ExportPayments`) (< 200 строк).
-  - `application/analytics/`:
-    - `service.go`: интерфейсы, конструктор, сводные KPI `GetOverview` (< 200 строк);
-    - `forecast.go`: расчет прогнозируемой нагрузки и доходов `GetForecast` (< 250 строк);
-    - `tags.go`: агрегация учеников и маржинальности по тегам `GetTagStats` (< 200 строк);
-    - `dynamics.go`: временные ряды `GetDynamics`, доли форматов `GetFormatStats`, рейтинг учеников `GetClientStats` (< 250 строк).
-  - `application/crm/`:
-    - `service.go`: CRUD операции над клиентами (< 250 строк);
-    - `subscriptions.go`: покупка, балансы и списание абонементов (< 200 строк);
-    - `balance.go`: ручные корректировки баланса с аудитом (< 150 строк).
-  - `application/schedule/`:
-    - `service.go`: жизненный цикл уроков (создание, проведение, отмена) (< 250 строк);
-    - `classrooms.go`: управление кабинетами и валидация нахлёстов/коллизий (< 250 строк).
+### 4. Взаимодействие с Абонементами и Финансовым Прогнозом
+* **Абонементы**: Списание баланса часов ученика происходит строго по факту проведения (`CompleteLesson`). Будущие виртуальные слоты баланс не уменьшают.
+* **Финансовый прогноз (`/analytics/forecast`)**: Виртуальные слоты в диапазоне дат автоматически включаются в расчет планируемой нагрузки и ожидаемого дохода по тарифам клиентов (за исключением отмененных дат).
 
 ---
 
-### 4. Создание нового HTTP-слоя на базе Echo v4 (`adapters/http/`)
-* **Проблема**:
-  Каталог `adapters/httpserver` содержал монолитную структуру `APIHandler` со свалкой хэндлеров всех подсистем (`client_handler.go` 573 строки, `schedule_handler.go` 392 строки, `finance_handler.go` 321 строка).
-* **Решение**:
-  - Создание нового чистого пакета `adapters/http/`:
-    - `adapters/http/middleware/`: Echo-совместимые middleware авторизации `AuthMiddleware` (извлечение Bearer, валидация JWT, сохранение в `echo.Context`), RBAC `RequireRoles`, структурированный `slog` логгер.
-    - `adapters/http/response/`: формат стандартных ошибок и маппинг.
-    - Предметные хэндлеры (`echo.Context`):
-      - `adapters/http/auth/`: регистрация, логин, refresh, получение текущего профиля `/auth/me`, дефолтные ставки.
-      - `adapters/http/crm/`: `client_handler.go`, `subscription_handler.go`, `tag_handler.go` (каждый < 250 строк).
-      - `adapters/http/schedule/`: `lesson_handler.go`, `classroom_handler.go`, `calendar_handler.go`.
-      - `adapters/http/finance/`: `finance_handler.go`, `export_handler.go`.
-      - `adapters/http/analytics/`: `analytics_handler.go`.
-      - `adapters/http/dashboard/`: `dashboard_handler.go`.
-    - `adapters/http/server.go`: композитный фасад `Server`, реализующий сгенерированный `generated.ServerInterface`, настройка Echo роутера, регистрация маршрутов `/health` и `/api/v1/*`, graceful shutdown.
+### 5. Совместимость с Google Calendar: iCal Feed и Импорт `.ics`
+1. **Экспорт и Live-подписка (`feed.ics` и `export.ics`)**:
+   - Выгрузка серий по стандарту RFC 5545 с директивами `RRULE`, `EXDATE` (отмененные даты) и кастомными VEVENT с `RECURRENCE-ID` (перенесенные вхождения).
+   - Google Calendar и Apple Calendar нативно понимают эти правила и показывают аккуратную циклическую сетку.
+2. **Импорт расписания из Google Calendar (`POST /api/v1/integrations/calendar/import`)**:
+   - Загрузка стандартного файла `.ics`, выгруженного из Google Календаря.
+   - Автоматический парсинг VEVENT (разовые события и серии RRULE) и создание уроков и серий в расписании репетитора.
 
 ---
 
-### 5. Обновление DI контейнера и верификация
-* Обновление `backend/internal/infrastructure/api/di/container.go` под новые пакеты репозиториев и Echo сервер.
-* Обновление `backend/cmd/api/main.go` для запуска и graceful shutdown Echo сервера.
-* Адаптация unit-тестов хэндлеров под вызовы с `echo.Context`.
-* Полное удаление устаревшего каталога `backend/internal/infrastructure/api/adapters/httpserver/`.
-* Сквозная проверка: `make test` (Go юнит-тесты), `docker compose up -d --build` и `make test-e2e` (все 56 E2E тестов в Docker).
-
----
-
-## 📋 Таблица задач спринта 2.2.4
+## 📋 Таблица задач спринта 2.3.1
 
 | # | Задача | Статус | Приоритет | Ответственный / Субагент | Заметки |
 |---|--------|--------|-----------|---------------------------|---------|
-| 1 | Добавление Echo v4 и переключение генератора `oapi-codegen` на `echo-server` | 🟢 Done | Критический | `backend_developer` | Добавлен `github.com/labstack/echo/v4`, сгенерирован `ServerInterface` для Echo. |
-| 2 | Декомпозиция `adapters/postgres` по предметным доменам | 🟢 Done | Высокий | `backend_developer` | Репозитории вынесены в `auth`, `crm`, `schedule`, `finance` внутри `adapters/postgres/`, все файлы < 330 строк. |
-| 3 | Модульная декомпозиция Application-сервисов (< 300–400 строк) | 🟢 Done | Высокий | `backend_developer` | Монолитные `finance`, `analytics`, `crm`, `schedule` разделены на логические файлы < 400 строк. |
-| 4 | Реализация HTTP-слоя на базе Echo v4 (`adapters/http/`) | 🟢 Done | Высокий | `backend_developer` | Создан модульный транспорт `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами. |
-| 5 | Обновление DI (`container.go`), `main.go`, перевод unit-тестов и удаление legacy `httpserver` | 🟢 Done | Высокий | `backend_developer` | DI обновлен, unit-тесты переведены на Echo (`make test` PASS), legacy пакет `httpserver` удален. |
-| 6 | Сквозная верификация: Unit-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) | 🟢 Done | Критический | `qa_engineer` | `make test` 100% pass, Docker контейнер healthy, 56/56 E2E автотестов успешно пройдены (`make test-e2e`). |
+| 1 | Миграция БД 000010 и Доменная модель `LessonSeries` | 🔲 To Do | Критический | `backend_developer` | Таблица `lesson_series`, поля `lessons.series_id`, `lessons.original_start_time`, доменные типы. |
+| 2 | OpenAPI контракт: схемы серий, scope изменений и импорт `.ics` | 🔲 To Do | Критический | `backend_developer` | Эндпоинты `/schedule/series`, scope в `/schedule/lessons`, эндпоинт `/integrations/calendar/import`. |
+| 3 | Backend: Сервис серий, генератор слотов RRULE и Google Calendar Pattern | 🔲 To Do | Высокий | `backend_developer` | Алгоритм генерации слотов, слияние в `ListLessons`, обработка `this_only`, `this_and_following`, `all_in_series`. |
+| 4 | Backend: Интеграция с Абонементами, Прогнозом и Google Calendar (iCal Feed + Import) | 🔲 To Do | Высокий | `backend_developer` | Проведение виртуального урока со списанием абонемента, учет в `/analytics/forecast`, RFC 5545 RRULE в `feed.ics`, парсер `.ics`. |
+| 5 | Frontend: UI создания серий, диалог Google Calendar Pattern и импорт `.ics` | 🔲 To Do | Высокий | `frontend_developer` | Тумблер повторений в модалке урока, иконка повторений в сетке, модалка выбора scope, кнопка импорта в `CalendarSyncModal`. |
+| 6 | E2E сценарии в Docker и регрессионная верификация | 🔲 To Do | Критический | `qa_engineer` | Полный цикл автотестов: создание серии, отображение в неделе, исключения, разделение серии, импорт `.ics`. |
 
 ---
 
-## 📋 Детальное Микро-ТЗ спринта 2.2.4
+## 📋 Детальное Микро-ТЗ спринта 2.3.1
 
-### Задача 1: Зависимости и OpenAPI кодогенерация
-* **Действия**:
-  1. Выполнить `go get github.com/labstack/echo/v4` в каталоге `backend/`.
-  2. Обновить `backend/api/openapi/oapi-codegen.yaml`:
-     ```yaml
-     package: generated
-     generate:
-       echo-server: true
-       models: true
-     output: internal/infrastructure/api/adapters/http/generated/api.gen.go
-     ```
-  3. Запустить `make oapi`.
-  4. Проверить создание файла `backend/internal/infrastructure/api/adapters/http/generated/api.gen.go` и интерфейса `ServerInterface` с методами вида `(ctx echo.Context) error`.
-
----
-
-### Задача 2: Декомпозиция `adapters/postgres`
-* **Действия**:
-  1. Оставить в `internal/infrastructure/api/adapters/postgres/`:
-     - `connection.go` (подключение к БД)
-     - `transactor.go` (транзакционный менеджер)
-  2. Создать подпакеты:
-     - `adapters/postgres/auth/`: `user_repository.go`
-     - `adapters/postgres/crm/`: `client_repo.go`, `client_repo_queries.go` (вынос фильтров и сборки SQL для сохранения лимита < 300 строк), `subscription_repo.go`, `balance_adjustment_repo.go`, `tag_repo.go`
-     - `adapters/postgres/schedule/`: `lesson_repository.go`, `classroom_repository.go`, `teacher_student_repository.go`
-     - `adapters/postgres/finance/`: `payment_repository.go`, `partner_payout_repository.go`
-  3. Проверить, что все экспортируемые конструкторы (`NewUserRepository`, `NewClientRepository` и т.д.) доступны в своих пакетах.
+### Задача 1: Миграция БД 000010 (`backend/migrations/000010_lesson_series.up.sql`)
+* Создание таблицы `lesson_series`:
+  - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+  - `teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`
+  - `client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE`
+  - `classroom_id UUID REFERENCES classrooms(id) ON DELETE SET NULL`
+  - `title VARCHAR(255) NOT NULL DEFAULT 'Занятие'`
+  - `rrule VARCHAR(255) NOT NULL` (например, `FREQ=WEEKLY;BYDAY=TU,TH`)
+  - `start_time_of_day TIME NOT NULL`
+  - `duration_minutes INT NOT NULL`
+  - `format VARCHAR(50) NOT NULL` (`individual`, `pair`, `group`)
+  - `location_or_url TEXT`
+  - `notes TEXT`
+  - `start_date DATE NOT NULL`
+  - `until_date DATE` (nullable)
+  - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+  - `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+* Добавление полей в `lessons`:
+  - `series_id UUID REFERENCES lesson_series(id) ON DELETE CASCADE`
+  - `original_start_time TIMESTAMPTZ` (метка исходного вхождения по RFC 5545 Recurrence-ID)
+* Доменные сущности в `backend/internal/domain/lesson_series.go`.
 
 ---
 
-### Задача 3: Модульная декомпозиция Application-сервисов
-* **Действия**:
-  1. `backend/internal/application/finance/`:
-     - `service.go`: структуры, конструктор `NewService`, метод `GetFinanceSummary`
-     - `payments.go`: `RecordPayment`, `ListPayments`, расчет задолженностей
-     - `settlements.go`: `GetPartnerSettlements`, `RecordPartnerPayout`, `ListPartnerPayouts`
-     - `export.go`: `ExportClientsCSV`, `ExportScheduleCSV`, `ExportPaymentsCSV`
-  2. `backend/internal/application/analytics/`:
-     - `service.go`: структуры, конструктор `NewService`, `GetOverview`
-     - `forecast.go`: `GetForecast`
-     - `tags.go`: `GetTagStats`
-     - `dynamics.go`: `GetDynamics`, `GetFormatStats`, `GetClientStats`
-  3. `backend/internal/application/crm/`:
-     - `service.go`: CRUD клиентов, поиск, архивация
-     - `subscriptions.go`: `AddSubscription`, списание
-     - `balance.go`: `AdjustBalance`
-  4. `backend/internal/application/schedule/`:
-     - `service.go`: создание, изменение, проведение, отмена уроков
-     - `classrooms.go`: управление кабинетами, проверка коллизий
-  5. Убедиться, что каждый файл строго < 300–400 строк кода.
+### Задача 2: Контракт OpenAPI (`backend/api/openapi/api.yaml`)
+* **Новые эндпоинты**:
+  - `POST /api/v1/schedule/series`: создание регулярной серии.
+  - `GET /api/v1/schedule/series`: получение активных серий преподавателя.
+  - `GET /api/v1/schedule/series/{id}`: детали серии.
+  - `PUT /api/v1/schedule/series/{id}`: обновление всей серии.
+  - `DELETE /api/v1/schedule/series/{id}`: удаление всей серии.
+  - `POST /api/v1/integrations/calendar/import`: загрузка `.ics` файла (multipart/form-data).
+* **Расширение существующих эндпоинтов**:
+  - `PATCH /api/v1/schedule/lessons/{id}`: добавление query/body параметра `scope` (`this_only`, `this_and_following`, `all_in_series`).
+  - `POST /api/v1/schedule/lessons/{id}/cancel`: параметр `scope` для отмены только текущего урока или всей цепочки.
+  - `LessonResponse`: флаги `is_recurring: boolean`, `series_id?: uuid`.
+* Выполнить `make oapi`.
 
 ---
 
-### Задача 4: Реализация нового HTTP-транспорта на Echo v4 (`adapters/http/`)
-* **Действия**:
-  1. `adapters/http/middleware/`:
-     - `auth.go`: Echo middleware `AuthMiddleware(validator TokenValidator) echo.MiddlewareFunc`. Извлекает Bearer token, валидирует, помещает `UserClaims` в `c.Set("user_claims", claims)`. Хелпер `UserFromContext(c echo.Context) (*security.UserClaims, bool)`.
-     - `roles.go`: Echo middleware `RequireRoles(roles ...domain.Role) echo.MiddlewareFunc`.
-     - `logger.go`: интеграция `slog` через `middleware.RequestLoggerWithConfig`.
-  2. `adapters/http/response/`:
-     - Хелпер `Error(c echo.Context, status int, code, message string) error` возвращающий `generated.ErrorResponse`.
-  3. Доменные хэндлеры:
-     - `adapters/http/auth/`: регистрация, логин, refresh, me, rates.
-     - `adapters/http/crm/`: `client_handler.go`, `subscription_handler.go`, `tag_handler.go`.
-     - `adapters/http/schedule/`: `lesson_handler.go`, `classroom_handler.go`, `calendar_handler.go`.
-     - `adapters/http/finance/`: `finance_handler.go`, `export_handler.go`.
-     - `adapters/http/analytics/`: `analytics_handler.go`.
-     - `adapters/http/dashboard/`: `dashboard_handler.go`.
-  4. `adapters/http/server.go`:
-     - Root facade `Server` объединяет хэндлеры и реализует `generated.ServerInterface`.
-     - Регистрация эндпоинтов через `generated.RegisterHandlers(e, server)` и `generated.RegisterHandlersWithBaseURL(e, server, "/api/v1")`.
-     - Graceful stop через `e.Shutdown(ctx)`.
+### Задача 3: Бизнес-логика серий и алгоритм виртуальных слотов
+* Репозиторий `LessonSeriesRepository` в `adapters/postgres/schedule/series_repository.go`.
+* Модуль вычисления дат повторений (RRULE weekly engine):
+  - По входным дням недели и `start_date`/`until_date` генерирует даты вхождения в интервале `[from, to]`.
+* Метод `ListLessons` сервиса расписания:
+  - Выборка физических уроков за интервал.
+  - Генерация виртуальных уроков серий.
+  - Слияние и фильтрация исключений (подавление отмененных, подмена перенесенных).
+* Методы модификации:
+  - `UpdateRecurringLesson(ctx, input)` с обработкой `this_only`, `this_and_following`, `all_in_series`.
 
 ---
 
-### Задача 5 & 6: DI сборка, тесты и верификация полного цикла
-* **Действия**:
-  1. Обновить `di/container.go`: внедрение Echo Server, новых пакетов адаптеров postgres и http.
-  2. Обновить `cmd/api/main.go` под Echo Server.
-  3. Перевести unit-тесты хэндлеров на Echo context:
-     - `req := httptest.NewRequest(...)`, `rec := httptest.NewRecorder()`, `c := echo.New().NewContext(req, rec)`.
-  4. Удалить устаревший каталог `adapters/httpserver/`.
-  5. Прогон `make test` (все тесты Go зеленые, без гонок).
-  6. Прогон `docker compose up -d --build` и `make test-e2e` (все 56/56 тестов зеленые).
+### Задача 4: Абонементы, Прогноз и Google Calendar (iCal Feed & Import)
+* Метод `CompleteLesson`: если урок виртуальный — материализовать в БД и списать часы с абонемента ученика.
+* Сервис аналитики: учет виртуальных уроков серий при расчете прогноза выручки `/analytics/forecast`.
+* Генератор `feed.ics`: формирование `RRULE`, параметров `EXDATE` и VEVENT с `RECURRENCE-ID`.
+* Импорт `import.ics`: парсинг входящего iCalendar файла и сохранение серий/уроков.
 
 ---
 
-## 🎯 Definition of Done (DoD) Спринта 2.2.4
-- [x] Веб-фреймворк Echo v4 подключен и настроен в качестве основного HTTP-транспорта.
-- [x] OpenAPI кодогенерация переведена на `echo-server`, генерируется `ServerInterface` для Echo.
-- [x] Пакет `adapters/postgres` декомпозирован на изолированные доменные подпакеты (`auth`, `crm`, `schedule`, `finance`).
-- [x] Монолитные файлы `finance/service.go`, `analytics/service.go`, `crm/service.go`, `schedule/service.go` и `client_repo.go` декомпозированы по стандарту < 300–400 строк.
-- [x] Создан новый модульный пакет `adapters/http/` с Echo middleware, централизованной обработкой ошибок и доменными хэндлерами.
-- [x] Каталог устаревшего `adapters/httpserver` полностью удален.
-- [x] DI контейнер и `cmd/api/main.go` переведены на Echo с сохранением graceful shutdown.
-- [x] Unit-тесты бэкенда успешно адаптированы под Echo и проходят без ошибок (`make test`).
-- [x] Контракт API полностью сохранен: 56/56 E2E автотестов в Docker проходят успешно (`make test-e2e`).
+### Задача 5: Frontend UI (React + Apple Liquid Glass)
+* Модалка `CreateLessonModal.tsx`:
+  - Тумблер `[✓] Повторять еженедельно`.
+  - Кнопки-чипы выбора дней недели: `[Пн] [Вт] [Ср] [Чт] [Пт] [Сб] [Вс]`.
+  - Дата окончания (до определенного числа или бессрочно).
+* Отображение в расписании (`ScheduleWeekView.tsx`, `ScheduleDayView.tsx`):
+  - Значок серии (иконка `RefreshCw` / `Repeat`) на карточках уроков.
+* Модалка выбора области действия (`RecurrenceScopeModal.tsx`):
+  - Диалог выбора: «Только этот урок», «Этот и все последующие», «Все уроки серии».
+* Модалка синхронизации (`CalendarSyncModal.tsx`):
+  - Блок «Импорт расписания из Google Календаря» (загрузка файла `.ics`).
 
 ---
 
-## 🗄️ Оставшийся бэклог на следующие спринты
+### Задача 6: Тестирование и верификация полного цикла
+* Модульные тесты генератора RRULE и исключений.
+* E2E автотесты в `tests/api/phase2_schedule/test_recurring_lessons.py`.
+* 100% зеленые юнит-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`).
 
-1. **Фаза 2.3: Регулярные занятия (Recurring Lessons & Series)**:
-   - Поддержка стандартов RFC 5545 RRULE (повторения еженедельно, с интервалами, по дням недели).
-   - Генерация виртуальных вхождений без раздувания базы данных.
-   - Гранулярное редактирование: «Только этот урок», «Этот и последующие», «Вся серия».
-   - Интеграция с расчетом прогноза и абонементами.
-2. **Анализ оптимизации и ресурсоемкости фронтенда (GPU/CPU профилирование, Lightweight / Power Save Mode)**:
-   - Оптимизация `<LiquidBackground />` (canvas FPS limit, pause on blur / tab hidden).
-   - Тумблер Lite Mode для отключения тяжелого `backdrop-blur` и канваса для максимальной разгрузки видеокарты на слабых устройствах.
-3. **Фаза 3: Двусторонняя интеграция с Google Calendar (OAuth 2.0)**:
-   - Прямая запись событий в Google Calendar через Google API.
-   - Двусторонняя блокировка слотов в расписании школы при занятости в личном календаре Google.
-4. **Фаза 4: Платформа "Школа" (Multi-player)**:
-   - Личные кабинеты учеников и владельца школы.
+---
+
+## 🎯 Definition of Done (DoD) Спринта 2.3.1
+- [ ] Применена миграция 000010 для серий и исключений.
+- [ ] Контракт OpenAPI обновлен эндпоинтами серий и импорта `.ics`, код сгенерирован (`make oapi`).
+- [ ] Реализовано создание еженедельных серий уроков по выбранным дням недели.
+- [ ] Реализован динамический расчет виртуальных слотов в расписании без раздувания базы данных.
+- [ ] Реализован Google Calendar Pattern при редактировании и отмене: «Только этот», «Этот и последующие», «Вся серия».
+- [ ] Проведение виртуального урока корректно материализует его и списывает баланс абонемента.
+- [ ] Виртуальные уроки серий учитываются в финансовом прогнозе (`/analytics/forecast`).
+- [ ] Календарный фид (`feed.ics`) генерирует стандартный RFC 5545 RRULE с поддержкой EXDATE/RECURRENCE-ID.
+- [ ] Реализован импорт расписания из внешнего `.ics` файла (Google Calendar).
+- [ ] Интерфейс расписания на фронтенде поддерживает настройку серий, индикацию и модалку выбора области действия.
+- [ ] Все юнит-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) успешно проходят.
+- [ ] Сборка фронтенда чистая (`npm run lint && npm run build`, 0 ошибок).
 
 ---
 
@@ -232,9 +172,7 @@
 
 | Дата | Что изменилось |
 |------|---------------|
-| 2026-10-06 | **Спринт 2.2.4 успешно завершен**: Архитектурный рефакторинг бэкенда полностью выполнен. Подключен Echo v4 (`github.com/labstack/echo/v4`), генератор `oapi-codegen` переведен на Echo `ServerInterface`. Адаптеры `postgres` и `http` декомпозированы по предметным доменам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`). Монолитные файлы бизнес-логики (`finance`, `analytics`, `crm`, `schedule`) разбиты на модули < 400 строк. Удален устаревший пакет `httpserver`. Все юнит-тесты `make test` и 56/56 E2E тестов в Docker (`make test-e2e`) пройдены со 100% успехом. Фундамент готов к Фазе 2.3 (Recurring Lessons). |
-| 2026-10-06 | **Сформирован Спринт 2.2.4 (Технический долг)**: Архитектурный рефакторинг бэкенда перед переходом к Фазе 2.3. Миграция на веб-фреймворк Echo v4, генерация Echo-сервера через `oapi-codegen`, декомпозиция плоских пакетов `adapters/postgres` и `adapters/http` по доменным контекстам (`auth`, `crm`, `schedule`, `finance`, `analytics`, `dashboard`), декомпозиция крупных сервисов на модули < 300–400 строк. Спринт 2.2.3 заархивирован в `docs/sprints/sprint-2.2.3.md`. Зафиксирован [ADR-011](decisions/0011-backend-refactoring-and-echo-migration.md). |
-| 2026-10-06 | **Спринт 2.2.3 успешно завершен**: Умная аналитика (Факт/Прогноз), статистика по тегам, редизайн Дашборда (виджеты расписания на сегодня, финансов месяца, быстрых действий), разделение тегов на бизнес-партнеров (`school_percent > 0`) и информационные, индикатор времени в календаре. 56/56 E2E тестов в Docker пройдены успешно. |
+| 2026-10-06 | **Сформирован Спринт 2.3.1 (Фаза 2.3)**: Регулярные занятия (Recurring Lessons & RFC 5545 RRULE), Google Calendar Pattern (Только этот / Этот и последующие / Вся серия), двусторонняя совместимость с Google Календарем (Live iCal feed с RRULE/EXDATE и импорт `.ics` файлов). Зафиксирован [ADR-012](decisions/0012-recurring-lessons-rrule-and-calendar-sync.md). Спринт 2.2.4 заархивирован в `docs/sprints/sprint-2.2.4.md`. |
 
 ---
 
