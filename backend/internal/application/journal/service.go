@@ -30,11 +30,20 @@ type HomeworkRepository interface {
 	ListDueByLessonOrDate(ctx context.Context, clientID uuid.UUID, targetDate time.Time) ([]*domain.HomeworkAssignment, error)
 }
 
+// NotesRepository определяет контракт хранилища свободных заметок.
+type NotesRepository interface {
+	Create(ctx context.Context, note *domain.ClientNote) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientNote, error)
+	Delete(ctx context.Context, id, teacherID uuid.UUID) error
+	ListByClientID(ctx context.Context, clientID, teacherID uuid.UUID) ([]*domain.ClientNote, error)
+}
+
 // ScheduleProvider контракт взаимодействия с сервисом расписания для уроков и серий.
 type ScheduleProvider interface {
 	GetLesson(ctx context.Context, lessonID uuid.UUID) (*domain.Lesson, error)
 	FindVirtualLesson(ctx context.Context, lessonID uuid.UUID, teacherID *uuid.UUID) (*domain.LessonSeries, *schedule.OccurrenceSlot, error)
 	EnsurePhysicalLesson(ctx context.Context, lessonID uuid.UUID, teacherID uuid.UUID) (*domain.Lesson, error)
+	GetUpcomingLesson(ctx context.Context, clientID, teacherID uuid.UUID) (*domain.Lesson, error)
 }
 
 // ClientProvider контракт доступа к клиентам для проверки прав доступа.
@@ -47,6 +56,22 @@ type LessonJournalBundle struct {
 	Journal            *domain.LessonJournal
 	AssignedHomeworks  []*domain.HomeworkAssignment
 	DueHomeworks       []*domain.HomeworkAssignment
+}
+
+// StudyStreamItem объединяет отчет по уроку или свободную заметку для ленты.
+type StudyStreamItem struct {
+	ID           uuid.UUID
+	Type         string // "lesson_report" или "note"
+	Timestamp    time.Time
+	LessonReport *LessonJournalBundle
+	Note         *domain.ClientNote
+}
+
+// StudyStreamResult содержит ленту занятий/заметок ученика и ближайший запланированный урок.
+type StudyStreamResult struct {
+	ClientID       uuid.UUID
+	Items          []*StudyStreamItem
+	UpcomingLesson *domain.Lesson
 }
 
 // UpsertJournalInput параметры создания или обновления отчета по уроку.
@@ -78,6 +103,7 @@ type UpdateHomeworkStatusInput struct {
 type Service struct {
 	journalRepo      JournalRepository
 	homeworkRepo     HomeworkRepository
+	notesRepo        NotesRepository
 	scheduleProvider ScheduleProvider
 	clientProvider   ClientProvider
 }
@@ -88,10 +114,16 @@ func NewService(
 	homeworkRepo HomeworkRepository,
 	scheduleProvider ScheduleProvider,
 	clientProvider ClientProvider,
+	notesRepo ...NotesRepository,
 ) *Service {
+	var nRepo NotesRepository
+	if len(notesRepo) > 0 {
+		nRepo = notesRepo[0]
+	}
 	return &Service{
 		journalRepo:      journalRepo,
 		homeworkRepo:     homeworkRepo,
+		notesRepo:        nRepo,
 		scheduleProvider: scheduleProvider,
 		clientProvider:   clientProvider,
 	}
@@ -280,4 +312,122 @@ func (s *Service) UpdateHomeworkStatus(
 // DeleteHomework удаляет домашнее задание преподавателя.
 func (s *Service) DeleteHomework(ctx context.Context, id, teacherID uuid.UUID) error {
 	return s.homeworkRepo.Delete(ctx, id, teacherID)
+}
+
+// CreateClientNote сохраняет новую свободную заметку по ученику.
+func (s *Service) CreateClientNote(ctx context.Context, teacherID, clientID uuid.UUID, content string) (*domain.ClientNote, error) {
+	if s.notesRepo == nil {
+		return nil, errors.New("notes repository not configured")
+	}
+
+	client, err := s.clientProvider.GetClient(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if client.TeacherID != teacherID {
+		return nil, domain.ErrForbidden
+	}
+
+	note, err := domain.NewClientNote(clientID, teacherID, content)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.notesRepo.Create(ctx, note); err != nil {
+		return nil, fmt.Errorf("create client note: %w", err)
+	}
+
+	return note, nil
+}
+
+// DeleteClientNote удаляет свободную заметку по ученику.
+func (s *Service) DeleteClientNote(ctx context.Context, id, teacherID uuid.UUID) error {
+	if s.notesRepo == nil {
+		return errors.New("notes repository not configured")
+	}
+
+	return s.notesRepo.Delete(ctx, id, teacherID)
+}
+
+// GetClientStudyStream возвращает объединенную хронологическую ленту отчетов по урокам и заметок, а также ближайший запланированный урок.
+func (s *Service) GetClientStudyStream(ctx context.Context, teacherID, clientID uuid.UUID) (*StudyStreamResult, error) {
+	client, err := s.clientProvider.GetClient(ctx, clientID)
+	if err != nil {
+		return nil, err
+	}
+	if client.TeacherID != teacherID {
+		return nil, domain.ErrForbidden
+	}
+
+	// 1. Получаем все отчеты по урокам данного клиента
+	journals, err := s.journalRepo.ListByClientID(ctx, clientID, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("list journals by client: %w", err)
+	}
+
+	items := make([]*StudyStreamItem, 0, len(journals))
+	for _, j := range journals {
+		assignedHws, aErr := s.homeworkRepo.ListByAssignedLessonID(ctx, j.LessonID)
+		if aErr != nil {
+			assignedHws = []*domain.HomeworkAssignment{}
+		}
+
+		dueHws, dErr := s.homeworkRepo.ListDueByLessonOrDate(ctx, clientID, j.CreatedAt)
+		if dErr != nil {
+			dueHws = []*domain.HomeworkAssignment{}
+		}
+
+		bundle := &LessonJournalBundle{
+			Journal:           j,
+			AssignedHomeworks: assignedHws,
+			DueHomeworks:      dueHws,
+		}
+
+		items = append(items, &StudyStreamItem{
+			ID:           j.ID,
+			Type:         "lesson_report",
+			Timestamp:    j.CreatedAt,
+			LessonReport: bundle,
+		})
+	}
+
+	// 2. Получаем свободные заметки
+	if s.notesRepo != nil {
+		notes, nErr := s.notesRepo.ListByClientID(ctx, clientID, teacherID)
+		if nErr != nil {
+			return nil, fmt.Errorf("list notes by client: %w", nErr)
+		}
+		for _, note := range notes {
+			items = append(items, &StudyStreamItem{
+				ID:        note.ID,
+				Type:      "note",
+				Timestamp: note.CreatedAt,
+				Note:      note,
+			})
+		}
+	}
+
+	// 3. Сортируем ленту строго Timestamp ASC (старые сверху, новые снизу)
+	for i := 0; i < len(items)-1; i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[i].Timestamp.After(items[j].Timestamp) {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+
+	// 4. Получаем ближайший запланированный урок
+	var upcoming *domain.Lesson
+	if s.scheduleProvider != nil {
+		up, uErr := s.scheduleProvider.GetUpcomingLesson(ctx, clientID, teacherID)
+		if uErr == nil {
+			upcoming = up
+		}
+	}
+
+	return &StudyStreamResult{
+		ClientID:       clientID,
+		Items:          items,
+		UpcomingLesson: upcoming,
+	}, nil
 }

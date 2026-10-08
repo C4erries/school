@@ -2589,6 +2589,155 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /crm/clients/{id}/stream:
+    get:
+      summary: Получение единого агрегированного потока обучения ученика (Study Stream)
+      operationId: getClientStudyStream
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Агрегированный хронологический поток обучения (уроки и свободные заметки)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyStreamResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /crm/clients/{id}/notes:
+    post:
+      summary: Создание быстрой свободной заметки по ученику
+      operationId: createClientNote
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClientNoteRequest'
+      responses:
+        '201':
+          description: Свободная заметка успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientNoteResponse'
+        '400':
+          description: Некорректные параметры запроса (пустой текст заметки)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /crm/clients/notes/{id}:
+    delete:
+      summary: Удаление свободной заметки по ученику
+      operationId: deleteClientNote
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Заметка успешно удалена
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Заметка не найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /homework/{id}:
     patch:
       summary: Обновить статус домашнего задания и рецензию
@@ -3429,6 +3578,11 @@ components:
             $ref: '#/components/schemas/TagResponse'
         balances:
           $ref: '#/components/schemas/ClientBalances'
+        last_lesson_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Дата и время последнего проведенного или запланированного занятия
         created_at:
           type: string
           format: date-time
@@ -4335,6 +4489,115 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/HomeworkAssignmentResponse'
+
+    ClientNoteResponse:
+      type: object
+      required:
+        - id
+        - client_id
+        - teacher_id
+        - content
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+          example: 'Позвонила мама, просила сделать упор на тригонометрию'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateClientNoteRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          example: 'Позвонила мама, просила сделать упор на тригонометрию'
+
+    UpcomingLessonInfo:
+      type: object
+      required:
+        - lesson_id
+        - start_time
+        - end_time
+        - format
+        - title
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        format:
+          type: string
+          example: 'individual'
+        title:
+          type: string
+          example: 'Подготовка к ЕГЭ'
+        topic:
+          type: string
+          nullable: true
+          example: 'Квадратные уравнения'
+
+    StudyStreamItemResponse:
+      type: object
+      required:
+        - id
+        - type
+        - timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum:
+            - lesson_report
+            - note
+          example: 'lesson_report'
+        timestamp:
+          type: string
+          format: date-time
+        lesson_report:
+          $ref: '#/components/schemas/LessonJournalBundleResponse'
+        note:
+          $ref: '#/components/schemas/ClientNoteResponse'
+
+    StudyStreamResponse:
+      type: object
+      required:
+        - client_id
+        - items
+      properties:
+        client_id:
+          type: string
+          format: uuid
+        upcoming_lesson:
+          $ref: '#/components/schemas/UpcomingLessonInfo'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StudyStreamItemResponse'
+
 
 
 

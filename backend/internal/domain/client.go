@@ -31,6 +31,7 @@ type Client struct {
 	IsArchived       bool           `json:"is_archived" db:"is_archived"`
 	Tags             []Tag          `json:"tags"`
 	Balances         ClientBalances `json:"balances"`
+	LastLessonAt     *time.Time     `json:"last_lesson_at,omitempty" db:"last_lesson_at"`
 	CreatedAt        time.Time      `json:"created_at" db:"created_at"`
 }
 

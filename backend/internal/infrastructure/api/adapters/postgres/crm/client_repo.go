@@ -160,6 +160,12 @@ func (r *ClientRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.C
 	}
 	c.Balances = balances
 
+	lastLesson, err := r.getClientLastLesson(ctx, c.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get client last lesson: %w", err)
+	}
+	c.LastLessonAt = lastLesson
+
 	return &c, nil
 }
 

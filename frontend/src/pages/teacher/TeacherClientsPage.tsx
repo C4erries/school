@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserPlus, Coins, RefreshCw, AlertCircle } from 'lucide-react';
 import { Client, Tag, UserDefaultRates } from '../../types/schedule';
 import { getClients, getTags, getDefaultRates, archiveClient, unarchiveClient } from '../../api/schedule';
@@ -15,6 +16,7 @@ import { DefaultRatesModal } from '../../features/clients/components/DefaultRate
 import { ClientJournalModal } from '../../features/clients/components/ClientJournalModal';
 
 export const TeacherClientsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [defaultRates, setDefaultRates] = useState<UserDefaultRates | null>(null);
@@ -147,7 +149,7 @@ export const TeacherClientsPage: React.FC = () => {
               onEdit={setEditingClient}
               onAddSubscription={setSubClient}
               onAdjustBalance={setAdjustClient}
-              onOpenJournal={setJournalClient}
+              onOpenJournal={(c) => navigate(`/teacher/journal?clientId=${c.id}`)}
               onArchive={handleArchive}
               onUnarchive={handleUnarchive}
             />

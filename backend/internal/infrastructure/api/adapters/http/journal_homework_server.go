@@ -62,6 +62,18 @@ func MapHomeworkToResponse(hw *domain.HomeworkAssignment) generated.HomeworkAssi
 	}
 }
 
+// MapClientNoteToResponse преобразует доменную сущность ClientNote в DTO ответа.
+func MapClientNoteToResponse(note *domain.ClientNote) generated.ClientNoteResponse {
+	return generated.ClientNoteResponse{
+		Id:        note.ID,
+		ClientId:  note.ClientID,
+		TeacherId: note.TeacherID,
+		Content:   note.Content,
+		CreatedAt: note.CreatedAt,
+		UpdatedAt: note.UpdatedAt,
+	}
+}
+
 // MapBundleToResponse преобразует бандл журнала и домашних заданий в DTO ответа.
 func MapBundleToResponse(bundle *journal.LessonJournalBundle) generated.LessonJournalBundleResponse {
 	var journalPtr *generated.LessonJournalResponse
@@ -334,4 +346,128 @@ func (s *Server) DeleteHomework(ctx echo.Context, id openapi_types.UUID) error {
 	}
 
 	return ctx.NoContent(http.StatusNoContent)
+}
+
+// CreateClientNote сохраняет новую свободную заметку по ученику.
+func (s *Server) CreateClientNote(ctx echo.Context, id openapi_types.UUID) error {
+	claims, ok := s.authHandler.Authenticate(ctx)
+	if !ok {
+		return nil
+	}
+
+	if s.journalService == nil {
+		return response.Error(ctx, http.StatusNotImplemented, "NOT_IMPLEMENTED", "journal service not configured")
+	}
+
+	var req generated.CreateClientNoteRequest
+	if err := ctx.Bind(&req); err != nil {
+		return response.Error(ctx, http.StatusBadRequest, "INVALID_REQUEST", "invalid request body")
+	}
+
+	note, err := s.journalService.CreateClientNote(ctx.Request().Context(), claims.UserID, id, req.Content)
+	if err != nil {
+		if errors.Is(err, domain.ErrClientNotFound) {
+			return response.Error(ctx, http.StatusNotFound, "NOT_FOUND", "client not found")
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			return response.Error(ctx, http.StatusForbidden, "FORBIDDEN", "access denied")
+		}
+		if errors.Is(err, domain.ErrEmptyClientNoteContent) {
+			return response.Error(ctx, http.StatusBadRequest, "BAD_REQUEST", err.Error())
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to create client note")
+	}
+
+	return ctx.JSON(http.StatusCreated, MapClientNoteToResponse(note))
+}
+
+// DeleteClientNote удаляет свободную заметку по ученику.
+func (s *Server) DeleteClientNote(ctx echo.Context, id openapi_types.UUID) error {
+	claims, ok := s.authHandler.Authenticate(ctx)
+	if !ok {
+		return nil
+	}
+
+	if s.journalService == nil {
+		return response.Error(ctx, http.StatusNotImplemented, "NOT_IMPLEMENTED", "journal service not configured")
+	}
+
+	err := s.journalService.DeleteClientNote(ctx.Request().Context(), id, claims.UserID)
+	if err != nil {
+		if errors.Is(err, domain.ErrClientNoteNotFound) {
+			return response.Error(ctx, http.StatusNotFound, "NOT_FOUND", "client note not found")
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			return response.Error(ctx, http.StatusForbidden, "FORBIDDEN", "access denied")
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to delete client note")
+	}
+
+	return ctx.NoContent(http.StatusNoContent)
+}
+
+// GetClientStudyStream возвращает ленту занятий/заметок ученика и информацию о ближайшем уроке.
+func (s *Server) GetClientStudyStream(ctx echo.Context, id openapi_types.UUID) error {
+	claims, ok := s.authHandler.Authenticate(ctx)
+	if !ok {
+		return nil
+	}
+
+	if s.journalService == nil {
+		return response.Error(ctx, http.StatusNotImplemented, "NOT_IMPLEMENTED", "journal service not configured")
+	}
+
+	stream, err := s.journalService.GetClientStudyStream(ctx.Request().Context(), claims.UserID, id)
+	if err != nil {
+		if errors.Is(err, domain.ErrClientNotFound) {
+			return response.Error(ctx, http.StatusNotFound, "NOT_FOUND", "client not found")
+		}
+		if errors.Is(err, domain.ErrForbidden) {
+			return response.Error(ctx, http.StatusForbidden, "FORBIDDEN", "access denied")
+		}
+		return response.Error(ctx, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to get study stream")
+	}
+
+	items := make([]generated.StudyStreamItemResponse, 0, len(stream.Items))
+	for _, item := range stream.Items {
+		streamItem := generated.StudyStreamItemResponse{
+			Id:        item.ID,
+			Type:      generated.StudyStreamItemResponseType(item.Type),
+			Timestamp: item.Timestamp,
+		}
+
+		if item.LessonReport != nil {
+			bundleResp := MapBundleToResponse(item.LessonReport)
+			streamItem.LessonReport = &bundleResp
+		}
+
+		if item.Note != nil {
+			noteResp := MapClientNoteToResponse(item.Note)
+			streamItem.Note = &noteResp
+		}
+
+		items = append(items, streamItem)
+	}
+
+	var upcomingResp *generated.UpcomingLessonInfo
+	if stream.UpcomingLesson != nil {
+		var topicPtr *string
+		if stream.UpcomingLesson.Notes != "" {
+			topicPtr = &stream.UpcomingLesson.Notes
+		}
+		upcomingResp = &generated.UpcomingLessonInfo{
+			LessonId:  stream.UpcomingLesson.ID,
+			Title:     stream.UpcomingLesson.Title,
+			StartTime: stream.UpcomingLesson.StartTime,
+			EndTime:   stream.UpcomingLesson.EndTime,
+			Format:    string(stream.UpcomingLesson.Format),
+			Topic:     topicPtr,
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, generated.StudyStreamResponse{
+		ClientId:       stream.ClientID,
+		Items:          items,
+		UpcomingLesson: upcomingResp,
+	})
 }

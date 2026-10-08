@@ -74,6 +74,7 @@ export interface Client {
   balance: number;
   balances?: ClientBalances;
   is_archived?: boolean;
+  last_lesson_at?: string | null;
   created_at: string;
 }
 

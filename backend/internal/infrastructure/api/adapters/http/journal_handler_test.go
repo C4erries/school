@@ -134,6 +134,14 @@ func (m *mockScheduleProvForHTTP) EnsurePhysicalLesson(ctx context.Context, less
 	return args.Get(0).(*domain.Lesson), args.Error(1)
 }
 
+func (m *mockScheduleProvForHTTP) GetUpcomingLesson(ctx context.Context, clientID, teacherID uuid.UUID) (*domain.Lesson, error) {
+	args := m.Called(ctx, clientID, teacherID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Lesson), args.Error(1)
+}
+
 type mockClientProvForHTTP struct {
 	mock.Mock
 }
@@ -146,12 +154,43 @@ func (m *mockClientProvForHTTP) GetClient(ctx context.Context, id uuid.UUID) (*d
 	return args.Get(0).(*domain.Client), args.Error(1)
 }
 
+type mockNotesRepoForHTTP struct {
+	mock.Mock
+}
+
+func (m *mockNotesRepoForHTTP) Create(ctx context.Context, note *domain.ClientNote) error {
+	args := m.Called(ctx, note)
+	return args.Error(0)
+}
+
+func (m *mockNotesRepoForHTTP) GetByID(ctx context.Context, id uuid.UUID) (*domain.ClientNote, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.ClientNote), args.Error(1)
+}
+
+func (m *mockNotesRepoForHTTP) Delete(ctx context.Context, id, teacherID uuid.UUID) error {
+	args := m.Called(ctx, id, teacherID)
+	return args.Error(0)
+}
+
+func (m *mockNotesRepoForHTTP) ListByClientID(ctx context.Context, clientID, teacherID uuid.UUID) ([]*domain.ClientNote, error) {
+	args := m.Called(ctx, clientID, teacherID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.ClientNote), args.Error(1)
+}
+
 func setupJournalTest(t *testing.T) (
 	*httpadapter.Server,
 	*mockJournalRepoForHTTP,
 	*mockHomeworkRepoForHTTP,
 	*mockScheduleProvForHTTP,
 	*mockClientProvForHTTP,
+	*mockNotesRepoForHTTP,
 	uuid.UUID,
 	string,
 ) {
@@ -169,8 +208,9 @@ func setupJournalTest(t *testing.T) (
 	hwRepo := new(mockHomeworkRepoForHTTP)
 	sProv := new(mockScheduleProvForHTTP)
 	cProv := new(mockClientProvForHTTP)
+	nRepo := new(mockNotesRepoForHTTP)
 
-	journalSvc := journal.NewService(jRepo, hwRepo, sProv, cProv)
+	journalSvc := journal.NewService(jRepo, hwRepo, sProv, cProv, nRepo)
 
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 	cfg := &config.Config{
@@ -181,11 +221,11 @@ func setupJournalTest(t *testing.T) (
 	}
 	server := httpadapter.NewServer(cfg, logger, nil, nil, nil, nil, tokenManager, "v1", journalSvc)
 
-	return server, jRepo, hwRepo, sProv, cProv, teacherID, token
+	return server, jRepo, hwRepo, sProv, cProv, nRepo, teacherID, token
 }
 
 func TestJournalAndHomeworkHandler_Endpoints(t *testing.T) {
-	server, jRepo, hwRepo, sProv, cProv, teacherID, token := setupJournalTest(t)
+	server, jRepo, hwRepo, sProv, cProv, nRepo, teacherID, token := setupJournalTest(t)
 	e := server.Echo()
 	clientID := uuid.New()
 	lessonID := uuid.New()
@@ -348,5 +388,92 @@ func TestJournalAndHomeworkHandler_Endpoints(t *testing.T) {
 		e.ServeHTTP(rr, req)
 
 		require.Equal(t, http.StatusNoContent, rr.Code)
+	})
+
+	t.Run("POST /api/v1/crm/clients/{id}/notes - success", func(t *testing.T) {
+		cProv.On("GetClient", mock.Anything, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil).Once()
+		nRepo.On("Create", mock.Anything, mock.AnythingOfType("*domain.ClientNote")).Return(nil).Once()
+
+		body, _ := json.Marshal(generated.CreateClientNoteRequest{
+			Content: "Позвонили родители, обсудили успеваемость",
+		})
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/crm/clients/"+clientID.String()+"/notes", bytes.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rr := httptest.NewRecorder()
+
+		e.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusCreated, rr.Code)
+		var resp generated.ClientNoteResponse
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.Equal(t, "Позвонили родители, обсудили успеваемость", resp.Content)
+		assert.Equal(t, clientID, resp.ClientId)
+		assert.Equal(t, teacherID, resp.TeacherId)
+	})
+
+	t.Run("DELETE /api/v1/crm/clients/notes/{id} - success", func(t *testing.T) {
+		noteID := uuid.New()
+		nRepo.On("Delete", mock.Anything, noteID, teacherID).Return(nil).Once()
+
+		req := httptest.NewRequest(http.MethodDelete, "/api/v1/crm/clients/notes/"+noteID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+
+		e.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusNoContent, rr.Code)
+	})
+
+	t.Run("GET /api/v1/crm/clients/{id}/stream - success", func(t *testing.T) {
+		cProv.On("GetClient", mock.Anything, clientID).Return(&domain.Client{
+			ID:        clientID,
+			TeacherID: teacherID,
+		}, nil).Once()
+
+		jRepo.On("ListByClientID", mock.Anything, clientID, teacherID).Return([]*domain.LessonJournal{}, nil).Once()
+		nRepo.On("ListByClientID", mock.Anything, clientID, teacherID).Return([]*domain.ClientNote{
+			{
+				ID:        uuid.New(),
+				ClientID:  clientID,
+				TeacherID: teacherID,
+				Content:   "Быстрая заметка",
+				CreatedAt: now,
+			},
+		}, nil).Once()
+
+		upcoming := &domain.Lesson{
+			ID:        uuid.New(),
+			TeacherID: teacherID,
+			ClientID:  clientID,
+			Title:     "Ближайший урок",
+			StartTime: now.Add(24 * time.Hour),
+			EndTime:   now.Add(25 * time.Hour),
+			Format:    domain.FormatIndividual,
+			Notes:     "Тема следующего урока",
+			Status:    domain.StatusScheduled,
+		}
+		sProv.On("GetUpcomingLesson", mock.Anything, clientID, teacherID).Return(upcoming, nil).Once()
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/crm/clients/"+clientID.String()+"/stream", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rr := httptest.NewRecorder()
+
+		e.ServeHTTP(rr, req)
+
+		require.Equal(t, http.StatusOK, rr.Code)
+		var resp generated.StudyStreamResponse
+		require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &resp))
+		assert.Equal(t, clientID, resp.ClientId)
+		require.Len(t, resp.Items, 1)
+		assert.Equal(t, generated.Note, resp.Items[0].Type)
+		assert.Equal(t, "Быстрая заметка", resp.Items[0].Note.Content)
+		require.NotNil(t, resp.UpcomingLesson)
+		assert.Equal(t, "Ближайший урок", resp.UpcomingLesson.Title)
+		require.NotNil(t, resp.UpcomingLesson.Topic)
+		assert.Equal(t, "Тема следующего урока", *resp.UpcomingLesson.Topic)
 	})
 }

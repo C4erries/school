@@ -253,6 +253,24 @@ func (e Role) Valid() bool {
 	}
 }
 
+// Defines values for StudyStreamItemResponseType.
+const (
+	LessonReport StudyStreamItemResponseType = "lesson_report"
+	Note         StudyStreamItemResponseType = "note"
+)
+
+// Valid indicates whether the value is a known member of the StudyStreamItemResponseType enum.
+func (e StudyStreamItemResponseType) Valid() bool {
+	switch e {
+	case LessonReport:
+		return true
+	case Note:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SubscriptionResponseFormat.
 const (
 	SubscriptionResponseFormatGroup      SubscriptionResponseFormat = "group"
@@ -566,6 +584,18 @@ type ClientBalances struct {
 	TotalHours float32 `json:"total_hours"`
 }
 
+// ClientNoteResponse defines model for ClientNoteResponse.
+type ClientNoteResponse struct {
+	ClientId openapi_types.UUID `json:"client_id"`
+
+	// Content Example: Позвонила мама, просила сделать упор на тригонометрию
+	Content   string             `json:"content"`
+	CreatedAt time.Time          `json:"created_at"`
+	Id        openapi_types.UUID `json:"id"`
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+	UpdatedAt time.Time          `json:"updated_at"`
+}
+
 // ClientResponse defines model for ClientResponse.
 type ClientResponse struct {
 	Balances   ClientBalances     `json:"balances"`
@@ -573,8 +603,11 @@ type ClientResponse struct {
 	CreatedAt  time.Time          `json:"created_at"`
 	Id         openapi_types.UUID `json:"id"`
 	IsArchived bool               `json:"is_archived"`
-	Name       string             `json:"name"`
-	Phone      *string            `json:"phone,omitempty"`
+
+	// LastLessonAt Дата и время последнего проведенного или запланированного занятия
+	LastLessonAt *time.Time `json:"last_lesson_at,omitempty"`
+	Name         string     `json:"name"`
+	Phone        *string    `json:"phone,omitempty"`
 
 	// RateGroup Example: 800
 	RateGroup *float32 `json:"rate_group,omitempty"`
@@ -602,6 +635,12 @@ type CreateClassroomRequest struct {
 
 	// Name Example: Кабинет №1
 	Name string `json:"name"`
+}
+
+// CreateClientNoteRequest defines model for CreateClientNoteRequest.
+type CreateClientNoteRequest struct {
+	// Content Example: Позвонила мама, просила сделать упор на тригонометрию
+	Content string `json:"content"`
 }
 
 // CreateClientRequest defines model for CreateClientRequest.
@@ -1134,6 +1173,27 @@ type RegisterRequest struct {
 // Role Example: student
 type Role string
 
+// StudyStreamItemResponse defines model for StudyStreamItemResponse.
+type StudyStreamItemResponse struct {
+	Id           openapi_types.UUID           `json:"id"`
+	LessonReport *LessonJournalBundleResponse `json:"lesson_report,omitempty"`
+	Note         *ClientNoteResponse          `json:"note,omitempty"`
+	Timestamp    time.Time                    `json:"timestamp"`
+
+	// Type Example: lesson_report
+	Type StudyStreamItemResponseType `json:"type"`
+}
+
+// StudyStreamItemResponseType Example: lesson_report
+type StudyStreamItemResponseType string
+
+// StudyStreamResponse defines model for StudyStreamResponse.
+type StudyStreamResponse struct {
+	ClientId       openapi_types.UUID        `json:"client_id"`
+	Items          []StudyStreamItemResponse `json:"items"`
+	UpcomingLesson *UpcomingLessonInfo       `json:"upcoming_lesson,omitempty"`
+}
+
 // SubscriptionResponse defines model for SubscriptionResponse.
 type SubscriptionResponse struct {
 	// Balance Example: 10
@@ -1229,6 +1289,22 @@ type TokenPair struct {
 
 	// TokenType Example: Bearer
 	TokenType string `json:"token_type"`
+}
+
+// UpcomingLessonInfo defines model for UpcomingLessonInfo.
+type UpcomingLessonInfo struct {
+	EndTime time.Time `json:"end_time"`
+
+	// Format Example: individual
+	Format    string             `json:"format"`
+	LessonId  openapi_types.UUID `json:"lesson_id"`
+	StartTime time.Time          `json:"start_time"`
+
+	// Title Example: Подготовка к ЕГЭ
+	Title string `json:"title"`
+
+	// Topic Example: Квадратные уравнения
+	Topic *string `json:"topic,omitempty"`
 }
 
 // UpdateClientRequest defines model for UpdateClientRequest.
@@ -1514,6 +1590,9 @@ type AssignClientTagJSONRequestBody = AssignTagRequest
 // CreateHomeworkJSONRequestBody defines body for CreateHomework for application/json ContentType.
 type CreateHomeworkJSONRequestBody = CreateHomeworkRequest
 
+// CreateClientNoteJSONRequestBody defines body for CreateClientNote for application/json ContentType.
+type CreateClientNoteJSONRequestBody = CreateClientNoteRequest
+
 // CreatePartnerPayoutJSONRequestBody defines body for CreatePartnerPayout for application/json ContentType.
 type CreatePartnerPayoutJSONRequestBody = CreatePartnerPayoutRequest
 
@@ -1624,6 +1703,9 @@ type ServerInterface interface {
 	// UnarchiveClient Восстановление клиента из архива
 	// (POST /clients/{id}/unarchive)
 	UnarchiveClient(ctx echo.Context, id openapi_types.UUID) error
+	// DeleteClientNote Удаление свободной заметки по ученику
+	// (DELETE /crm/clients/notes/{id})
+	DeleteClientNote(ctx echo.Context, id openapi_types.UUID) error
 	// ListClientHomework Список всех домашних заданий ученика
 	// (GET /crm/clients/{id}/homework)
 	ListClientHomework(ctx echo.Context, id openapi_types.UUID, params ListClientHomeworkParams) error
@@ -1633,6 +1715,12 @@ type ServerInterface interface {
 	// GetClientJournals Получить список всех отчетов по урокам ученика
 	// (GET /crm/clients/{id}/journal)
 	GetClientJournals(ctx echo.Context, id openapi_types.UUID) error
+	// CreateClientNote Создание быстрой свободной заметки по ученику
+	// (POST /crm/clients/{id}/notes)
+	CreateClientNote(ctx echo.Context, id openapi_types.UUID) error
+	// GetClientStudyStream Получение единого агрегированного потока обучения ученика (Study Stream)
+	// (GET /crm/clients/{id}/stream)
+	GetClientStudyStream(ctx echo.Context, id openapi_types.UUID) error
 	// GetDashboardMetrics Метрики дашборда
 	// (GET /dashboard/metrics)
 	GetDashboardMetrics(ctx echo.Context, params GetDashboardMetricsParams) error
@@ -2172,6 +2260,22 @@ func (w *ServerInterfaceWrapper) UnarchiveClient(ctx echo.Context) error {
 	return err
 }
 
+// DeleteClientNote converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteClientNote(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteClientNote(ctx, id)
+	return err
+}
+
 // ListClientHomework converts echo context to params.
 func (w *ServerInterfaceWrapper) ListClientHomework(ctx echo.Context) error {
 	var err error
@@ -2226,6 +2330,38 @@ func (w *ServerInterfaceWrapper) GetClientJournals(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.GetClientJournals(ctx, id)
+	return err
+}
+
+// CreateClientNote converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateClientNote(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateClientNote(ctx, id)
+	return err
+}
+
+// GetClientStudyStream converts echo context to params.
+func (w *ServerInterfaceWrapper) GetClientStudyStream(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetClientStudyStream(ctx, id)
 	return err
 }
 
@@ -2900,6 +3036,9 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/crm/clients/:id/journal", wrapper.GetClientJournals, options.OperationMiddlewares["getClientJournals"]...)
 	router.GET(options.BaseURL+"/crm/clients/:id/homework", wrapper.ListClientHomework, options.OperationMiddlewares["listClientHomework"]...)
 	router.POST(options.BaseURL+"/crm/clients/:id/homework", wrapper.CreateHomework, options.OperationMiddlewares["createHomework"]...)
+	router.GET(options.BaseURL+"/crm/clients/:id/stream", wrapper.GetClientStudyStream, options.OperationMiddlewares["getClientStudyStream"]...)
+	router.POST(options.BaseURL+"/crm/clients/:id/notes", wrapper.CreateClientNote, options.OperationMiddlewares["createClientNote"]...)
+	router.DELETE(options.BaseURL+"/crm/clients/notes/:id", wrapper.DeleteClientNote, options.OperationMiddlewares["deleteClientNote"]...)
 	router.DELETE(options.BaseURL+"/homework/:id", wrapper.DeleteHomework, options.OperationMiddlewares["deleteHomework"]...)
 	router.PATCH(options.BaseURL+"/homework/:id", wrapper.UpdateHomeworkStatus, options.OperationMiddlewares["updateHomeworkStatus"]...)
 

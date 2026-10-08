@@ -59,3 +59,4 @@
     * `test_journal_and_homework_isolation` (мультиарендность и изоляция репетиторов).
 - **Go юнит-тесты (`make test`)**: 100% PASS с детектором гонок `-race`.
 - **Фронтенд линтер и сборка (`npm run lint && npm run build`)**: 0 ошибок, 0 предупреждений.
+

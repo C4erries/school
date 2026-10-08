@@ -383,3 +383,30 @@ func (s *Service) ListLessons(ctx context.Context, filter LessonFilter) ([]*doma
 func (s *Service) GetLesson(ctx context.Context, lessonID uuid.UUID) (*domain.Lesson, error) {
 	return s.lessonRepo.GetByID(ctx, lessonID)
 }
+
+// GetUpcomingLesson возвращает ближайший запланированный урок ученика (начиная от текущего момента time.Now().UTC()).
+func (s *Service) GetUpcomingLesson(ctx context.Context, clientID, teacherID uuid.UUID) (*domain.Lesson, error) {
+	now := time.Now().UTC()
+	to := now.AddDate(1, 0, 0) // горизонт 1 год вперед
+	status := domain.StatusScheduled
+	filter := LessonFilter{
+		TeacherID: &teacherID,
+		ClientID:  &clientID,
+		Status:    &status,
+		From:      &now,
+		To:        &to,
+	}
+
+	lessons, err := s.ListLessonsWithRecurring(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("list upcoming lessons: %w", err)
+	}
+
+	for _, l := range lessons {
+		if !l.StartTime.Before(now) && l.Status == domain.StatusScheduled {
+			return l, nil
+		}
+	}
+
+	return nil, nil
+}

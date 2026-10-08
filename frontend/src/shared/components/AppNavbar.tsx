@@ -9,6 +9,7 @@ import {
   Calendar,
   Building2,
   BookOpen,
+  Users,
   LayoutDashboard,
   Receipt,
   TrendingUp,
@@ -106,7 +107,21 @@ export const AppNavbar: React.FC = () => {
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            <span>Расписание уроков</span>
+            <span>Расписание</span>
+          </Link>
+        )}
+
+        {(user?.role === 'teacher' || user?.role === 'owner') && (
+          <Link
+            to="/teacher/journal"
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              isActive('/teacher/journal')
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>Журнал</span>
           </Link>
         )}
 
@@ -119,7 +134,7 @@ export const AppNavbar: React.FC = () => {
                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5" />
+            <Users className="w-3.5 h-3.5" />
             <span>Ученики</span>
           </Link>
         )}

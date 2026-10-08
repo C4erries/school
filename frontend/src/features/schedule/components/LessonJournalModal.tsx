@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GlassModal } from '../../../shared/components/GlassModal';
 import { GlassButton } from '../../../shared/components/GlassButton';
 import { GlassInput } from '../../../shared/components/GlassInput';
@@ -10,10 +11,12 @@ import {
   createHomework,
   updateHomeworkStatus,
 } from '../../../api/journal';
+import { useJournalDraft } from '../../../shared/hooks/useJournalDraft';
 import { LessonScoreChips } from './journal/LessonScoreChips';
 import { LessonDueHomeworks } from './journal/LessonDueHomeworks';
 import { LessonAssignHomework } from './journal/LessonAssignHomework';
-import { BookOpen, Calendar, Clock, Loader2, AlertCircle, Save } from 'lucide-react';
+import { LessonJournalHeader } from './journal/LessonJournalHeader';
+import { Loader2, AlertCircle, Save } from 'lucide-react';
 
 interface LessonJournalModalProps {
   isOpen: boolean;
@@ -30,6 +33,7 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
   clientDisplayName,
   onSaved,
 }) => {
+  const navigate = useNavigate();
   const [topic, setTopic] = useState('');
   const [notes, setNotes] = useState('');
   const [performanceScore, setPerformanceScore] = useState<number | null>(null);
@@ -45,18 +49,37 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [updatingDueId, setUpdatingDueId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [restoredDraftBadge, setRestoredDraftBadge] = useState(false);
+  const isLoadedRef = React.useRef(false);
+
+  const { getDraft, setDraft, clearDraft } = useJournalDraft(lesson?.id);
 
   const loadJournal = useCallback(async (lessonId: string, currentTitle: string) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setRestoredDraftBadge(false);
+    isLoadedRef.current = false;
     try {
       const bundle = await getLessonJournalBundle(lessonId);
+      const savedDraft = getDraft();
+
+      const fallbackTopic = currentTitle?.trim() || '';
+
       if (bundle.journal) {
-        setTopic(bundle.journal.topic || '');
+        setTopic(bundle.journal.topic?.trim() || fallbackTopic);
         setNotes(bundle.journal.notes || '');
         setPerformanceScore(bundle.journal.performance_score ?? null);
+      } else if (savedDraft) {
+        // Серверного отчета еще нет, но есть локальный сохраненный черновик
+        setTopic(savedDraft.topic?.trim() || fallbackTopic);
+        setNotes(savedDraft.notes || '');
+        setPerformanceScore(savedDraft.performanceScore ?? null);
+        setNewHwTitle(savedDraft.homeworkTitle || '');
+        setNewHwDescription(savedDraft.homeworkDescription || '');
+        setNewHwDueDate(savedDraft.homeworkDueDate || '');
+        setRestoredDraftBadge(true);
       } else {
-        setTopic(currentTitle && currentTitle !== 'Урок' ? currentTitle : '');
+        setTopic(fallbackTopic);
         setNotes('');
         setPerformanceScore(null);
       }
@@ -66,17 +89,36 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
       setErrorMessage(err instanceof Error ? err.message : 'Ошибка загрузки дневника');
     } finally {
       setIsLoading(false);
+      isLoadedRef.current = true;
     }
-  }, []);
+  }, [getDraft]);
+
+  const lessonId = lesson?.id;
+  const initialLessonTopic = (lesson?.title && lesson.title !== 'Урок')
+    ? lesson.title
+    : (lesson?.notes || lesson?.comment || lesson?.title || '');
 
   useEffect(() => {
-    if (isOpen && lesson) {
+    if (isOpen && lessonId) {
       setNewHwTitle('');
       setNewHwDescription('');
       setNewHwDueDate('');
-      loadJournal(lesson.id, lesson.title);
+      loadJournal(lessonId, initialLessonTopic);
     }
-  }, [isOpen, lesson, loadJournal]);
+  }, [isOpen, lessonId, initialLessonTopic, loadJournal]);
+
+  // Автосохранение черновика при изменении полей пользователем (только ПОСЛЕ завершения загрузки)
+  useEffect(() => {
+    if (!isOpen || isLoading || !lesson || !isLoadedRef.current) return;
+    setDraft({
+      topic,
+      notes,
+      performanceScore,
+      homeworkTitle: newHwTitle,
+      homeworkDescription: newHwDescription,
+      homeworkDueDate: newHwDueDate,
+    });
+  }, [isOpen, isLoading, lesson, topic, notes, performanceScore, newHwTitle, newHwDescription, newHwDueDate, setDraft]);
 
   const handleUpdateDueStatus = async (homeworkId: string, status: HomeworkStatus) => {
     setUpdatingDueId(homeworkId);
@@ -89,6 +131,17 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
       alert(err instanceof Error ? err.message : 'Ошибка смены статуса ДЗ');
     } finally {
       setUpdatingDueId(null);
+    }
+  };
+
+  const handleOpenInFullJournal = () => {
+    if (!lesson) return;
+    const clientId = lesson.client_id || lesson.student_id;
+    onClose();
+    if (clientId) {
+      navigate(`/teacher/journal?clientId=${clientId}&lessonId=${lesson.id}`);
+    } else {
+      navigate('/teacher/journal');
     }
   };
 
@@ -121,6 +174,10 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
           assigned_lesson_id: lesson.id,
         });
       }
+
+      // Очищаем локальный черновик при успешном сохранении
+      clearDraft();
+      setRestoredDraftBadge(false);
 
       onSaved?.();
       onClose();
@@ -161,23 +218,14 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
         </div>
       ) : (
         <form onSubmit={handleSave} className="space-y-4">
-          {/* Информационная шапка занятия */}
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/35 backdrop-blur-md border border-white/60 text-xs text-slate-600 flex-wrap">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-              <BookOpen className="w-4 h-4 text-indigo-600" />
-              <span>{clientDisplayName}</span>
-            </div>
-            <span className="text-slate-300">•</span>
-            <div className="flex items-center gap-1 font-mono text-slate-600">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>{lessonTimeStr}</span>
-            </div>
-            <span className="text-slate-300">•</span>
-            <div className="flex items-center gap-1 text-slate-600">
-              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-              <span>{lessonDateStr}</span>
-            </div>
-          </div>
+          {/* Информационная шапка занятия и быстрые действия */}
+          <LessonJournalHeader
+            clientDisplayName={clientDisplayName}
+            lessonDateStr={lessonDateStr}
+            lessonTimeStr={lessonTimeStr}
+            restoredDraftBadge={restoredDraftBadge}
+            onOpenInFullJournal={handleOpenInFullJournal}
+          />
 
           {errorMessage && (
             <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-400/30 backdrop-blur-md flex items-center gap-2.5 text-rose-800 text-xs font-medium animate-in fade-in">
@@ -200,7 +248,6 @@ export const LessonJournalModal: React.FC<LessonJournalModalProps> = ({
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             disabled={isSaving}
-            autoFocus
           />
 
           {/* Легкая шкала оценки понимания (1..5) */}

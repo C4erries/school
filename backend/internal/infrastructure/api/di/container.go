@@ -91,6 +91,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	seriesRepo := postgresschedule.NewSeriesRepository(db)
 	journalRepo := postgresschedule.NewJournalRepository(db)
 	homeworkRepo := postgrescrm.NewHomeworkRepository(db)
+	notesRepo := postgrescrm.NewNotesRepository(db)
 	paymentRepo := postgresfinance.NewPaymentRepository(db)
 	payoutRepo := postgresfinance.NewPartnerPayoutRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
@@ -105,7 +106,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)
 	analyticsService := analytics.NewService(lessonRepo, clientRepo)
 	calendarService := calendar.NewService(userRepo, lessonRepo, clientRepo)
-	journalService := journal.NewService(journalRepo, homeworkRepo, scheduleService, crmService)
+	journalService := journal.NewService(journalRepo, homeworkRepo, scheduleService, crmService, notesRepo)
 
 	// 6. Echo HTTP сервер
 	server := httpadapter.NewServer(

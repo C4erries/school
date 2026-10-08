@@ -85,6 +85,7 @@ func MapClientToResponse(c *domain.Client) generated.ClientResponse {
 		IsArchived:       c.IsArchived,
 		Tags:             tags,
 		Balances:         balances,
+		LastLessonAt:     c.LastLessonAt,
 		CreatedAt:        c.CreatedAt,
 	}
 }

@@ -8,6 +8,7 @@ import { RegisterPage } from '../pages/RegisterPage';
 import { DashboardPage } from '../pages/DashboardPage';
 import { AdminDashboard } from '../pages/admin/AdminDashboard';
 import { TeacherSchedulePage } from '../pages/teacher/TeacherSchedulePage';
+import { TeacherJournalPage } from '../pages/teacher/TeacherJournalPage';
 import { TeacherClientsPage } from '../pages/teacher/TeacherClientsPage';
 import { TeacherFinancePage } from '../pages/teacher/TeacherFinancePage';
 import { TeacherAnalyticsPage } from '../pages/teacher/TeacherAnalyticsPage';
@@ -47,6 +48,16 @@ export const App: React.FC = () => {
               element={
                 <ProtectedRoute allowedRoles={['teacher', 'owner']}>
                   <TeacherSchedulePage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Полноэкранный Дневник-Мессенджер преподавателя */}
+            <Route
+              path="/teacher/journal"
+              element={
+                <ProtectedRoute allowedRoles={['teacher', 'owner']}>
+                  <TeacherJournalPage />
                 </ProtectedRoute>
               }
             />

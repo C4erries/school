@@ -3,8 +3,10 @@ package crm
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -114,12 +116,21 @@ func (r *ClientRepository) ListByTeacherID(ctx context.Context, teacherID uuid.U
 		return nil, fmt.Errorf("get batch client balances: %w", err)
 	}
 
+	// Пакетная подгрузка времени последнего занятия
+	lastLessonMap, err := r.getBatchClientLastLessons(ctx, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("get batch client last lessons: %w", err)
+	}
+
 	for _, c := range clients {
 		if tags, exists := tagMap[c.ID]; exists {
 			c.Tags = tags
 		}
 		if bal, exists := balanceMap[c.ID]; exists {
 			c.Balances = bal
+		}
+		if lastLesson, exists := lastLessonMap[c.ID]; exists {
+			c.LastLessonAt = &lastLesson
 		}
 	}
 
@@ -258,4 +269,48 @@ func (r *ClientRepository) getBatchClientBalances(ctx context.Context, teacherID
 	}
 	return res, rows.Err()
 }
+
+func (r *ClientRepository) getBatchClientLastLessons(ctx context.Context, teacherID uuid.UUID) (map[uuid.UUID]time.Time, error) {
+	query := `SELECT client_id, MAX(start_time)
+		FROM lessons
+		WHERE teacher_id = $1 AND status != 'cancelled'
+		GROUP BY client_id`
+
+	rows, err := r.getDBTX(ctx).QueryContext(ctx, query, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	res := make(map[uuid.UUID]time.Time)
+	for rows.Next() {
+		var clientID uuid.UUID
+		var maxTime time.Time
+		if err := rows.Scan(&clientID, &maxTime); err != nil {
+			return nil, err
+		}
+		res[clientID] = maxTime
+	}
+	return res, rows.Err()
+}
+
+func (r *ClientRepository) getClientLastLesson(ctx context.Context, clientID uuid.UUID) (*time.Time, error) {
+	query := `SELECT MAX(start_time)
+		FROM lessons
+		WHERE client_id = $1 AND status != 'cancelled'`
+
+	var maxTime sql.NullTime
+	err := r.getDBTX(ctx).QueryRowContext(ctx, query, clientID).Scan(&maxTime)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if maxTime.Valid {
+		return &maxTime.Time, nil
+	}
+	return nil, nil
+}
+
 

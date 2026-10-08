@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Client } from '../../../types/schedule';
 import { GlassCard } from '../../../shared/components/GlassCard';
 import { GlassButton } from '../../../shared/components/GlassButton';
@@ -21,7 +22,7 @@ interface ClientCardProps {
   onEdit: (client: Client) => void;
   onAddSubscription: (client: Client) => void;
   onAdjustBalance: (client: Client) => void;
-  onOpenJournal: (client: Client) => void;
+  onOpenJournal?: (client: Client) => void;
   onArchive: (client: Client) => void;
   onUnarchive: (client: Client) => void;
 }
@@ -35,6 +36,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   onArchive,
   onUnarchive,
 }) => {
+  const navigate = useNavigate();
   const indBal = client.balances?.individual_hours ?? client.balance ?? 0;
   const pairBal = client.balances?.pair_hours ?? 0;
   const grpBal = client.balances?.group_hours ?? 0;
@@ -179,7 +181,13 @@ export const ClientCard: React.FC<ClientCardProps> = ({
         <GlassButton
           variant="secondary"
           size="sm"
-          onClick={() => onOpenJournal(client)}
+          onClick={() => {
+            if (onOpenJournal) {
+              onOpenJournal(client);
+            } else {
+              navigate(`/teacher/journal?clientId=${client.id}`);
+            }
+          }}
           icon={<BookOpen className="w-3.5 h-3.5 text-indigo-600" />}
           className="w-full"
         >

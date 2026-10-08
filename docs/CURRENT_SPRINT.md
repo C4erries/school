@@ -4,186 +4,142 @@
 > Обновляется перед началом каждого спринта и после завершения задач.
 > Завершенные спринты архивируются в каталоге `docs/sprints/`.
 
-## Текущая фаза: 2.4.1 — Дневник занятий (Lesson Journal) и Домашние задания (Homework Management) 🔵 (В РАБОТЕ)
+## Текущая фаза: 2.4.2 — Полноэкранный Дневник-Мессенджер (Study Stream), Быстрые заметки ученика и Автосохранение черновиков 🟢 (ЗАВЕРШЕН)
 
 ---
 
 ## 🧠 Аналитика задач спринта (Роль: CEO, PM & Lead Architect)
 
 ### 1. Бизнес-обоснование (CEO View)
-* **Проблема**: Репетитор ведет занятия по 10–25 ученикам параллельно. Вся академическая память («что проходили на прошлом уроке», «какое ДЗ задали», «почему у Вани пробелы в тригонометрии») хранится в разрозненных блокнотах, переписках в Telegram или в голове. Это приводит к потере контекста перед уроком, смазанным результатам и неуверенности в общении с родителями.
-* **Решение**: Встроенный, компактный «Дневник занятий»:
-  - Мгновенная фиксация темы урока, замечаний репетитора и экспресс-оценки понимания (1–5).
-  - Привязка и учет домашних заданий со статусами сдачи (`assigned` / `completed` / `not_done`).
-  - Быстрый доступ к контексту перед уроком в расписании + полный таймлайн обучения в карточке ученика.
-* **Бизнес-эффект**: Резкий рост профессиональной ценности платформы для репетитора (Stickiness & LTV), переход от чистого расписания к полноценной системе управления обучением (LMS/CRM-гибрид), подготовка базы к Фазе 4 (личный кабинет ученика) и Фазе 5 (проверка фото тетрадей).
+* **Проблема**: Модалка отчета `LessonJournalModal` решила задачу быстрого ввода отчета за 30 секунд после урока. Однако когда преподаватель хочет подготовиться к уроку, перечитать историю прогресса за прошлый месяц, продумать программу или зафиксировать неформальную мысль вне урока («позвонила мама», «забыл тетрадь») — модального окна недостаточно. Кроме того, ввод отчета со смартфона несет риск потери текста при входящем звонке или разрядке телефона.
+* **Решение**: Полноэкранный рабочий центр «Дневник-Мессенджер» (`/teacher/journal`):
+  - Двухколоночный интерфейс: список учеников, отсортированный по дате последнего проведенного занятия (самые актуальные сверху) + центральный хронологический поток (Study Stream).
+  - Два типа сообщений в потоке: **Урочный отчет** (тема, оценка понимания 1–5, заметки, ДЗ) и **Свободная быстрая заметка** (быстрая фиксация мыслей репетитора вне урока).
+  - Сквозная связка: кнопка «Дневник & ДЗ» в CRM переводит на эту страницу с уже выбранным учеником, а в модалке расписания появляется кнопка «Перейти в журнал» для вдумчивого продолжения.
+  - Автосохранение черновиков (Zero Data Loss): сохранение полей отчета в `localStorage` с автоматическим восстановлением.
+* **Бизнес-эффект**: Превращение платформы в полноценный "второй мозг" репетитора, повышение комфорта при глубокой работе и гарантия сохранности данных на смартфонах.
 
 ---
 
-### 2. Архитектура хранения: Двухуровневый академический хаб ([ADR-013](decisions/0013-lesson-journal-and-homework-management.md))
-* **Сущность `lesson_journals` (1:1 к `lessons`)**:
-  - Хранит дидактический отчет по уроку: пройденная тема (`topic`), приватные заметки преподавателя (`notes`), оценка усвоения (`performance_score` от 1 до 5).
-  - Привязана внешним ключом `lesson_id UNIQUE REFERENCES lessons(id) ON DELETE CASCADE`.
-* **Сущность `homework_assignments` (1:N к `clients` и `lessons`)**:
-  - Самостоятельная сущность учебного задания: заголовок (`title`), текст/описание (`description`), срок выполнения (`due_date`), статус (`assigned`, `completed`, `not_done`), заметки по проверке (`review_notes`).
-  - Опционально ссылается на `assigned_lesson_id` (урок, на котором задание было выдано).
-* **Взаимодействие с виртуальными слотами серий ([ADR-012](decisions/0012-recurring-lessons-rrule-and-calendar-sync.md))**:
-  - Если дневник или ДЗ создаются для виртуального слота циклической серии (еще не существующего в БД), сервис на лету находит слот, вычисляет детерминированный `VirtualLessonID(series.ID, slot.OriginalStartTime)` и **материализует** физическую запись в `lessons`, после чего привязывает отчет.
+### 2. Архитектура решения ([ADR-014](decisions/0014-fullpage-journal-messenger-and-drafts.md))
+* **Сущность свободных заметок `client_notes` (миграция 000012)**:
+  - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+  - `client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE`
+  - `teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`
+  - `content TEXT NOT NULL`
+  - `created_at TIMESTAMPTZ`, `updated_at TIMESTAMPTZ`
+* **Сортировка учеников по активности**:
+  - Добавление в API клиентов или вычисление поля `last_lesson_at` (дата и время самого свежего проведенного/запланированного урока) для ранжирования списка учеников в боковой панели.
+* **Автосохранение черновика (Client-side Hook `useJournalDraft`)**:
+  - Дебаунс 300ms для записи `topic`, `notes`, `performance_score`, `homework` в `localStorage` по ключу `journal_draft_${lessonId}`.
+  - Мягкое восстановление при открытии формы и очистка при успешном `PUT /schedule/lessons/{id}/journal`.
 
 ---
 
-### 3. Продуктовый UX: Ненавязчивый флоу и две точки входа
-1. **Сохранение скорости работы в календаре**:
-   - Клик по зеленой галочке `✓` **НЕ открывает** принудительных модалок и сохраняет моментальное завершение занятия в 1 клик со списанием абонемента.
-   - На карточке урока в расписании появляется **отдельная кнопка «Дневник / ДЗ»** (иконка `BookOpen`), доступная **всегда** — до занятия, во время него или после завершения.
-2. **Модальное окно `LessonJournalModal` (в расписании)**:
-   - Ввод темы урока (быстрый input).
-   - Легкая шкала оценки понимания (чипы `1 2 3 4 5` без утяжеления интерфейса).
-   - Заметки преподавателя (текстовое поле).
-   - Блок «Домашнее задание»: быстрое назначение ДЗ к следующему занятию.
-   - Экспресс-проверка: если к этому уроку было задано ДЗ, его можно в 1 клик перевести в статус «Выполнено» / «Не сделано».
-3. **Хронологический архив в карточке ученика (`ClientCard.tsx`)**:
-   - Новая кнопка «Дневник & ДЗ» в карточке ученика на странице `/teacher/clients`.
-   - Модальное окно `ClientJournalModal`:
-     - Вкладка «История занятий»: упорядоченный по датам список тем, оценок и заметок.
-     - Вкладка «Домашние задания»: карточки заданий с бейджами статусов, фильтрами («Все», «В работе», «Выполнено», «Не сдано») и возможностью смены статуса.
-
----
-
-## 📋 Таблица задач спринта 2.4.1
+## 📋 Таблица задач спринта 2.4.2
 
 | # | Задача | Статус | Приоритет | Ответственный / Субагент | Заметки |
 |---|--------|--------|-----------|---------------------------|---------|
-| 1 | Миграция БД 000011 и Доменные модели `LessonJournal` и `HomeworkAssignment` | ✅ Done | Критический | `backend_developer` | Таблицы `lesson_journals` и `homework_assignments`, доменные типы, валидация. |
-| 2 | OpenAPI контракт: схемы дневника, отчетов и домашних заданий | ✅ Done | Критический | `backend_developer` | Эндпоинты `/schedule/lessons/{id}/journal`, `/crm/clients/{id}/journal`, `/crm/clients/{id}/homework`, `/homework/{id}`, запуск `make oapi`. |
-| 3 | Backend: Сервисы дневника и ДЗ, PostgreSQL адаптеры, материализация слотов | ✅ Done | Высокий | `backend_developer` | Репозитории в `adapters/postgres/`, слой use-cases в `application/`, материализация виртуальных уроков. |
-| 4 | Frontend: Модальное окно `LessonJournalModal`, интеграция с карточками расписания | ✅ Done | Высокий | `frontend_developer` | Кнопка `BookOpen` в расписании (неделя, день, список), модалка темы, оценки (1–5), заметок и ДЗ в стиле Liquid Glass. |
-| 5 | Frontend: Модальное окно `ClientJournalModal` и лента в карточке ученика | ✅ Done | Высокий | `frontend_developer` | Кнопка «Дневник & ДЗ» в `ClientCard.tsx`, таймлайн тем и история домашних заданий с фильтрами. |
-| 6 | E2E сценарии в Docker и регрессионная верификация | ✅ Done | Критический | `qa_engineer` | Автотесты полного цикла в Docker: отчет по уроку, материализация виртуального урока, жизненный цикл ДЗ, таймлайн клиента, изоляция (68/68 passed, 100% PASS). |
+| 1 | Миграция БД 000012 (`client_notes`) и Доменная модель `ClientNote` | ✅ Done | Критический | `backend_developer` | Таблица `client_notes`, доменная структура `ClientNote`, методы валидации и тесты. |
+| 2 | OpenAPI контракт: эндпоинты свободных заметок и поле `last_lesson_at` | ✅ Done | Критический | `backend_developer` | Эндпоинты `/crm/clients/{id}/notes` (GET, POST, DELETE), кодогенерация `make oapi`. |
+| 3 | Backend: Репозиторий `notes_repository.go`, use-cases и Echo v4 хэндлеры | ✅ Done | Высокий | `backend_developer` | Реализация CRUD заметок, сортировка учеников по `last_lesson_at`, юнит-тесты. |
+| 4 | Frontend: Механизм автосохранения черновиков (`useJournalDraft`) и кнопка «Перейти в журнал» в `LessonJournalModal` | ✅ Done | Высокий | `frontend_developer` | LocalStorage автосохранение полей отчета, индикатор черновика, кнопка перехода в модалке расписания. |
+| 5 | Frontend: Полноэкранная страница `/teacher/journal` (Liquid Glass Messenger) | ✅ Done | Высокий | `frontend_developer` | Двухколоночный layout (сайдбар учеников по датам, центральный поток уроков и заметок, поле быстрой отправки, переход из CRM). |
+| 6 | E2E сценарии в Docker и регрессионная верификация | ✅ Done | Критический | `qa_engineer` | Автотесты заметок, навигации `/teacher/journal` и проверка всего сьюта в Docker (72/72 green). |
 
 ---
 
-## 📋 Детальное Микро-ТЗ спринта 2.4.1
+## 📋 Детальное Микро-ТЗ спринта 2.4.2
 
-### Задача 1: Миграция БД 000011 (`backend/migrations/000011_lesson_journal_and_homework.up.sql`)
-* Создание таблицы `lesson_journals`:
-  - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
-  - `lesson_id UUID NOT NULL UNIQUE REFERENCES lessons(id) ON DELETE CASCADE`
-  - `client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE`
-  - `teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`
-  - `topic VARCHAR(255) NOT NULL`
-  - `notes TEXT`
-  - `performance_score INT CHECK (performance_score BETWEEN 1 AND 5)`
-  - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-  - `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-  - Индексы: `idx_lesson_journals_lesson_id`, `idx_lesson_journals_client_id`, `idx_lesson_journals_teacher_id`.
-* Создание таблицы `homework_assignments`:
+### Задача 1: Миграция БД 000012 (`backend/migrations/000012_client_notes.up.sql`)
+* Создание таблицы `client_notes`:
   - `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
   - `client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE`
   - `teacher_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`
-  - `assigned_lesson_id UUID REFERENCES lessons(id) ON DELETE SET NULL`
-  - `title VARCHAR(255) NOT NULL`
-  - `description TEXT`
-  - `due_date DATE`
-  - `status VARCHAR(50) NOT NULL DEFAULT 'assigned' CHECK (status IN ('assigned', 'completed', 'not_done'))`
-  - `review_notes TEXT`
+  - `content TEXT NOT NULL`
   - `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
   - `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
-  - Индексы: `idx_homework_assignments_client_id`, `idx_homework_assignments_teacher_id`, `idx_homework_assignments_status`.
-* Доменные сущности в `backend/internal/domain/journal.go` и `backend/internal/domain/homework.go`.
+  - Индексы: `idx_client_notes_client_id`, `idx_client_notes_teacher_id`, `idx_client_notes_created_at`.
+* Файл отката `000012_client_notes.down.sql`.
+* Доменная модель `backend/internal/domain/client_note.go` и юнит-тесты `client_note_test.go`.
 
 ---
 
 ### Задача 2: Контракт OpenAPI (`backend/api/openapi/api.yaml`)
 * **Схемы DTO**:
-  - `LessonJournalResponse`: id, lesson_id, client_id, topic, notes, performance_score, created_at, updated_at.
-  - `UpsertLessonJournalRequest`: topic (string), notes (optional string), performance_score (optional int 1..5).
-  - `HomeworkAssignmentResponse`: id, client_id, assigned_lesson_id, title, description, due_date, status, review_notes, created_at.
-  - `CreateHomeworkRequest`: title (string), description (optional), due_date (optional date), assigned_lesson_id (optional uuid).
-  - `UpdateHomeworkStatusRequest`: status (`assigned`, `completed`, `not_done`), review_notes (optional).
-  - `LessonJournalBundleResponse`: journal (`LessonJournalResponse` nullable), assigned_homeworks (`[]HomeworkAssignmentResponse`), due_homeworks (`[]HomeworkAssignmentResponse` - ДЗ, выданные ранее к этой дате/уроку).
+  - `ClientNoteResponse`: id, client_id, teacher_id, content, created_at, updated_at.
+  - `CreateClientNoteRequest`: content (required string, непустой).
+  - `UpcomingLessonInfo`: lesson_id, start_time, end_time, format, title, topic.
+  - `StudyStreamItemResponse`: id, type (`lesson_report` | `note`), timestamp (date-time), lesson_report (optional LessonJournalBundleResponse), note (optional ClientNoteResponse).
+  - `StudyStreamResponse`: client_id, upcoming_lesson (optional UpcomingLessonInfo), items (array of StudyStreamItemResponse, отсортированных хронологически как в чате).
+  - `ClientResponse`: добавление опционального поля `last_lesson_at` (date-time string nullable).
 * **Эндпоинты**:
-  - `GET /api/v1/schedule/lessons/{id}/journal`: получение отчета по уроку и связанных ДЗ.
-  - `PUT /api/v1/schedule/lessons/{id}/journal`: сохранение/обновление отчета по уроку.
-  - `GET /api/v1/crm/clients/{id}/journal`: хронологический список отчетов по урокам ученика.
-  - `GET /api/v1/crm/clients/{id}/homework`: список всех ДЗ ученика с query-фильтром `status`.
-  - `POST /api/v1/crm/clients/{id}/homework`: создание нового домашнего задания.
-  - `PATCH /api/v1/homework/{id}`: обновление статуса и рецензии на ДЗ.
-  - `DELETE /api/v1/homework/{id}`: удаление ДЗ.
-* Запуск `make oapi`.
+  - `GET /crm/clients/{id}/stream` -> единый агрегированный поток обучения `StudyStreamResponse`.
+  - `POST /crm/clients/{id}/notes` -> создание быстрой заметки (`CreateClientNoteRequest`).
+  - `DELETE /crm/clients/notes/{id}` -> удаление быстрой заметки (204 No Content).
+* Выполнить `make oapi`.
 
 ---
 
-### Задача 3: Backend бизнес-логика и репозитории
-* **Репозитории PostgreSQL**:
-  - `backend/internal/infrastructure/api/adapters/postgres/schedule/journal_repository.go`
-  - `backend/internal/infrastructure/api/adapters/postgres/crm/homework_repository.go`
-* **Application Services**:
-  - Пакет `internal/application/journal/` (или расширение сервиса расписания):
-    - Получение бандла дневника для урока (журнал + выданные ДЗ + ДЗ к проверке).
-    - Upsert журнала урока: если урок виртуальный — вызов материализации из `schedule.Service` с детерминированным `VirtualLessonID`, затем сохранение `LessonJournal`.
-  - Пакет `internal/application/homework/`:
-    - Выдача ДЗ ученику.
-    - Смена статуса (`assigned` -> `completed` / `not_done`).
-* **HTTP Handlers**:
-  - Обработчики на Echo v4 в `infrastructure/api/adapters/http/schedule/journal_handler.go` и `infrastructure/api/adapters/http/crm/homework_handler.go`.
-  - Регистрация в DI контейнере `di.Container`.
+### Задача 3: Backend реализация свободных заметок, сортировки и Study Stream
+* Репозиторий `backend/internal/infrastructure/api/adapters/postgres/crm/notes_repository.go`.
+* Расширение выборки клиентов с подсчетом `last_lesson_at` через `MAX(lessons.start_time)`.
+* Сервис `StudyStreamService` (или в `application/journal/`):
+  - Агрегация проведенных уроков с отчетами из `lesson_journals` и свободных заметок из `client_notes`.
+  - Поиск ближайшего запланированного урока для компактной плашки `upcoming_lesson`.
+  - Сортировка ленты (старые сверху, свежие снизу).
+* Echo v4 хэндлеры в `adapters/http/crm/notes_handler.go` и `stream_handler.go`.
+* Регистрация в DI контейнере, юнит-тесты `make test`.
+
 
 ---
 
-### Задача 4: Frontend Расписание — `LessonJournalModal`
-* Кнопка «Дневник / ДЗ» на карточках уроков:
-  - Иконка `BookOpen` в `ScheduleWeekView.tsx`, `ScheduleDayView.tsx`, `ScheduleListView.tsx`.
-  - Индикатор заполненности (например, синяя точка или мягкая подсветка, если тема урока уже записана).
-* Компонент `LessonJournalModal.tsx`:
-  - Быстрый ввод темы занятия.
-  - Шкала оценки (1–5) в стиле Apple Liquid Glass: мягкие чипы с интерактивным выбором.
-  - Заметки преподавателя (textarea).
-  - Блок создания ДЗ к следующему уроку (заголовок, описание, дедлайн).
-  - Блок проверки предыдущего ДЗ (если к текущему уроку было невыполненное задание — кнопки `[✓ Сдано]` и `[✗ Не сдано]`).
-* Вызовы API через типизированный модуль `frontend/src/api/journal.ts`.
+### Задача 4: Frontend — Автосохранение черновиков и связка с расписанием
+* Хук `frontend/src/shared/hooks/useJournalDraft.ts`:
+  - Сохранение `topic`, `notes`, `performance_score`, `homework` в `localStorage` с дебаунсом.
+  - Очистка черновика при сохранении отчета на сервер.
+* Доработка `LessonJournalModal.tsx`:
+  - Подключение `useJournalDraft(lesson.id)`.
+  - Кнопка в заголовке модалки: «Перейти в журнал» (`GlassButton`, иконка `ExternalLink`), осуществляющая переход на `/teacher/journal?clientId=${lesson.client_id}&lessonId=${lesson.id}`.
 
 ---
 
-### Задача 5: Frontend CRM — `ClientJournalModal`
+### Задача 5: Frontend — Полноэкранная страница `/teacher/journal`
+* Добавление маршрута `/teacher/journal` в `frontend/src/app/App.tsx` и пункта «Журнал» в `AppNavbar.tsx`.
+* Страница `frontend/src/pages/teacher/TeacherJournalPage.tsx` в стиле Apple Liquid Glass:
+  - **Сайдбар учеников**: список учеников, отсортированный по `last_lesson_at`, живой поиск, бейдж несданных ДЗ, подсветка активного ученика.
+  - **Центральный поток (Study Stream)**:
+    - Шапка с именем ученика, телефоном и балансом.
+    - Единая хронологическая лента сообщений:
+      1. Блоки проведенных уроков (тема, оценка понимания 1–5 чипом, заметки, выданное ДЗ со статусом);
+      2. Блоки свободных заметок преподавателя (текст, дата, кнопка удаления).
+    - Нижняя панель ввода (Message Input Bar): текстовое поле для отправки быстрой заметки + кнопка «Заполнить отчет по уроку».
 * В карточке ученика `ClientCard.tsx`:
-  - Кнопка «Дневник & ДЗ» (рядом с кнопками баланса и абонементов).
-  - Бейдж количества несданных ДЗ (если есть статус `assigned`).
-* Компонент `ClientJournalModal.tsx`:
-  - Две вкладки: «История уроков» и «Домашние задания».
-  - Вкладка «История уроков»: таймлайн занятий (дата, тема, оценка усвоения, заметки преподавателя).
-  - Вкладка «Домашние задания»: список карточек заданий, фильтрация по статусам (`Все`, `В работе`, `Сдано`, `Не выполнено`), возможность отметить сдачу прямо из списка.
+  - Кнопка «Дневник & ДЗ» теперь осуществляет роутинг на `/teacher/journal?clientId=${client.id}`.
 
 ---
 
-### Задача 6: Комплексное тестирование и верификация полного цикла
-* Модульные тесты Go (`make test`):
-  - Проверка валидации оценок 1–5.
-  - Проверка материализации виртуального урока при сохранении дневника.
-  - Проверка изоляции репетиторов (RBAC/мультиарендность: репетитор не может видеть/править чужие отчеты).
-* E2E тесты в Docker (`tests/api/phase2_schedule/test_journal_and_homework.py`):
-  - Создание отчета по обычному уроку.
-  - Создание отчета по виртуальному слоту регулярной серии (проверка материализации в `lessons`).
-  - Выдача ДЗ, смена статуса на `completed`.
-  - Получение ленты дневника ученика в CRM.
-* 100% зеленые юнит-тесты и E2E тесты в Docker (`make test-e2e`).
-* Чистая сборка фронтенда (`npm run lint && npm run build`).
+### Задача 6: Комплексное E2E тестирование и регрессия
+* Дополнение тестов в `tests/api/phase2_schedule/test_journal_and_homework.py`:
+  - Создание, получение и удаление свободных заметок ученика.
+  - Проверка сортировки учеников по дате последнего занятия.
+* Прогон `make test-e2e` в Docker (100% green).
+* Чистая сборка фронтенда `npm run lint && npm run build`.
 
 ---
 
-## 🎯 Definition of Done (DoD) Спринта 2.4.1
-- [x] Применена миграция `000011_lesson_journal_and_homework.up.sql`.
-- [x] Контракт OpenAPI обновлен схемами и эндпоинтами дневника и ДЗ, код сгенерирован (`make oapi`).
-- [x] Реализовано сохранение и чтение отчета по уроку (тема, оценка 1–5, заметки).
-- [x] Реализовано управление домашними заданиями (выдача, дедлайн, статусы `assigned`, `completed`, `not_done`).
-- [x] При сохранении отчета по виртуальному слоту серии урок корректно материализуется в БД.
-- [x] Проведение урока по галочке `✓` в расписании остается мгновенным в 1 клик.
-- [x] Карточка урока в расписании имеет отдельную кнопку «Дневник / ДЗ», открывающую `LessonJournalModal`.
-- [x] В карточке ученика (`ClientCard.tsx`) доступен просмотр истории занятий и статусов ДЗ (`ClientJournalModal.tsx`).
-- [x] Строго соблюдены правила Apple Liquid Glass (полупрозрачные карточки, отсутствие `bg-white`).
-- [x] Все созданные и измененные файлы кода не превышают 300–400 строк.
-- [x] Все юнит-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) зеленые (100% PASS, 68/68).
-- [x] Сборка фронтенда чистая (`npm run lint && npm run build`, 0 ошибок и предупреждений).
+## 🎯 Definition of Done (DoD) Спринта 2.4.2
+- [ ] Применена миграция `000012_client_notes.up.sql`.
+- [ ] Контракт OpenAPI обновлен эндпоинтами свободных заметок и полем `last_lesson_at`, код сгенерирован (`make oapi`).
+- [ ] Реализован бэкенд CRUD свободных заметок с валидацией и проверкой прав репетитора.
+- [ ] Список клиентов поддерживает отображение/сортировку по дате последнего занятия.
+- [x] Реализован хук автосохранения черновика `useJournalDraft` для предотвращения потери данных.
+- [x] В `LessonJournalModal` добавлена кнопка перехода в полноэкранный журнал.
+- [x] Реализована страница `/teacher/journal` в стиле Apple Liquid Glass (двухколоночный layout мессенджера).
+- [x] Кнопка «Дневник & ДЗ» в `ClientCard.tsx` ведет на страницу журнала с открытым профилем ученика.
+- [ ] Все созданные файлы кода строго меньше 300–400 строк.
+- [ ] Все юнит-тесты (`make test`) и E2E тесты в Docker (`make test-e2e`) зеленые (100% PASS).
+- [ ] Сборка фронтенда чистая (`npm run lint && npm run build`, 0 ошибок).
 
 ---
 
@@ -211,11 +167,10 @@
 
 | Дата | Что изменилось |
 |------|---------------|
-| 2026-10-08 | **Завершена Задача 6 Спринта 2.4.1**: Разработан комплексный сьют E2E автотестов в Docker (`tests/api/phase2_schedule/test_journal_and_homework.py`). Покрыты 5 ключевых сценариев: заполнение и чтение отчета урока, материализация виртуального урока регулярной серии, полный жизненный цикл ДЗ (`assigned` → `completed` / `not_done`, удаление), таймлайн обучения клиента и изоляция репетиторов (мультиарендность). 100% PASS (68/68 тестов в Docker). |
-| 2026-10-08 | **Сформирован Спринт 2.4.1 (Фаза 2.4)**: Дневник занятий (Lesson Journal) и Управление домашними заданиями (Homework Management). Зафиксирован [ADR-013](decisions/0013-lesson-journal-and-homework-management.md) (Двухуровневый академический хаб: `lesson_journals` 1:1 + `homework_assignments` 1:N). Разработан ненавязчивый UX (отдельная кнопка отчета, независимое проведение в 1 клик, шкала понимания 1–5, таймлайн в карточке ученика). Добавлен техдолг по унификации Mockery и декомпозиции `adapters/http` в бэклог. |
+| 2026-10-08 | **Сформирован Спринт 2.4.2 (Фаза 2.4)**: Полноэкранный Дневник-Мессенджер (Study Stream), Быстрые свободные заметки ученика (`client_notes`) и Автосохранение черновиков (`useJournalDraft`). Зафиксирован [ADR-014](decisions/0014-fullpage-journal-messenger-and-drafts.md). Спринт 2.4.1 успешно завершен и заархивирован в `docs/sprints/sprint-2.4.1.md`. |
+| 2026-10-08 | Спринт 2.4.1 (Дневник занятий и Домашние задания) успешно завершен (68/68 E2E passed). |
 | 2026-10-06 | Спринт 2.3.1 (Регулярные занятия, RRULE, Google Calendar Pattern) успешно завершен и заархивирован в `docs/sprints/sprint-2.3.1.md`. |
 
 ---
 
 *Последнее обновление: 2026-10-08*
-

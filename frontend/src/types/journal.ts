@@ -49,3 +49,35 @@ export interface UpdateHomeworkStatusInput {
   status: HomeworkStatus;
   review_notes?: string | null;
 }
+
+export interface ClientNote {
+  id: string;
+  client_id: string;
+  teacher_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpcomingLessonInfo {
+  lesson_id: string;
+  start_time: string;
+  end_time: string;
+  format: string;
+  title: string;
+  topic?: string | null;
+}
+
+export interface StudyStreamItem {
+  id: string;
+  type: 'lesson_report' | 'note';
+  timestamp: string;
+  lesson_report?: LessonJournalBundle | null;
+  note?: ClientNote | null;
+}
+
+export interface StudyStream {
+  client_id: string;
+  upcoming_lesson?: UpcomingLessonInfo | null;
+  items: StudyStreamItem[];
+}

@@ -6,6 +6,8 @@ import {
   CreateHomeworkInput,
   UpdateHomeworkStatusInput,
   HomeworkStatus,
+  StudyStream,
+  ClientNote,
 } from '../types/journal';
 
 const BASE_URL = '/api/v1';
@@ -137,3 +139,51 @@ export async function deleteHomework(homeworkId: string): Promise<void> {
     throw new Error(errorData.error?.message || 'Не удалось удалить домашнее задание');
   }
 }
+
+/**
+ * Получить единый хронологический поток обучения ученика (Study Stream)
+ */
+export async function getClientStudyStream(clientId: string): Promise<StudyStream> {
+  const res = await fetch(`${BASE_URL}/crm/clients/${clientId}/stream`, {
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось загрузить поток обучения ученика');
+  }
+  return await res.json();
+}
+
+/**
+ * Создать свободную быструю заметку по ученику
+ */
+export async function createClientNote(
+  clientId: string,
+  content: string
+): Promise<ClientNote> {
+  const res = await fetch(`${BASE_URL}/crm/clients/${clientId}/notes`, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось сохранить заметку');
+  }
+  return await res.json();
+}
+
+/**
+ * Удалить свободную заметку по ученику
+ */
+export async function deleteClientNote(noteId: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/crm/clients/notes/${noteId}`, {
+    method: 'DELETE',
+    headers: getHeaders(),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error?.message || 'Не удалось удалить заметку');
+  }
+}
+
