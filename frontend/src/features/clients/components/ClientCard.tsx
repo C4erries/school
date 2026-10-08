@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   Archive,
   RotateCcw,
+  BookOpen,
 } from 'lucide-react';
 
 interface ClientCardProps {
@@ -20,6 +21,7 @@ interface ClientCardProps {
   onEdit: (client: Client) => void;
   onAddSubscription: (client: Client) => void;
   onAdjustBalance: (client: Client) => void;
+  onOpenJournal: (client: Client) => void;
   onArchive: (client: Client) => void;
   onUnarchive: (client: Client) => void;
 }
@@ -29,6 +31,7 @@ export const ClientCard: React.FC<ClientCardProps> = ({
   onEdit,
   onAddSubscription,
   onAdjustBalance,
+  onOpenJournal,
   onArchive,
   onUnarchive,
 }) => {
@@ -173,6 +176,16 @@ export const ClientCard: React.FC<ClientCardProps> = ({
 
       {/* Кнопки действий */}
       <div className="mt-auto space-y-2">
+        <GlassButton
+          variant="secondary"
+          size="sm"
+          onClick={() => onOpenJournal(client)}
+          icon={<BookOpen className="w-3.5 h-3.5 text-indigo-600" />}
+          className="w-full"
+        >
+          Дневник & ДЗ
+        </GlassButton>
+
         <div className="grid grid-cols-2 gap-2">
           <GlassButton
             variant="secondary"

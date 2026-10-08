@@ -100,6 +100,27 @@ func (e CreateSubscriptionRequestFormat) Valid() bool {
 	}
 }
 
+// Defines values for HomeworkAssignmentResponseStatus.
+const (
+	HomeworkAssignmentResponseStatusAssigned  HomeworkAssignmentResponseStatus = "assigned"
+	HomeworkAssignmentResponseStatusCompleted HomeworkAssignmentResponseStatus = "completed"
+	HomeworkAssignmentResponseStatusNotDone   HomeworkAssignmentResponseStatus = "not_done"
+)
+
+// Valid indicates whether the value is a known member of the HomeworkAssignmentResponseStatus enum.
+func (e HomeworkAssignmentResponseStatus) Valid() bool {
+	switch e {
+	case HomeworkAssignmentResponseStatusAssigned:
+		return true
+	case HomeworkAssignmentResponseStatusCompleted:
+		return true
+	case HomeworkAssignmentResponseStatusNotDone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LessonFormat.
 const (
 	LessonFormatGroup      LessonFormat = "group"
@@ -123,19 +144,19 @@ func (e LessonFormat) Valid() bool {
 
 // Defines values for LessonStatus.
 const (
-	Cancelled LessonStatus = "cancelled"
-	Completed LessonStatus = "completed"
-	Scheduled LessonStatus = "scheduled"
+	LessonStatusCancelled LessonStatus = "cancelled"
+	LessonStatusCompleted LessonStatus = "completed"
+	LessonStatusScheduled LessonStatus = "scheduled"
 )
 
 // Valid indicates whether the value is a known member of the LessonStatus enum.
 func (e LessonStatus) Valid() bool {
 	switch e {
-	case Cancelled:
+	case LessonStatusCancelled:
 		return true
-	case Completed:
+	case LessonStatusCompleted:
 		return true
-	case Scheduled:
+	case LessonStatusScheduled:
 		return true
 	default:
 		return false
@@ -253,6 +274,27 @@ func (e SubscriptionResponseFormat) Valid() bool {
 	}
 }
 
+// Defines values for UpdateHomeworkStatusRequestStatus.
+const (
+	UpdateHomeworkStatusRequestStatusAssigned  UpdateHomeworkStatusRequestStatus = "assigned"
+	UpdateHomeworkStatusRequestStatusCompleted UpdateHomeworkStatusRequestStatus = "completed"
+	UpdateHomeworkStatusRequestStatusNotDone   UpdateHomeworkStatusRequestStatus = "not_done"
+)
+
+// Valid indicates whether the value is a known member of the UpdateHomeworkStatusRequestStatus enum.
+func (e UpdateHomeworkStatusRequestStatus) Valid() bool {
+	switch e {
+	case UpdateHomeworkStatusRequestStatusAssigned:
+		return true
+	case UpdateHomeworkStatusRequestStatusCompleted:
+		return true
+	case UpdateHomeworkStatusRequestStatusNotDone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAnalyticsClientsParamsSort.
 const (
 	Cancellations GetAnalyticsClientsParamsSort = "cancellations"
@@ -286,6 +328,27 @@ func (e GetAnalyticsDynamicsParamsInterval) Valid() bool {
 	case Month:
 		return true
 	case Week:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListClientHomeworkParamsStatus.
+const (
+	ListClientHomeworkParamsStatusAssigned  ListClientHomeworkParamsStatus = "assigned"
+	ListClientHomeworkParamsStatusCompleted ListClientHomeworkParamsStatus = "completed"
+	ListClientHomeworkParamsStatusNotDone   ListClientHomeworkParamsStatus = "not_done"
+)
+
+// Valid indicates whether the value is a known member of the ListClientHomeworkParamsStatus enum.
+func (e ListClientHomeworkParamsStatus) Valid() bool {
+	switch e {
+	case ListClientHomeworkParamsStatusAssigned:
+		return true
+	case ListClientHomeworkParamsStatusCompleted:
+		return true
+	case ListClientHomeworkParamsStatusNotDone:
 		return true
 	default:
 		return false
@@ -560,6 +623,21 @@ type CreateClientRequest struct {
 	TagIds           *[]openapi_types.UUID `json:"tag_ids,omitempty"`
 }
 
+// CreateHomeworkRequest defines model for CreateHomeworkRequest.
+type CreateHomeworkRequest struct {
+	// AssignedLessonId Example: 123e4567-e89b-12d3-a456-426614174001
+	AssignedLessonId *openapi_types.UUID `json:"assigned_lesson_id,omitempty"`
+
+	// Description Example: Учебник стр. 45, номера 14-20 в тетради
+	Description *string `json:"description,omitempty"`
+
+	// DueDate Example: 2026-10-15
+	DueDate *openapi_types.Date `json:"due_date,omitempty"`
+
+	// Title Example: Задачи 14-20 на теорему Виета
+	Title string `json:"title"`
+}
+
 // CreateLessonRequest defines model for CreateLessonRequest.
 type CreateLessonRequest struct {
 	// ClassroomId Example: 123e4567-e89b-12d3-a456-426614174003
@@ -779,8 +857,76 @@ type HealthResponse struct {
 	Version *string `json:"version,omitempty"`
 }
 
+// HomeworkAssignmentResponse defines model for HomeworkAssignmentResponse.
+type HomeworkAssignmentResponse struct {
+	// AssignedLessonId Example: 123e4567-e89b-12d3-a456-426614174001
+	AssignedLessonId *openapi_types.UUID `json:"assigned_lesson_id,omitempty"`
+
+	// ClientId Example: 123e4567-e89b-12d3-a456-426614174002
+	ClientId  openapi_types.UUID `json:"client_id"`
+	CreatedAt time.Time          `json:"created_at"`
+
+	// Description Example: Учебник стр. 45, номера 14-20 в тетради
+	Description *string `json:"description,omitempty"`
+
+	// DueDate Example: 2026-10-15
+	DueDate *openapi_types.Date `json:"due_date,omitempty"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174004
+	Id openapi_types.UUID `json:"id"`
+
+	// ReviewNotes Example: Проверено, все решено верно
+	ReviewNotes *string `json:"review_notes,omitempty"`
+
+	// Status Example: assigned
+	Status HomeworkAssignmentResponseStatus `json:"status"`
+
+	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174003
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+
+	// Title Example: Задачи 14-20 на теорему Виета
+	Title     string    `json:"title"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// HomeworkAssignmentResponseStatus Example: assigned
+type HomeworkAssignmentResponseStatus string
+
 // LessonFormat Example: individual
 type LessonFormat string
+
+// LessonJournalBundleResponse defines model for LessonJournalBundleResponse.
+type LessonJournalBundleResponse struct {
+	AssignedHomeworks []HomeworkAssignmentResponse `json:"assigned_homeworks"`
+	DueHomeworks      []HomeworkAssignmentResponse `json:"due_homeworks"`
+	Journal           *LessonJournalResponse       `json:"journal,omitempty"`
+}
+
+// LessonJournalResponse defines model for LessonJournalResponse.
+type LessonJournalResponse struct {
+	// ClientId Example: 123e4567-e89b-12d3-a456-426614174002
+	ClientId  openapi_types.UUID `json:"client_id"`
+	CreatedAt time.Time          `json:"created_at"`
+
+	// Id Example: 123e4567-e89b-12d3-a456-426614174000
+	Id openapi_types.UUID `json:"id"`
+
+	// LessonId Example: 123e4567-e89b-12d3-a456-426614174001
+	LessonId openapi_types.UUID `json:"lesson_id"`
+
+	// Notes Example: Разобрали теорему Виета, нужно закрепить знаки
+	Notes *string `json:"notes,omitempty"`
+
+	// PerformanceScore Example: 4
+	PerformanceScore *int `json:"performance_score,omitempty"`
+
+	// TeacherId Example: 123e4567-e89b-12d3-a456-426614174003
+	TeacherId openapi_types.UUID `json:"teacher_id"`
+
+	// Topic Example: Квадратные уравнения и теорема Виета
+	Topic     string    `json:"topic"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
 
 // LessonResponse defines model for LessonResponse.
 type LessonResponse struct {
@@ -1096,6 +1242,18 @@ type UpdateClientRequest struct {
 	TagIds         *[]openapi_types.UUID `json:"tag_ids,omitempty"`
 }
 
+// UpdateHomeworkStatusRequest defines model for UpdateHomeworkStatusRequest.
+type UpdateHomeworkStatusRequest struct {
+	// ReviewNotes Example: Проверено, все решено верно
+	ReviewNotes *string `json:"review_notes,omitempty"`
+
+	// Status Example: completed
+	Status UpdateHomeworkStatusRequestStatus `json:"status"`
+}
+
+// UpdateHomeworkStatusRequestStatus Example: completed
+type UpdateHomeworkStatusRequestStatus string
+
 // UpdateLessonRequest defines model for UpdateLessonRequest.
 type UpdateLessonRequest struct {
 	CancelReason *string             `json:"cancel_reason,omitempty"`
@@ -1140,6 +1298,18 @@ type UpdateLessonSeriesRequest struct {
 
 	// UntilDate Example: 2027-05-31
 	UntilDate *openapi_types.Date `json:"until_date,omitempty"`
+}
+
+// UpsertLessonJournalRequest defines model for UpsertLessonJournalRequest.
+type UpsertLessonJournalRequest struct {
+	// Notes Example: Разобрали теорему Виета, нужно закрепить знаки
+	Notes *string `json:"notes,omitempty"`
+
+	// PerformanceScore Example: 4
+	PerformanceScore *int `json:"performance_score,omitempty"`
+
+	// Topic Example: Квадратные уравнения и теорема Виета
+	Topic string `json:"topic"`
 }
 
 // UserDefaultRates defines model for UserDefaultRates.
@@ -1238,6 +1408,15 @@ type ListClientsParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListClientHomeworkParams defines parameters for ListClientHomework.
+type ListClientHomeworkParams struct {
+	// Status Фильтр по статусу задания
+	Status *ListClientHomeworkParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListClientHomeworkParamsStatus defines parameters for ListClientHomework.
+type ListClientHomeworkParamsStatus string
+
 // GetDashboardMetricsParams defines parameters for GetDashboardMetrics.
 type GetDashboardMetricsParams struct {
 	From time.Time `form:"from" json:"from"`
@@ -1332,11 +1511,17 @@ type CreateSubscriptionJSONRequestBody = CreateSubscriptionRequest
 // AssignClientTagJSONRequestBody defines body for AssignClientTag for application/json ContentType.
 type AssignClientTagJSONRequestBody = AssignTagRequest
 
+// CreateHomeworkJSONRequestBody defines body for CreateHomework for application/json ContentType.
+type CreateHomeworkJSONRequestBody = CreateHomeworkRequest
+
 // CreatePartnerPayoutJSONRequestBody defines body for CreatePartnerPayout for application/json ContentType.
 type CreatePartnerPayoutJSONRequestBody = CreatePartnerPayoutRequest
 
 // CreatePaymentJSONRequestBody defines body for CreatePayment for application/json ContentType.
 type CreatePaymentJSONRequestBody = CreatePaymentRequest
+
+// UpdateHomeworkStatusJSONRequestBody defines body for UpdateHomeworkStatus for application/json ContentType.
+type UpdateHomeworkStatusJSONRequestBody = UpdateHomeworkStatusRequest
 
 // ImportCalendarFileMultipartRequestBody defines body for ImportCalendarFile for multipart/form-data ContentType.
 type ImportCalendarFileMultipartRequestBody ImportCalendarFileMultipartBody
@@ -1349,6 +1534,9 @@ type UpdateLessonJSONRequestBody = UpdateLessonRequest
 
 // CancelLessonJSONRequestBody defines body for CancelLesson for application/json ContentType.
 type CancelLessonJSONRequestBody = CancelLessonRequest
+
+// UpsertLessonJournalJSONRequestBody defines body for UpsertLessonJournal for application/json ContentType.
+type UpsertLessonJournalJSONRequestBody = UpsertLessonJournalRequest
 
 // CreateLessonSeriesJSONRequestBody defines body for CreateLessonSeries for application/json ContentType.
 type CreateLessonSeriesJSONRequestBody = CreateLessonSeriesRequest
@@ -1436,6 +1624,15 @@ type ServerInterface interface {
 	// UnarchiveClient Восстановление клиента из архива
 	// (POST /clients/{id}/unarchive)
 	UnarchiveClient(ctx echo.Context, id openapi_types.UUID) error
+	// ListClientHomework Список всех домашних заданий ученика
+	// (GET /crm/clients/{id}/homework)
+	ListClientHomework(ctx echo.Context, id openapi_types.UUID, params ListClientHomeworkParams) error
+	// CreateHomework Выдать домашнее задание ученику
+	// (POST /crm/clients/{id}/homework)
+	CreateHomework(ctx echo.Context, id openapi_types.UUID) error
+	// GetClientJournals Получить список всех отчетов по урокам ученика
+	// (GET /crm/clients/{id}/journal)
+	GetClientJournals(ctx echo.Context, id openapi_types.UUID) error
 	// GetDashboardMetrics Метрики дашборда
 	// (GET /dashboard/metrics)
 	GetDashboardMetrics(ctx echo.Context, params GetDashboardMetricsParams) error
@@ -1469,6 +1666,12 @@ type ServerInterface interface {
 	// GetHealth Проверка работоспособности сервиса
 	// (GET /health)
 	GetHealth(ctx echo.Context) error
+	// DeleteHomework Удалить домашнее задание
+	// (DELETE /homework/{id})
+	DeleteHomework(ctx echo.Context, id openapi_types.UUID) error
+	// UpdateHomeworkStatus Обновить статус домашнего задания и рецензию
+	// (PATCH /homework/{id})
+	UpdateHomeworkStatus(ctx echo.Context, id openapi_types.UUID) error
 	// ExportCalendarFile Разовый экспорт расписания в файл iCalendar (.ics)
 	// (GET /integrations/calendar/export)
 	ExportCalendarFile(ctx echo.Context, params ExportCalendarFileParams) error
@@ -1499,6 +1702,12 @@ type ServerInterface interface {
 	// CompleteLesson Завершение проведенного урока преподавателем
 	// (POST /lessons/{id}/complete)
 	CompleteLesson(ctx echo.Context, id openapi_types.UUID) error
+	// GetLessonJournal Получить бандл журнала и домашних заданий по уроку
+	// (GET /schedule/lessons/{id}/journal)
+	GetLessonJournal(ctx echo.Context, id openapi_types.UUID) error
+	// UpsertLessonJournal Создать или обновить отчет по уроку
+	// (PUT /schedule/lessons/{id}/journal)
+	UpsertLessonJournal(ctx echo.Context, id openapi_types.UUID) error
 	// ListLessonSeries Список регулярных серий занятий преподавателя
 	// (GET /schedule/series)
 	ListLessonSeries(ctx echo.Context) error
@@ -1963,6 +2172,63 @@ func (w *ServerInterfaceWrapper) UnarchiveClient(ctx echo.Context) error {
 	return err
 }
 
+// ListClientHomework converts echo context to params.
+func (w *ServerInterfaceWrapper) ListClientHomework(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListClientHomeworkParams
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", ctx.QueryParams(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter status: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.ListClientHomework(ctx, id, params)
+	return err
+}
+
+// CreateHomework converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateHomework(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.CreateHomework(ctx, id)
+	return err
+}
+
+// GetClientJournals converts echo context to params.
+func (w *ServerInterfaceWrapper) GetClientJournals(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetClientJournals(ctx, id)
+	return err
+}
+
 // GetDashboardMetrics converts echo context to params.
 func (w *ServerInterfaceWrapper) GetDashboardMetrics(ctx echo.Context) error {
 	var err error
@@ -2165,6 +2431,38 @@ func (w *ServerInterfaceWrapper) GetHealth(ctx echo.Context) error {
 	return err
 }
 
+// DeleteHomework converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteHomework(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.DeleteHomework(ctx, id)
+	return err
+}
+
+// UpdateHomeworkStatus converts echo context to params.
+func (w *ServerInterfaceWrapper) UpdateHomeworkStatus(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpdateHomeworkStatus(ctx, id)
+	return err
+}
+
 // ExportCalendarFile converts echo context to params.
 func (w *ServerInterfaceWrapper) ExportCalendarFile(ctx echo.Context) error {
 	var err error
@@ -2342,6 +2640,38 @@ func (w *ServerInterfaceWrapper) CompleteLesson(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshaled arguments
 	err = w.Handler.CompleteLesson(ctx, id)
+	return err
+}
+
+// GetLessonJournal converts echo context to params.
+func (w *ServerInterfaceWrapper) GetLessonJournal(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.GetLessonJournal(ctx, id)
+	return err
+}
+
+// UpsertLessonJournal converts echo context to params.
+func (w *ServerInterfaceWrapper) UpsertLessonJournal(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "id" -------------
+	var id openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", ctx.Param("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: ctx.Request().URL.RawPath == ""})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter id: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshaled arguments
+	err = w.Handler.UpsertLessonJournal(ctx, id)
 	return err
 }
 
@@ -2565,5 +2895,12 @@ func RegisterHandlersWithOptions(router EchoRouter, si ServerInterface, options 
 	router.GET(options.BaseURL+"/integrations/calendar/export", wrapper.ExportCalendarFile, options.OperationMiddlewares["exportCalendarFile"]...)
 	router.GET(options.BaseURL+"/integrations/calendar/feed.ics", wrapper.GetCalendarFeed, options.OperationMiddlewares["getCalendarFeed"]...)
 	router.POST(options.BaseURL+"/integrations/calendar/import", wrapper.ImportCalendarFile, options.OperationMiddlewares["importCalendarFile"]...)
+	router.GET(options.BaseURL+"/schedule/lessons/:id/journal", wrapper.GetLessonJournal, options.OperationMiddlewares["getLessonJournal"]...)
+	router.PUT(options.BaseURL+"/schedule/lessons/:id/journal", wrapper.UpsertLessonJournal, options.OperationMiddlewares["upsertLessonJournal"]...)
+	router.GET(options.BaseURL+"/crm/clients/:id/journal", wrapper.GetClientJournals, options.OperationMiddlewares["getClientJournals"]...)
+	router.GET(options.BaseURL+"/crm/clients/:id/homework", wrapper.ListClientHomework, options.OperationMiddlewares["listClientHomework"]...)
+	router.POST(options.BaseURL+"/crm/clients/:id/homework", wrapper.CreateHomework, options.OperationMiddlewares["createHomework"]...)
+	router.DELETE(options.BaseURL+"/homework/:id", wrapper.DeleteHomework, options.OperationMiddlewares["deleteHomework"]...)
+	router.PATCH(options.BaseURL+"/homework/:id", wrapper.UpdateHomeworkStatus, options.OperationMiddlewares["updateHomeworkStatus"]...)
 
 }

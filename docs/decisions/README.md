@@ -42,5 +42,6 @@
 | 0011 | [Архитектурный рефакторинг бэкенда, переход на Echo v4 и декомпозиция адаптеров](0011-backend-refactoring-and-echo-migration.md) | Accepted | 2026-10-06 |
 | 0012 | [Регулярные занятия (Recurring Lessons), стандарт RFC 5545 RRULE и совместимость с Google Calendar](0012-recurring-lessons-rrule-and-calendar-sync.md) | Accepted | 2026-10-06 |
 | 0013 | [Дневник занятий (Lesson Journal) и Управление домашними заданиями (Homework Management)](0013-lesson-journal-and-homework-management.md) | Accepted | 2026-10-08 |
+| 0014 | [Полноэкранный Дневник-Мессенджер (Study Stream), Быстрые заметки ученика и Автосохранение черновиков](0014-fullpage-journal-messenger-and-drafts.md) | Accepted | 2026-10-08 |
 
 

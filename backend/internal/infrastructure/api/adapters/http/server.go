@@ -18,6 +18,7 @@ import (
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/finance"
+	"github.com/C4erries/school/backend/internal/application/journal"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	httpanalytics "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/http/analytics"
 	httpauth "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/http/auth"
@@ -49,6 +50,7 @@ type Server struct {
 	exportHandler       *httpfinance.ExportHandler
 	analyticsHandler    *httpanalytics.AnalyticsHandler
 	dashboardHandler    *httpdashboard.DashboardHandler
+	journalService      *journal.Service
 }
 
 // NewServer создает новый экземпляр HTTP сервера и настраивает маршрутизацию.
@@ -66,6 +68,7 @@ func NewServer(
 	var financeService *finance.Service
 	var analyticsService *analytics.Service
 	var calendarService *calendar.Service
+	var journalService *journal.Service
 
 	for _, ext := range extra {
 		if f, ok := ext.(*finance.Service); ok {
@@ -76,6 +79,9 @@ func NewServer(
 		}
 		if c, ok := ext.(*calendar.Service); ok {
 			calendarService = c
+		}
+		if j, ok := ext.(*journal.Service); ok {
+			journalService = j
 		}
 	}
 
@@ -122,6 +128,7 @@ func NewServer(
 		exportHandler:       exportH,
 		analyticsHandler:    analyticsH,
 		dashboardHandler:    dashboardH,
+		journalService:      journalService,
 	}
 
 	// Register generated handlers directly and with /api/v1 prefix

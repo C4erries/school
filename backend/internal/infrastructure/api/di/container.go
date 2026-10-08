@@ -14,6 +14,7 @@ import (
 	"github.com/C4erries/school/backend/internal/application/crm"
 	"github.com/C4erries/school/backend/internal/application/dashboard"
 	"github.com/C4erries/school/backend/internal/application/finance"
+	"github.com/C4erries/school/backend/internal/application/journal"
 	"github.com/C4erries/school/backend/internal/application/schedule"
 	httpadapter "github.com/C4erries/school/backend/internal/infrastructure/api/adapters/http"
 	"github.com/C4erries/school/backend/internal/infrastructure/api/adapters/postgres"
@@ -40,6 +41,7 @@ type Container struct {
 	FinanceService   *finance.Service
 	AnalyticsService *analytics.Service
 	CalendarService  *calendar.Service
+	JournalService   *journal.Service
 }
 
 // NewContainer инициализирует все адаптеры и зависимости согласно конфигурации.
@@ -87,6 +89,8 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	adjRepo := postgrescrm.NewBalanceAdjustmentRepository(db)
 	lessonRepo := postgresschedule.NewLessonRepository(db)
 	seriesRepo := postgresschedule.NewSeriesRepository(db)
+	journalRepo := postgresschedule.NewJournalRepository(db)
+	homeworkRepo := postgrescrm.NewHomeworkRepository(db)
 	paymentRepo := postgresfinance.NewPaymentRepository(db)
 	payoutRepo := postgresfinance.NewPartnerPayoutRepository(db)
 	passwordHasher := security.NewPasswordHasher(12)
@@ -101,6 +105,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 	financeService := finance.NewService(paymentRepo, payoutRepo, clientRepo, subRepo, lessonRepo, tagRepo, transactor)
 	analyticsService := analytics.NewService(lessonRepo, clientRepo)
 	calendarService := calendar.NewService(userRepo, lessonRepo, clientRepo)
+	journalService := journal.NewService(journalRepo, homeworkRepo, scheduleService, crmService)
 
 	// 6. Echo HTTP сервер
 	server := httpadapter.NewServer(
@@ -115,6 +120,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		financeService,
 		analyticsService,
 		calendarService,
+		journalService,
 	)
 
 	return &Container{
@@ -130,6 +136,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		FinanceService:   financeService,
 		AnalyticsService: analyticsService,
 		CalendarService:  calendarService,
+		JournalService:   journalService,
 	}, nil
 }
 

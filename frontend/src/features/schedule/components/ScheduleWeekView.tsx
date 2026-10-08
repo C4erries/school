@@ -4,7 +4,7 @@ import { Badge } from '../../../shared/components/Badge';
 import { Lesson, LessonFormat } from '../../../types/schedule';
 import { PositionedLesson } from '../types';
 import { START_HOUR, HOUR_HEIGHT } from '../hooks/useSchedulePositioning';
-import { Check, MapPin, Video, RotateCw } from 'lucide-react';
+import { Check, MapPin, Video, RotateCw, BookOpen } from 'lucide-react';
 
 interface DragState {
   isDragging: boolean;
@@ -24,6 +24,7 @@ interface ScheduleWeekViewProps {
   onSlotClick: (date: Date, hour: number, minute?: number) => void;
   onSlotDragSelect?: (date: Date, startHour: number, startMinute: number, durationMinutes: number) => void;
   onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
+  onOpenJournal: (lesson: Lesson) => void;
   onOpenEdit: (lesson: Lesson) => void;
   getClientDisplayName: (lesson: Lesson) => string;
 }
@@ -38,6 +39,7 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
   onSlotClick,
   onSlotDragSelect,
   onQuickComplete,
+  onOpenJournal,
   onOpenEdit,
   getClientDisplayName,
 }) => {
@@ -345,17 +347,31 @@ export const ScheduleWeekView: React.FC<ScheduleWeekViewProps> = ({
                               )}
                             </div>
 
-                            {/* Кнопка быстрого подтверждения проведения ✓ */}
-                            {!isCancelled && lesson.status === 'scheduled' && (
+                            <div className="flex items-center gap-1 shrink-0">
                               <button
                                 type="button"
-                                onClick={(e) => onQuickComplete(e, lesson.id)}
-                                title="Отметить проведённым"
-                                className="w-5 h-5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shrink-0 transition-all shadow-sm active:scale-95"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onOpenJournal(lesson);
+                                }}
+                                title="Дневник / ДЗ"
+                                className="w-5 h-5 rounded-md bg-white/70 hover:bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200/50 flex items-center justify-center transition-all shadow-2xs active:scale-95"
                               >
-                                <Check className="w-3 h-3 stroke-[3]" />
+                                <BookOpen className="w-3 h-3 stroke-[2.2]" />
                               </button>
-                            )}
+
+                              {/* Кнопка быстрого подтверждения проведения ✓ */}
+                              {!isCancelled && lesson.status === 'scheduled' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => onQuickComplete(e, lesson.id)}
+                                  title="Отметить проведённым"
+                                  className="w-5 h-5 rounded-md bg-emerald-500 hover:bg-emerald-600 text-white flex items-center justify-center shrink-0 transition-all shadow-sm active:scale-95"
+                                >
+                                  <Check className="w-3 h-3 stroke-[3]" />
+                                </button>
+                              )}
+                            </div>
                           </div>
 
                           {/* 2-я строка: Время */}

@@ -12,6 +12,7 @@ import { EditClientModal } from '../../features/clients/components/EditClientMod
 import { AddSubscriptionModal } from '../../features/clients/components/AddSubscriptionModal';
 import { AdjustBalanceModal } from '../../features/clients/components/AdjustBalanceModal';
 import { DefaultRatesModal } from '../../features/clients/components/DefaultRatesModal';
+import { ClientJournalModal } from '../../features/clients/components/ClientJournalModal';
 
 export const TeacherClientsPage: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -25,6 +26,7 @@ export const TeacherClientsPage: React.FC = () => {
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [subClient, setSubClient] = useState<Client | null>(null);
   const [adjustClient, setAdjustClient] = useState<Client | null>(null);
+  const [journalClient, setJournalClient] = useState<Client | null>(null);
 
   const {
     searchQuery, setSearchQuery, statusTab, setStatusTab,
@@ -145,6 +147,7 @@ export const TeacherClientsPage: React.FC = () => {
               onEdit={setEditingClient}
               onAddSubscription={setSubClient}
               onAdjustBalance={setAdjustClient}
+              onOpenJournal={setJournalClient}
               onArchive={handleArchive}
               onUnarchive={handleUnarchive}
             />
@@ -179,6 +182,11 @@ export const TeacherClientsPage: React.FC = () => {
         onClose={() => setAdjustClient(null)}
         client={adjustClient}
         onAdjusted={loadData}
+      />
+      <ClientJournalModal
+        isOpen={Boolean(journalClient)}
+        onClose={() => setJournalClient(null)}
+        client={journalClient}
       />
       <DefaultRatesModal
         isOpen={isRatesOpen}

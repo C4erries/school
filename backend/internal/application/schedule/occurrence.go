@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -154,4 +155,43 @@ func (s *Service) FindVirtualLesson(ctx context.Context, lessonID uuid.UUID, tea
 
 	return nil, nil, domain.ErrLessonNotFound
 }
+
+// EnsurePhysicalLesson проверяет существование физического урока в БД.
+// Если урок физический — возвращает его.
+// Если урок виртуальный (слот серии) — материализует его в БД со статусом scheduled и возвращает созданный физический урок.
+func (s *Service) EnsurePhysicalLesson(ctx context.Context, lessonID uuid.UUID, teacherID uuid.UUID) (*domain.Lesson, error) {
+	lesson, err := s.lessonRepo.GetByID(ctx, lessonID)
+	if err == nil {
+		if lesson.TeacherID != teacherID {
+			return nil, domain.ErrUnauthorizedLessonAction
+		}
+		return lesson, nil
+	}
+
+	if !errors.Is(err, domain.ErrLessonNotFound) {
+		return nil, fmt.Errorf("get lesson by id: %w", err)
+	}
+
+	// Урок не найден в БД — ищем среди виртуальных слотов регулярных серий
+	series, slot, err := s.FindVirtualLesson(ctx, lessonID, &teacherID)
+	if err != nil {
+		return nil, domain.ErrLessonNotFound
+	}
+
+	now := time.Now().UTC()
+	virtualLesson := BuildVirtualLesson(series, *slot)
+	virtualLesson.CreatedAt = now
+	virtualLesson.UpdatedAt = now
+
+	if err := s.lessonRepo.Create(ctx, virtualLesson); err != nil {
+		// В случае параллельного создания проверяем повторно
+		if existing, getErr := s.lessonRepo.GetByID(ctx, lessonID); getErr == nil {
+			return existing, nil
+		}
+		return nil, fmt.Errorf("materialize virtual lesson: %w", err)
+	}
+
+	return virtualLesson, nil
+}
+
 

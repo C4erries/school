@@ -9,6 +9,7 @@ import { ScheduleDayView } from '../../features/schedule/components/ScheduleDayV
 import { ScheduleListView } from '../../features/schedule/components/ScheduleListView';
 import { CreateLessonModal } from '../../features/schedule/components/CreateLessonModal';
 import { EditLessonModal } from '../../features/schedule/components/EditLessonModal';
+import { LessonJournalModal } from '../../features/schedule/components/LessonJournalModal';
 import { CalendarSyncModal } from '../../features/calendar/components/CalendarSyncModal';
 import { Plus, RefreshCw, AlertCircle, Calendar as CalendarIcon } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const TeacherSchedulePage: React.FC = () => {
   }>({});
 
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
+  const [journalLesson, setJournalLesson] = useState<Lesson | null>(null);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const { hours, positionLessons } = useSchedulePositioning();
 
@@ -197,6 +199,7 @@ export const TeacherSchedulePage: React.FC = () => {
           onSlotClick={handleSlotClick}
           onSlotDragSelect={handleSlotDragSelect}
           onQuickComplete={handleQuickComplete}
+          onOpenJournal={setJournalLesson}
           onOpenEdit={setEditingLesson}
           getClientDisplayName={getClientDisplayName}
         />
@@ -210,6 +213,7 @@ export const TeacherSchedulePage: React.FC = () => {
           onSlotClick={handleSlotClick}
           onSlotDragSelect={handleSlotDragSelect}
           onQuickComplete={handleQuickComplete}
+          onOpenJournal={setJournalLesson}
           onOpenEdit={setEditingLesson}
           getClientDisplayName={getClientDisplayName}
         />
@@ -220,6 +224,7 @@ export const TeacherSchedulePage: React.FC = () => {
           dayLessons={dayLessons}
           isLoading={isLoading}
           onQuickComplete={handleQuickComplete}
+          onOpenJournal={setJournalLesson}
           onOpenEdit={setEditingLesson}
           getClientDisplayName={getClientDisplayName}
         />
@@ -245,6 +250,14 @@ export const TeacherSchedulePage: React.FC = () => {
         classrooms={classrooms}
         clientDisplayName={editingLesson ? getClientDisplayName(editingLesson) : ''}
         onUpdated={loadData}
+      />
+
+      <LessonJournalModal
+        isOpen={Boolean(journalLesson)}
+        onClose={() => setJournalLesson(null)}
+        lesson={journalLesson}
+        clientDisplayName={journalLesson ? getClientDisplayName(journalLesson) : ''}
+        onSaved={loadData}
       />
 
       <CalendarSyncModal

@@ -4,7 +4,7 @@ import { Badge } from '../../../shared/components/Badge';
 import { Lesson, LessonFormat } from '../../../types/schedule';
 import { PositionedLesson } from '../types';
 import { START_HOUR, HOUR_HEIGHT } from '../hooks/useSchedulePositioning';
-import { Check, MapPin, Video, RotateCw } from 'lucide-react';
+import { Check, MapPin, Video, RotateCw, BookOpen } from 'lucide-react';
 
 interface DayDragState {
   isDragging: boolean;
@@ -19,6 +19,7 @@ interface ScheduleDayViewProps {
   onSlotClick: (date: Date, hour: number, minute?: number) => void;
   onSlotDragSelect?: (date: Date, startHour: number, startMinute: number, durationMinutes: number) => void;
   onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
+  onOpenJournal: (lesson: Lesson) => void;
   onOpenEdit: (lesson: Lesson) => void;
   getClientDisplayName: (lesson: Lesson) => string;
 }
@@ -30,6 +31,7 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
   onSlotClick,
   onSlotDragSelect,
   onQuickComplete,
+  onOpenJournal,
   onOpenEdit,
   getClientDisplayName,
 }) => {
@@ -284,6 +286,17 @@ export const ScheduleDayView: React.FC<ScheduleDayViewProps> = ({
                         ) : (
                           getStatusBadge(lesson.status)
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenJournal(lesson);
+                          }}
+                          title="Дневник / ДЗ"
+                          className="w-6 h-6 rounded-lg bg-white/70 hover:bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200/50 flex items-center justify-center transition-all shadow-xs active:scale-95"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
                         {!isCancelled && lesson.status === 'scheduled' && (
                           <button
                             type="button"

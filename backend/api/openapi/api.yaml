@@ -2320,6 +2320,375 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /schedule/lessons/{id}/journal:
+    get:
+      summary: Получить бандл журнала и домашних заданий по уроку
+      operationId: getLessonJournal
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Бандл журнала и домашних заданий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonJournalBundleResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Урок не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      summary: Создать или обновить отчет по уроку
+      operationId: upsertLessonJournal
+      tags:
+        - Lessons
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertLessonJournalRequest'
+      responses:
+        '200':
+          description: Отчет по уроку успешно сохранен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonJournalResponse'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Урок не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /crm/clients/{id}/journal:
+    get:
+      summary: Получить список всех отчетов по урокам ученика
+      operationId: getClientJournals
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Список отчетов по урокам ученика
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LessonJournalResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /crm/clients/{id}/homework:
+    get:
+      summary: Список всех домашних заданий ученика
+      operationId: listClientHomework
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - assigned
+              - completed
+              - not_done
+          description: Фильтр по статусу задания
+      responses:
+        '200':
+          description: Список домашних заданий ученика
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HomeworkAssignmentResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Выдать домашнее задание ученику
+      operationId: createHomework
+      tags:
+        - Clients
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHomeworkRequest'
+      responses:
+        '201':
+          description: Домашнее задание успешно создано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeworkAssignmentResponse'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Клиент не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /homework/{id}:
+    patch:
+      summary: Обновить статус домашнего задания и рецензию
+      operationId: updateHomeworkStatus
+      tags:
+        - Homework
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHomeworkStatusRequest'
+      responses:
+        '200':
+          description: Домашнее задание успешно обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HomeworkAssignmentResponse'
+        '400':
+          description: Некорректные параметры запроса
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Задание не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      summary: Удалить домашнее задание
+      operationId: deleteHomework
+      tags:
+        - Homework
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Домашнее задание успешно удалено
+        '401':
+          description: Не авторизован
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Недостаточно прав
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Задание не найдено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -3784,6 +4153,189 @@ components:
         net_income:
           type: number
           example: 36000.0
+
+    LessonJournalResponse:
+      type: object
+      required:
+        - id
+        - lesson_id
+        - client_id
+        - teacher_id
+        - topic
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174000'
+        lesson_id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174001'
+        client_id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174002'
+        teacher_id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174003'
+        topic:
+          type: string
+          example: 'Квадратные уравнения и теорема Виета'
+        notes:
+          type: string
+          nullable: true
+          example: 'Разобрали теорему Виета, нужно закрепить знаки'
+        performance_score:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          example: 4
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UpsertLessonJournalRequest:
+      type: object
+      required:
+        - topic
+      properties:
+        topic:
+          type: string
+          example: 'Квадратные уравнения и теорема Виета'
+        notes:
+          type: string
+          nullable: true
+          example: 'Разобрали теорему Виета, нужно закрепить знаки'
+        performance_score:
+          type: integer
+          minimum: 1
+          maximum: 5
+          nullable: true
+          example: 4
+
+    HomeworkAssignmentResponse:
+      type: object
+      required:
+        - id
+        - client_id
+        - teacher_id
+        - title
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174004'
+        client_id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174002'
+        teacher_id:
+          type: string
+          format: uuid
+          example: '123e4567-e89b-12d3-a456-426614174003'
+        assigned_lesson_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: '123e4567-e89b-12d3-a456-426614174001'
+        title:
+          type: string
+          example: 'Задачи 14-20 на теорему Виета'
+        description:
+          type: string
+          nullable: true
+          example: 'Учебник стр. 45, номера 14-20 в тетради'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-10-15'
+        status:
+          type: string
+          enum:
+            - assigned
+            - completed
+            - not_done
+          example: 'assigned'
+        review_notes:
+          type: string
+          nullable: true
+          example: 'Проверено, все решено верно'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateHomeworkRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: 'Задачи 14-20 на теорему Виета'
+        description:
+          type: string
+          nullable: true
+          example: 'Учебник стр. 45, номера 14-20 в тетради'
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-10-15'
+        assigned_lesson_id:
+          type: string
+          format: uuid
+          nullable: true
+          example: '123e4567-e89b-12d3-a456-426614174001'
+
+    UpdateHomeworkStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - assigned
+            - completed
+            - not_done
+          example: 'completed'
+        review_notes:
+          type: string
+          nullable: true
+          example: 'Проверено, все решено верно'
+
+    LessonJournalBundleResponse:
+      type: object
+      required:
+        - assigned_homeworks
+        - due_homeworks
+      properties:
+        journal:
+          $ref: '#/components/schemas/LessonJournalResponse'
+          nullable: true
+        assigned_homeworks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeworkAssignmentResponse'
+        due_homeworks:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeworkAssignmentResponse'
+
 
 
 

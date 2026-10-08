@@ -3,12 +3,13 @@ import { GlassCard } from '../../../shared/components/GlassCard';
 import { GlassButton } from '../../../shared/components/GlassButton';
 import { Badge } from '../../../shared/components/Badge';
 import { Lesson, LessonFormat } from '../../../types/schedule';
-import { Calendar as CalendarIcon, Check, Edit2, Clock, MapPin, Video, RotateCw } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, Edit2, Clock, MapPin, Video, RotateCw, BookOpen } from 'lucide-react';
 
 interface ScheduleListViewProps {
   dayLessons: Lesson[];
   isLoading: boolean;
   onQuickComplete: (e: React.MouseEvent, lessonId: string) => void;
+  onOpenJournal: (lesson: Lesson) => void;
   onOpenEdit: (lesson: Lesson) => void;
   getClientDisplayName: (lesson: Lesson) => string;
 }
@@ -17,6 +18,7 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
   dayLessons,
   isLoading,
   onQuickComplete,
+  onOpenJournal,
   onOpenEdit,
   getClientDisplayName,
 }) => {
@@ -157,7 +159,18 @@ export const ScheduleListView: React.FC<ScheduleListViewProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end md:self-auto">
+            <div className="flex items-center gap-2 self-end md:self-auto flex-wrap">
+              <GlassButton
+                variant="secondary"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenJournal(lesson);
+                }}
+                icon={<BookOpen className="w-3.5 h-3.5 text-indigo-600" />}
+              >
+                Дневник
+              </GlassButton>
               {!isCancelled && lesson.status === 'scheduled' && (
                 <GlassButton
                   variant="mint"
